@@ -4,9 +4,10 @@ import bz2
 import os.path 
 import stats_utils
 
-#default_directory_prefix =  os.path.expanduser("~/Documents/files_too_big_for_Dropbox/midas_output_120816/")
-default_directory_prefix =  os.path.expanduser("~/Documents/files_too_big_for_Dropbox/midas_output_121816/")
-#default_directory_prefix =  os.path.expanduser("~/Documents/microbiome/BenNanditaProject/MIDAS_1.2.2_HMP/")
+data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
+analysis_directory = os.path.expanduser("~/ben_nandita_hmp_analysis/")
+
+default_directory_prefix =  data_directory
 
 ###############################################################################
 #
