@@ -5,8 +5,8 @@ import os.path
 import stats_utils
 
 #default_directory_prefix =  os.path.expanduser("~/Documents/files_too_big_for_Dropbox/midas_output_120816/")
-#default_directory_prefix =  os.path.expanduser("~/Documents/files_too_big_for_Dropbox/midas_output_121816/")
-default_directory_prefix =  os.path.expanduser("~/Documents/microbiome/BenNanditaProject/MIDAS_1.2.2_HMP/")
+default_directory_prefix =  os.path.expanduser("~/Documents/files_too_big_for_Dropbox/midas_output_121816/")
+#default_directory_prefix =  os.path.expanduser("~/Documents/microbiome/BenNanditaProject/MIDAS_1.2.2_HMP/")
 
 ###############################################################################
 #
