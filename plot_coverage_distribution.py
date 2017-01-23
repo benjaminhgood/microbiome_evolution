@@ -67,14 +67,6 @@ for i in xrange(0,len(sample_coverage_histograms)):
     peak_coverages.append(x0)
 peak_coverages = numpy.array(peak_coverages)
 
-#pylab.figure(1)
-#pylab.plot(marker_coverages, peak_coverages/marker_coverages,'bo')
-#pylab.plot(marker_coverages, median_coverages/marker_coverages,'ro')
-
-#pylab.semilogx([1,1000],[1,1],'k:')
-#pylab.ylim([0,2])
-#pylab.xlabel('Marker gene coverage')
-#pylab.ylabel('Median genomic coverage')
 
 pylab.figure(1)
 sorted_median_coverages = numpy.array([x for x in sorted(median_coverages)])
@@ -252,6 +244,18 @@ for i in xrange(0,len(sample_coverage_histograms)):
     pylab.plot(coarse_xs/x0, coarse_pmfs, '-')
     
     pylab.xlim([-0.1,4])
+    
+    
+pylab.figure(8)
+pylab.plot(marker_coverages, peak_coverages/marker_coverages,'b.',label='Genome-wide mode')
+pylab.plot(marker_coverages, median_coverages/marker_coverages,'r.',label='Genome-wide median')
+pylab.legend(loc='lower left',frameon=False)
 
+pylab.semilogx([1,1000],[1,1],'k:')
+pylab.ylim([0,2])
+pylab.xlabel('Marker gene coverage')
+pylab.ylabel('Relative coverage')
+pylab.savefig('figures/%s_marker_comparison.pdf' % species, bbox_inches='tight')
+pylab.savefig('figures/%s_marker_comparison.png' % species, bbox_inches='tight', dpi=300)
 
 #pylab.show()
