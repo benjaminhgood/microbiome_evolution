@@ -31,7 +31,7 @@ def get_snp_prefix_from_combination_type(combination_type=None):
 # Returns map from subject -> map of samples -> set of accession IDs
 #
 ###############################################################################
-def parse_subject_sample_map(filename="HMP_ids.txt"):
+def parse_subject_sample_map(filename=os.path.expanduser("~/projectBenNandita/HMP_ids.txt")): # NOTE THAT THE PATH HAS CHANGED. Also, use os.path.expanduser to read what the absolute path of '~' is
     file = open(filename,"r")
     file.readline() # header
     
