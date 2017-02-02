@@ -12,6 +12,7 @@ snp_prefix = parse_midas_data.get_snp_prefix_from_combination_type(combination_t
 sys.stderr.write("Processing %s...\n" % species)
 
 output_filename = "%ssnps/%s/%sannotated_snps.txt.bz2" % (default_directory_prefix, species, snp_prefix)
- 
-os.system('python pipe_midas_data.py %s | ./annotate_pvalue | bzip2 -c > %s' % (species,output_filename) )  
+
+# NOTE: I HAVE INCLUDED THE DIRECTORY FOR ANNOTATE_PVALUE 
+os.system('python ~/projectBenNandita/pipe_midas_data.py %s | ./projectBenNandita/annotate_pvalue | bzip2 -c > %s' % (species,output_filename) )  
  
