@@ -1,13 +1,15 @@
+import matplotlib
+matplotlib.use('Agg')
 import pylab
 import numpy
 import parse_midas_data
 import stats_utils
+import sys
+species=sys.argv[1]
+
 
 combination_type="sample"
-#species = "Bacteroides_uniformis_57318"
-#species = "Roseburia_intestinalis_56239"
-#species = "Eubacterium_eligens_61678"
-species = "Prevotella_copri_61740"
+
 # Load marker gene coverages
 species_coverage_matrix, sample_list, species_list = parse_midas_data.parse_marker_gene_coverages(species, combination_type=combination_type)
 marker_coverages = species_coverage_matrix[species_list.index(species),:]
@@ -19,7 +21,6 @@ iqrs = numpy.array([stats_utils.calculate_IQR_from_histogram(sample_coverage_his
 
 # Gene gene specific coverages
 gene_coverages, samples = parse_midas_data.parse_gene_coverages(species, combination_type=combination_type)
-
 
 peak_coverages = []
 for i in xrange(0,len(sample_coverage_histograms)):
@@ -78,8 +79,8 @@ pylab.xlim([1,1000])
 pylab.ylim([0,250])
 pylab.xlabel('Median coverage across genome')
 pylab.ylabel('Samples >= coverage')
-pylab.savefig('figures/%s_depth_distribution.pdf' % species, bbox_inches='tight')
-pylab.savefig('figures/%s_depth_distribution.png' % species, bbox_inches='tight',dpi=300)
+pylab.savefig('%s/%s_depth_distribution.pdf' % (parse_midas_data.analysis_directory,species), bbox_inches='tight')
+pylab.savefig('%s/%s_depth_distribution.png' % (parse_midas_data.analysis_directory,species), bbox_inches='tight',dpi=300)
 
 
 pylab.figure(2)
@@ -89,8 +90,8 @@ pylab.semilogx(median_coverages, iqrs/median_coverages, 'ko')
 pylab.xlabel('Median genomic coverage')
 pylab.ylabel('Inter-quartile range / median')
 
-pylab.savefig('figures/%s_iqr_vs_median_coverage.pdf' % species, bbox_inches='tight')
-pylab.savefig('figures/%s_iqr_vs_median_coverage.png' % species, bbox_inches='tight',dpi=300)
+pylab.savefig('%s/%s_iqr_vs_median_coverage.pdf' % (parse_midas_data.analysis_directory,species), bbox_inches='tight')
+pylab.savefig('%s/%s_iqr_vs_median_coverage.png' % (parse_midas_data.analysis_directory,species), bbox_inches='tight',dpi=300)
 
 
 pylab.figure(3)
@@ -113,8 +114,8 @@ pylab.xlabel('Coverage relative to median')
 pylab.ylabel('Fraction sites with >= coverage')
 
 
-pylab.savefig('figures/%s_genome_depth_distribution.pdf' % species, bbox_inches='tight')
-pylab.savefig('figures/%s_genome_depth_distribution.png' % species, bbox_inches='tight',dpi=300)
+pylab.savefig('%s/%s_genome_depth_distribution.pdf' % (parse_midas_data.analysis_directory,species), bbox_inches='tight')
+pylab.savefig('%s/%s_genome_depth_distribution.png' % (parse_midas_data.analysis_directory,species), bbox_inches='tight',dpi=300)
 
 pylab.figure(4)
 
@@ -136,8 +137,8 @@ pylab.xlabel('Coverage relative to median')
 pylab.ylabel('Fraction sites with >= coverage')
 
 
-pylab.savefig('figures/%s_scaled_genome_depth_distribution.pdf' % species, bbox_inches='tight')
-pylab.savefig('figures/%s_scaled_genome_depth_distribution.png' % species, bbox_inches='tight',dpi=300)
+pylab.savefig('%s/%s_scaled_genome_depth_distribution.pdf' % (parse_midas_data.analysis_directory,species), bbox_inches='tight')
+pylab.savefig('%s/%s_scaled_genome_depth_distribution.png' % (parse_midas_data.analysis_directory,species), bbox_inches='tight',dpi=300)
 
 
 pylab.figure(5)
@@ -168,8 +169,8 @@ pylab.xlabel('Avg coverage of gene / scale')
 pylab.ylabel('Fraction of samples with >= scaled coverage')
 
 
-pylab.savefig('figures/%s_scaled_gene_depth_distribution.pdf' % species, bbox_inches='tight')
-pylab.savefig('figures/%s_scaled_gene_depth_distribution.png' % species, bbox_inches='tight',dpi=300)
+pylab.savefig('%s/%s_scaled_gene_depth_distribution.pdf' % (parse_midas_data.analysis_directory,species), bbox_inches='tight')
+pylab.savefig('%s/%s_scaled_gene_depth_distribution.png' % (parse_midas_data.analysis_directory,species), bbox_inches='tight',dpi=300)
 
 
 pylab.figure(6)
@@ -197,8 +198,8 @@ pylab.xlabel('Avg coverage of gene')
 pylab.ylabel('Fraction of samples with >= coverage')
 
 print num_plotted
-pylab.savefig('figures/%s_gene_depth_distribution.pdf' % species, bbox_inches='tight')
-pylab.savefig('figures/%s_gene_depth_distribution.png' % species, bbox_inches='tight',dpi=300)
+pylab.savefig('%s/%s_gene_depth_distribution.pdf' % (parse_midas_data.analysis_directory,species), bbox_inches='tight')
+pylab.savefig('%s/%s_gene_depth_distribution.png' % (parse_midas_data.analysis_directory,species), bbox_inches='tight',dpi=300)
 
 
 pylab.figure(7)
@@ -255,7 +256,7 @@ pylab.semilogx([1,1000],[1,1],'k:')
 pylab.ylim([0,2])
 pylab.xlabel('Marker gene coverage')
 pylab.ylabel('Relative coverage')
-pylab.savefig('figures/%s_marker_comparison.pdf' % species, bbox_inches='tight')
-pylab.savefig('figures/%s_marker_comparison.png' % species, bbox_inches='tight', dpi=300)
+pylab.savefig('%s/%s_marker_comparison.pdf' % (parse_midas_data.analysis_directory,species), bbox_inches='tight')
+pylab.savefig('%s/%s_marker_comparison.png' % (parse_midas_data.analysis_directory,species), bbox_inches='tight', dpi=300)
 
 #pylab.show()

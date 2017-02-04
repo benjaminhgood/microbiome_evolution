@@ -79,9 +79,9 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map,  variant_type='4
     pooled_freqs = []
     
     for gene_name in allowed_genes:
-    
+        
         allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
-
+        
         if len(allele_counts)==0:
             continue
             

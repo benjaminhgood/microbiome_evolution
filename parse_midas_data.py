@@ -540,7 +540,6 @@ def parse_snps(species_name, combination_type=None, debug=False):
     line = snp_file.readline() # header
     items = line.split()
     samples = items[1:]
-    
     # Only going to look at 1D and 4D sites
     allowed_variant_types = set(['1D','4D'])
     
@@ -555,7 +554,6 @@ def parse_snps(species_name, combination_type=None, debug=False):
     for line in snp_file:
         
         items = line.split()
-        
         # Load information about site
         info_items = items[0].split("|")
         chromosome = info_items[0]
@@ -579,9 +577,8 @@ def parse_snps(species_name, combination_type=None, debug=False):
         alts = numpy.array(alts)
         depths = numpy.array(depths)
         refs = depths-alts
-        
+
         passed_sites = (depths>0)*1.0
-        
         if gene_name not in passed_sites_map:
             passed_sites_map[gene_name] = {v: {'location': (chromosome,location), 'sites': numpy.zeros((len(samples), len(samples)))} for v in allowed_variant_types}
             
@@ -635,12 +632,12 @@ def parse_snps(species_name, combination_type=None, debug=False):
                 break
     
     snp_file.close()
-    
+
     for gene_name in passed_sites_map.keys():
         for variant_type in passed_sites_map[gene_name].keys():
             
             allele_counts_map[gene_name][variant_type]['alleles'] = numpy.array(allele_counts_map[gene_name][variant_type]['alleles'])
-    
+
     return samples, allele_counts_map, passed_sites_map
     
 

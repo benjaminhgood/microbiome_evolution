@@ -1,3 +1,5 @@
+import matplotlib  
+matplotlib.use('Agg') 
 import pylab
 import numpy
 import parse_midas_data
@@ -29,7 +31,7 @@ pylab.ylim([0.3,300])
 pylab.xlabel('Num timepoints, $T$')
 pylab.ylabel('Num subjects with $\geq T$')
 print len(num_timepoints_per_subject), max(num_timepoints_per_subject)
-pylab.savefig('figures/num_timepoints_per_subject.pdf',bbox_inches='tight')
+pylab.savefig('%s/num_timepoints_per_subject.pdf' % parse_midas_data.analysis_directory,bbox_inches='tight')
 
 
 # Load marker gene coverages
@@ -102,8 +104,8 @@ for species_idx in xrange(0,len(species_list)):
         pylab.plot(numpy.arange(0,len(sample_frequencies)), sample_frequencies, '.-', alpha=0.5, linewidth=linewidth, color=color, zorder=-species_idx)
     
 pylab.figure(2)
-pylab.savefig('figures/species_marker_coverage_distribution.pdf',bbox_inches='tight')
+pylab.savefig('%s/species_marker_coverage_distribution.pdf' % parse_midas_data.analysis_directory,bbox_inches='tight')
 pylab.figure(3)
-pylab.savefig('figures/species_abundance_distribution.pdf',bbox_inches='tight')
+pylab.savefig('%s/species_abundance_distribution.pdf' % parse_midas_data.analysis_directory,bbox_inches='tight')
 pylab.figure(4)
-pylab.savefig('figures/species_abundance_vector.pdf',bbox_inches='tight')
+pylab.savefig('%s/species_abundance_vector.pdf' % parse_midas_data.analysis_directory,bbox_inches='tight')
