@@ -8,12 +8,21 @@ def calculate_rsquared(allele_counts_1, allele_counts_2):
     freqs_1 = allele_counts_1[:,:,0]*1.0/(depths_1+(depths_1==0))
     depths_2 = allele_counts_2.sum(axis=2)
     freqs_2 = allele_counts_2[:,:,0]*1.0/(depths_2+(depths_2==0))
+
+    #explanation of numpy commands above:
+    # allele_counts_1.sum(axis=2) this returns a sum over all sites alt + ref counts. 
+    #(depths_1+(depths_1==0) this is done because if depths_1==0, then we've have a division error. addition of 1 when depths_1==0. 
+    #allele_counts_1[:,:,0] means that the alt allele is grabbed. Multiply by 1.0 to convert to float
+    
+
     
     # consensus approximation
     freqs_1 = numpy.around(freqs_1)
     freqs_2 = numpy.around(freqs_2)
     
     
+    # this asks which pairs of sites have depths >0 at BOTH sites
+    # What does None do here?
     joint_passed_sites = (depths_1>0)[None,:,:]*(depths_2>0)[:,None,:]
     # sites x sites x samples matrix
     

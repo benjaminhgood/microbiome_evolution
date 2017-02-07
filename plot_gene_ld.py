@@ -26,7 +26,8 @@ low_diversity_samples = (numpy.diag(avg_pi_matrix_syn)<1e-03)
 unique_samples = parse_midas_data.calculate_unique_samples(subject_sample_map, samples)
     
 desired_samples = unique_samples*low_diversity_samples
-    
+
+# Ben: can you please annotate what is happening in this part of the code? How do you decide the distances etc?    
 distance_bins = numpy.logspace(0,4,20)
 distance_bin_locations = numpy.array(distance_bins[:-1],copy=True)
 distance_bins[0] = 0.5
@@ -60,6 +61,7 @@ for gene_name in allele_counts_map.keys():
     allele_counts = allele_counts[:,desired_samples,:]
     control_allele_counts = control_allele_counts[:,desired_samples,:]
         
+    # what is going on here?
     distances = numpy.fabs(locations[:,None]-locations[None,:])
     
     rsquared_numerators, rsquared_denominators = diversity_utils.calculate_rsquared(allele_counts, allele_counts)
