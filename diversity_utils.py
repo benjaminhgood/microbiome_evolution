@@ -9,12 +9,6 @@ def calculate_rsquared(allele_counts_1, allele_counts_2):
     depths_2 = allele_counts_2.sum(axis=2)
     freqs_2 = allele_counts_2[:,:,0]*1.0/(depths_2+(depths_2==0))
 
-    #explanation of numpy commands above:
-    # allele_counts_1.sum(axis=2) this returns a sum over all sites alt + ref counts. 
-    #(depths_1+(depths_1==0) this is done because if depths_1==0, then we've have a division error. addition of 1 when depths_1==0. 
-    #allele_counts_1[:,:,0] means that the alt allele is grabbed. Multiply by 1.0 to convert to float
-    
-
     
     # consensus approximation
     freqs_1 = numpy.around(freqs_1)
@@ -76,7 +70,10 @@ def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary):
     locations=location_dictionary.keys()
     locations=sorted(locations)
    
-    # create consensus allele file
+    # create consensus allele file and an annotation file. 
+    outFile_consensus=open('tmp_consensus.txt','w')
+    outFile_anno=open('tmp_anno.txt','w')
+
     for loc in range(0, len(locations)):
         location=str(int(locations[loc])) 
         index=location_dictionary[locations[loc]][0]
@@ -101,8 +98,9 @@ def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary):
         s_consensus = location + ',' + ','.join(alleles) +'\n' 
         s_annotation= location + ',' + ','.join(annotation) + '\n'
         
-        print s_consensus
-        print s_annotation
+        outFile_consensus.write(s_consensus)
+        outFile_anno.write(s_consensus)
+
 #    return [alleles, annotation]
 
 ####################################
