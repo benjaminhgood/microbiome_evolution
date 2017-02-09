@@ -51,6 +51,62 @@ def calculate_rsquared(allele_counts_1, allele_counts_2):
     
     return rsquared_numerators, rsquared_denominators
 
+##################################
+def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary):
+
+    freqs={}
+
+    depths_4D = allele_counts_4D.sum(axis=2)
+    freqs['4D'] = allele_counts_4D[:,:,0]*1.0/(depths_4D+(depths_4D==0))
+
+    depths_1D = allele_counts_1D.sum(axis=2)
+    freqs['1D'] = allele_counts_1D[:,:,0]*1.0/(depths_1D+(depths_1D==0))
+
+    #explanation of numpy commands above:
+    # allele_counts_1.sum(axis=2) this returns a sum over all sites alt + ref counts. 
+    #(depths_1+(depths_1==0) this is done because if depths_1==0, then we've have a division error. addition of 1 when depths_1==0. 
+    #allele_counts_1[:,:,0] means that the alt allele is grabbed. Multiply by 1.0 to convert to float
+    
+    # consensus approximation
+    consensus={}
+    consensus['4D'] = numpy.around(freqs['4D'])
+    consensus['1D'] = numpy.around(freqs['1D'])
+    
+
+    locations=location_dictionary.keys()
+    locations=sorted(locations)
+   
+    # create consensus allele file
+    for loc in range(0, len(locations)):
+        location=str(int(locations[loc])) 
+        index=location_dictionary[locations[loc]][0]
+        variant_type=location_dictionary[locations[loc]][1]
+        alleles=consensus[variant_type][index].tolist()
+        annotation=freqs[variant_type][index].tolist()
+
+        for person in range(0, len(alleles)):
+            alleles[person]=str(int(alleles[person]))
+            if annotation[person] ==0:
+                annotation[person]=str(0) # no difference from ref
+            elif annotation[person] ==1:
+                if variant_type=='4D':
+                    annotation[person]=str(1) # fixed syn diff from ref
+                else:
+                    annotation[person]=str(2) # fixed nonsyn diff from ref
+            else: 
+                if variant_type=='4D':
+                    annotation[person]=str(3) # polymorphic syn within host
+                else:
+                    annotation[person]=str(4) # polymorphic nonsyn within host
+        s_consensus = location + ',' + ','.join(alleles) +'\n' 
+        s_annotation= location + ',' + ','.join(annotation) + '\n'
+        
+        print s_consensus
+        print s_annotation
+#    return [alleles, annotation]
+
+####################################
+
 def calculate_sample_freqs(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None):
 
     if allowed_genes == None:

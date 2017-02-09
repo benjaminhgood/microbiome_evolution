@@ -74,7 +74,7 @@ for gene_name in allele_counts_map.keys():
     rsquared_denominators = rsquared_denominators[desired_idxs]
         
     distances = distances[rsquared_denominators>0]
-    rsquared_numerators = rsquared_numerators[rsquared_denominators>0]
+    rsquared_numerators = rsquared_numerators[rsquared_denominators>0] # is this supposed to be taking in rsquared_denominators>0?
     rsquared_denominators = rsquared_denominators[rsquared_denominators>0]
         
     if len(distances) == 0:
