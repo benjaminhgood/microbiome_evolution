@@ -46,7 +46,7 @@ def calculate_rsquared(allele_counts_1, allele_counts_2):
     return rsquared_numerators, rsquared_denominators
 
 ##################################
-def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary):
+def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary, species_name):
 
     freqs={}
 
@@ -70,9 +70,10 @@ def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary):
     locations=location_dictionary.keys()
     locations=sorted(locations)
    
-    # create consensus allele file and an annotation file. 
-    outFile_consensus=open('tmp_consensus.txt','w')
-    outFile_anno=open('tmp_anno.txt','w')
+    #s_consensus='' # store the haplotypes in a string for printing out later
+    #s_annotation=''
+    outFile_consensus=open('tmp_consensus_%s.txt' % species_name ,'w')
+    outFile_anno=open('tmp_anno_%s.txt' % species_name ,'w')
 
     for loc in range(0, len(locations)):
         location=str(int(locations[loc])) 
@@ -96,12 +97,11 @@ def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary):
                 else:
                     annotation[person]=str(4) # polymorphic nonsyn within host
         s_consensus = location + ',' + ','.join(alleles) +'\n' 
-        s_annotation= location + ',' + ','.join(annotation) + '\n'
-        
+        s_annotation = location + ',' + ','.join(annotation) + '\n'
         outFile_consensus.write(s_consensus)
-        outFile_anno.write(s_consensus)
+        outFile_anno.write(s_annotation)
 
-#    return [alleles, annotation]
+    return [s_consensus, s_annotation]
 
 ####################################
 
