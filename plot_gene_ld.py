@@ -1,5 +1,6 @@
 import matplotlib  
 matplotlib.use('Agg') 
+import os
 import parse_midas_data
 import pylab
 import sys
@@ -27,11 +28,11 @@ unique_samples = parse_midas_data.calculate_unique_samples(subject_sample_map, s
     
 desired_samples = unique_samples*low_diversity_samples
 
-# Ben: can you please annotate what is happening in this part of the code? How do you decide the distances etc?    
-distance_bins = numpy.logspace(0,4,20)
-distance_bin_locations = numpy.array(distance_bins[:-1],copy=True)
-distance_bins[0] = 0.5
-distance_bins[-1] = 1e09
+# initialize distance bins for LD computations
+distance_bins = numpy.logspace(0,4,20) # bins start from 1 to 10^4 and there are 20 evenly spaced bins log(1)=0, log(10^4)-4
+distance_bin_locations = numpy.array(distance_bins[:-1],copy=True) # shifted one to avoid edge effects for plotting.
+distance_bins[0] = 0.5 # made smallest bin 0.5 to avoid edge effects
+distance_bins[-1] = 1e09 # made largest bin very large to catch anything >10^4. 
     
 binned_rsquared_numerators = numpy.zeros_like(distance_bin_locations)
 binned_rsquared_denominators = numpy.zeros_like(distance_bin_locations)
@@ -60,26 +61,34 @@ for gene_name in allele_counts_map.keys():
         
     allele_counts = allele_counts[:,desired_samples,:]
     control_allele_counts = control_allele_counts[:,desired_samples,:]
-        
-    # what is going on here?
+    
+    #compute the distances between all pairs of sites 
+    # None in the two index positions results in a transpose of the vector relative to each other
+    # Subtraction between the two vectors results in pairwise subtraction of each element in each vector.
     distances = numpy.fabs(locations[:,None]-locations[None,:])
     
     rsquared_numerators, rsquared_denominators = diversity_utils.calculate_rsquared(allele_counts, allele_counts)
     control_rsquared_numerators, control_rsquared_denominators = diversity_utils.calculate_rsquared(allele_counts, control_allele_counts)
         
+    # get the indices of the upper diagonal of the distance matrix
+    # numpy triu_indices returns upper diagnonal including diagonal
+    # the 1 inside the function excludes diagonal. Diagnonal has distance of zero.
     desired_idxs = numpy.triu_indices(distances.shape[0],1)
         
+    # fetch the distances and rsquared vals corresponding to the upper diagonal. 
     distances = distances[desired_idxs]
     rsquared_numerators = rsquared_numerators[desired_idxs]
     rsquared_denominators = rsquared_denominators[desired_idxs]
         
+    # fetch entries where denominator != 0 (remember, denominator=pa*(1-pa)*pb*(1-pb). If zero, then at least one site is invariant)
     distances = distances[rsquared_denominators>0]
-    rsquared_numerators = rsquared_numerators[rsquared_denominators>0] # is this supposed to be taking in rsquared_denominators>0?
+    rsquared_numerators = rsquared_numerators[rsquared_denominators>0] 
     rsquared_denominators = rsquared_denominators[rsquared_denominators>0]
         
     if len(distances) == 0:
         continue
-            
+
+    # numpy.digitize: For each distance value, return the bin index it belongs to in distances_bins. 
     bin_idxs = numpy.digitize(distances,bins=distance_bins)-1
             
     for i in xrange(0,len(bin_idxs)):
@@ -97,6 +106,11 @@ for gene_name in allele_counts_map.keys():
 binned_rsquareds = binned_rsquared_numerators/(binned_rsquared_denominators+(binned_rsquared_denominators==0))
     
 control_rsquareds = total_control_rsquared_numerators/(total_control_rsquared_denominators+(total_control_rsquared_denominators==0))
+
+
+# write to an intermediate file so that I can plot all species' LD decays on one plot (separate script: plot_gene_ld_multispecies.py)
+numpy.savez(os.path.expanduser('~/tmp_intermediate_files/LD_%s.npz' % species_name),binned_rsquareds=binned_rsquareds, binned_rsquared_denominators=binned_rsquared_denominators, distance_bin_locations=distance_bin_locations, control_rsquareds=control_rsquareds)
+
         
 pylab.figure()
 pylab.xlabel('Distance between SNPs')
