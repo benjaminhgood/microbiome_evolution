@@ -1,7 +1,77 @@
 import numpy
 
-def calculate_rsquared(allele_counts_1, allele_counts_2):
+def calculate_rsquared_condition_freq(allele_counts_1, allele_counts_2, low_freq, high_freq):
+    # Note: should actually be sigma_squared! 
+    # sigma_squared= E[X]/E[Y], where X=(p_ab-pa*pb)^2 and Y=(pa*(1-pa)*pb*(1-pb))
+    # rsquared=E[X/Y]
+    # see McVean 2002 for more notes on the difference. 
+
+    # allele counts = 1 x samples x alleles vector
     
+    depths_1 = allele_counts_1.sum(axis=2)
+    freqs_1 = allele_counts_1[:,:,0]*1.0/(depths_1+(depths_1==0))
+    depths_2 = allele_counts_2.sum(axis=2)
+    freqs_2 = allele_counts_2[:,:,0]*1.0/(depths_2+(depths_2==0))
+
+    
+    # consensus approximation
+    freqs_1 = numpy.around(freqs_1)
+    freqs_2 = numpy.around(freqs_2)
+
+    # condition on allele frequency in the pooled population:
+    pooled_freqs_1=freqs_1[:,:].sum(axis=1)/len(freqs_1[0])
+    pooled_freqs_2=freqs_2[:,:].sum(axis=1)/len(freqs_2[0])
+
+    # this asks which pairs of sites have depths >0 at BOTH sites as well as which paris of sites both have pooled frequencies within the low_freq and high_freq ranges. 
+    # None here takes the product of the elements in the two vectors and returns a matrix. 
+
+    
+    passed_sites_1=(depths_1>0)*(pooled_freqs_1 >= low_freq)[:,None]*(pooled_freqs_1 <=high_freq)[:,None]
+    passed_sites_2=(depths_2>0)*(pooled_freqs_2 >= low_freq)[:,None]*(pooled_freqs_2 <= high_freq)[:,None]
+    joint_passed_sites=passed_sites_1[None,:,:]*passed_sites_2[:,None,:]
+    # sites x sites x samples matrix
+    
+    joint_freqs = freqs_1[None,:,:]*freqs_2[:,None,:]
+    # sites x sites x samples_matrix
+    
+    # this tells us what the denominator is for the computation below for joint_pooled_freqs
+    total_joint_passed_sites = joint_passed_sites.sum(axis=2)
+    # add 1 to denominator if some pair is 0. 
+    total_joint_passed_sites = total_joint_passed_sites+(total_joint_passed_sites==0)
+    
+    # compute p_ab
+    joint_pooled_freqs = (joint_freqs*joint_passed_sites).sum(axis=2)/total_joint_passed_sites   
+    # floting point issue
+    joint_pooled_freqs *= (joint_pooled_freqs>1e-10)
+    
+    # compute p_a
+    marginal_pooled_freqs_1 = (freqs_1[None,:,:]*joint_passed_sites).sum(axis=2)/total_joint_passed_sites
+    marginal_pooled_freqs_1 *= (marginal_pooled_freqs_1>1e-10)
+
+    # compute p_b
+    marginal_pooled_freqs_2 = (freqs_2[:,None,:]*joint_passed_sites).sum(axis=2)/total_joint_passed_sites 
+    marginal_pooled_freqs_2 *= (marginal_pooled_freqs_2>1e-10)
+       
+    # (p_ab-p_a*p_b)^2
+    rsquared_numerators = numpy.square(joint_pooled_freqs-marginal_pooled_freqs_1*marginal_pooled_freqs_2)
+    
+    # (p_a*(1-p_a)*pb*(1-p_b))
+    rsquared_denominators = marginal_pooled_freqs_1*(1-marginal_pooled_freqs_1)*marginal_pooled_freqs_2*(1-marginal_pooled_freqs_2)
+
+
+    rsquareds = rsquared_numerators/(rsquared_denominators+(rsquared_denominators==0))
+    
+    return rsquared_numerators, rsquared_denominators
+
+
+#####################################################################
+
+def calculate_rsquared(allele_counts_1, allele_counts_2):
+    # Note: should actually be sigma_squared! 
+    # sigma_squared= E[X]/E[Y], where X=(p_ab-pa*pb)^2 and Y=(pa*(1-pa)*pb*(1-pb))
+    # rsquared=E[X/Y]
+    # see McVean 2002 for more notes on the difference. 
+
     # allele counts = 1 x samples x alleles vector
     
     depths_1 = allele_counts_1.sum(axis=2)
@@ -14,36 +84,46 @@ def calculate_rsquared(allele_counts_1, allele_counts_2):
     freqs_1 = numpy.around(freqs_1)
     freqs_2 = numpy.around(freqs_2)
     
-    
+
     # this asks which pairs of sites have depths >0 at BOTH sites
-    # What does None do here?
+    # None here takes the product of the elements in the two vectors and returns a matrix. 
     joint_passed_sites = (depths_1>0)[None,:,:]*(depths_2>0)[:,None,:]
     # sites x sites x samples matrix
     
     joint_freqs = freqs_1[None,:,:]*freqs_2[:,None,:]
     # sites x sites x samples_matrix
     
+    # this tells us what the denominator is for the computation below for joint_pooled_freqs
     total_joint_passed_sites = joint_passed_sites.sum(axis=2)
+    # add 1 to denominator if some pair is 0. 
     total_joint_passed_sites = total_joint_passed_sites+(total_joint_passed_sites==0)
     
-    joint_pooled_freqs = (joint_freqs*joint_passed_sites).sum(axis=2)/total_joint_passed_sites
-   
+    # compute p_ab
+    joint_pooled_freqs = (joint_freqs*joint_passed_sites).sum(axis=2)/total_joint_passed_sites   
+    # floting point issue
     joint_pooled_freqs *= (joint_pooled_freqs>1e-10)
     
+    # compute p_a
     marginal_pooled_freqs_1 = (freqs_1[None,:,:]*joint_passed_sites).sum(axis=2)/total_joint_passed_sites
     marginal_pooled_freqs_1 *= (marginal_pooled_freqs_1>1e-10)
-    
+
+    # compute p_b
     marginal_pooled_freqs_2 = (freqs_2[:,None,:]*joint_passed_sites).sum(axis=2)/total_joint_passed_sites 
     marginal_pooled_freqs_2 *= (marginal_pooled_freqs_2>1e-10)
        
+    # (p_ab-p_a*p_b)^2
     rsquared_numerators = numpy.square(joint_pooled_freqs-marginal_pooled_freqs_1*marginal_pooled_freqs_2)
     
-    
+    # (p_a*(1-p_a)*pb*(1-p_b))
     rsquared_denominators = marginal_pooled_freqs_1*(1-marginal_pooled_freqs_1)*marginal_pooled_freqs_2*(1-marginal_pooled_freqs_2)
     
     rsquareds = rsquared_numerators/(rsquared_denominators+(rsquared_denominators==0))
     
     return rsquared_numerators, rsquared_denominators
+
+
+
+
 
 ##################################
 def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary, species_name):
