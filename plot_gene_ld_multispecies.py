@@ -27,12 +27,22 @@ pylab.xlim([1,1e04])
 pylab.ylim([1e-02,1])
 
 color_idx=0
+
+handles=[] # this stores the plots so that I can make a legend below
+
 for species_name in species_names:
-    pylab.loglog(files[species_name]['distance_bin_locations'][files[species_name]['binned_rsquared_denominators']>0], files[species_name]['binned_rsquareds'][files[species_name]['binned_rsquared_denominators']>0],'k.-', color=colors[color_idx])
+    
+    #plot the decay in LD in a gene
+    handles.append(color_idx)
+    handles[color_idx], = (pylab.loglog(files[species_name]['distance_bin_locations'][files[species_name]['binned_rsquared_denominators']>0], files[species_name]['binned_rsquareds'][files[species_name]['binned_rsquared_denominators']>0],'k.-', color=colors[color_idx], label=species_names))
+    
+    # plot LD across genes (control)
     pylab.loglog(files[species_name]['distance_bin_locations'],numpy.ones_like(files[species_name]['distance_bin_locations'])*files[species_name]['control_rsquareds'],'k:', color=colors[color_idx])
     color_idx+=1
 
-#pylab.legend(colors,species_names,'upper right')
+# plot the legend
+labels=species_names
+pylab.legend(handles,labels,'lower left',prop={'size':6})
 
-pylab.savefig('%s/intragene_ld_multispecies.pdf' % (parse_midas_data.analysis_directory), bbox_inches='tight')
-pylab.savefig('%s/intragene_ld_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
+pylab.savefig('%s/intragene_ld_multispecies_condition_freq.pdf' % (parse_midas_data.analysis_directory), bbox_inches='tight')
+pylab.savefig('%s/intragene_ld_multispecies_condition_freq.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
