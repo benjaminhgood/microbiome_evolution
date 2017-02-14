@@ -44,5 +44,5 @@ for species_name in species_names:
 labels=species_names
 pylab.legend(handles,labels,'lower left',prop={'size':6})
 
-pylab.savefig('%s/intragene_ld_multispecies_condition_freq.pdf' % (parse_midas_data.analysis_directory), bbox_inches='tight')
-pylab.savefig('%s/intragene_ld_multispecies_condition_freq.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
+pylab.savefig('%s/intragene_ld_multispecies.pdf' % (parse_midas_data.analysis_directory), bbox_inches='tight')
+pylab.savefig('%s/intragene_ld_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)

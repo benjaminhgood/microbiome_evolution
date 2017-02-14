@@ -68,7 +68,7 @@ for gene_name in allele_counts_map.keys():
     distances = numpy.fabs(locations[:,None]-locations[None,:])
   
     low_freq=0.3
-    high_freq=0.7
+    high_freq=0.5
     rsquared_numerators, rsquared_denominators = diversity_utils.calculate_rsquared_condition_freq(allele_counts, allele_counts, low_freq, high_freq)
     control_rsquared_numerators, control_rsquared_denominators = diversity_utils.calculate_rsquared_condition_freq(allele_counts, control_allele_counts, low_freq, high_freq)
         
