@@ -5,7 +5,7 @@ import pylab
 import sys
 import numpy
 from numpy.random import normal
-from calculate_pi_matrix import calculate_self_pis
+#from calculate_pi_matrix import calculate_self_pis
 import diversity_utils
 import stats_utils
 import matplotlib.colors as colors
@@ -83,6 +83,7 @@ for j in xrange(0,len(samples)):
         sfss.append(sfs)
         pi_withins.append(pi_within)
         
+
 sys.stderr.write("Done!\n")
     
 current_max = 0
