@@ -22,6 +22,10 @@ def calculate_rsquared_condition_freq(allele_counts_1, allele_counts_2, low_freq
     pooled_freqs_1=freqs_1[:,:].sum(axis=1)/len(freqs_1[0])
     pooled_freqs_2=freqs_2[:,:].sum(axis=1)/len(freqs_2[0])
 
+    # check if any freqs >0.5, if so, fold:
+    pooled_freqs_1=numpy.where(pooled_freqs_1 > 0.5, 1-pooled_freqs_1, pooled_freqs_1)
+    pooled_freqs_2=numpy.where(pooled_freqs_2 > 0.5, 1-pooled_freqs_2, pooled_freqs_2) 
+
     # this asks which pairs of sites have depths >0 at BOTH sites as well as which paris of sites both have pooled frequencies within the low_freq and high_freq ranges. 
     # None here takes the product of the elements in the two vectors and returns a matrix. 
 
