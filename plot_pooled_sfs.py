@@ -16,7 +16,7 @@ sys.stderr.write("Done!\n")
 
 # Load SNP information for species_name
 sys.stderr.write("Loading %s...\n" % species)
-samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species, combination_type="sample", debug=True)
+samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species, combination_type="sample", debug=False)
 sys.stderr.write("Done!\n")
     
 sys.stderr.write("Calculating synonymous SFS...\n")
@@ -49,3 +49,19 @@ pylab.savefig('%s/%s_pooled_sfs.png' % (parse_midas_data.analysis_directory, spe
     
 #pylab.show()
     
+# plot the observed vs expected (1/x) SFS
+
+pylab.figure()
+pylab.xlabel('Minor allele frequency $f$')
+pylab.ylabel('fraction of snps')
+pylab.title(species)
+
+observed_syn=sfs_syn[1:]/float(sum(sfs_syn[1:]))
+observed_non=sfs_non[1:]/float(sum(sfs_syn[1:]))
+expected=1/(xs[1:]*(1-xs[1:]))/(float(sum(1/(xs[1:]*(1-xs[1:])))))
+
+pylab.semilogy(xs[1:], observed_syn, label='observed synonymous (4D)', color='b')
+pylab.semilogy(xs[1:], observed_non, label='observed non synonymous (1D)', color='r')
+pylab.semilogy(xs[1:], expected, label='expected (1/(f(1-f)))', color='k')
+pylab.legend(loc='upper right',frameon=False)
+pylab.savefig('%s/%s_pooled_sfs_obs_exp.pdf' % (parse_midas_data.analysis_directory, species), bbox_inches='tight')

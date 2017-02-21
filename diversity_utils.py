@@ -236,7 +236,7 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map,  variant_type='4
         freqs = allele_counts/(depths+(depths==0))[:,:,None]
         gene_pooled_freqs = freqs[:,:,0].sum(axis=1)/(depths>0).sum(axis=1)
         pooled_freqs.extend(gene_pooled_freqs)
-    
+
     pooled_freqs = numpy.array(pooled_freqs)
     return pooled_freqs
 
