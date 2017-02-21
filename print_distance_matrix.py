@@ -5,6 +5,7 @@ import pylab
 import sys
 import numpy
 import diversity_utils
+import os
 species_name=sys.argv[1]   
 
 
@@ -27,7 +28,9 @@ within_pis = numpy.diag(pi_matrix_syn)
 idxs = numpy.arange(0,len(within_pis))
     
 within_pis, idxs = zip(*sorted(zip(within_pis, idxs)))
-    
+
+outFN="~/ben_nandita_hmp_analysis/fst.dist_%s" % species_name    
+outFile=open(os.path.expanduser(outFN),'w')
 for idx in idxs:
-    print "\t".join(["%g" % D for D in pi_matrix_syn[idx,idxs]])
-    
+    outFile.write("\t".join(["%g" % D for D in pi_matrix_syn[idx,idxs]]))
+    outFile.write("\n")
