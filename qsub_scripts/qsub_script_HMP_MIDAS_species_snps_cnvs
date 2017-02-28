@@ -9,13 +9,14 @@
 #$ -l mem_free=1G                  #-- submits on nodes with enough free memory (required)
 #$ -l arch=linux-x64               #-- SGE resources (CPU type)
 #$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
-#$ -l h_rt=100:00:00                #-- runtime limit (see above; this requests 24 hours)
+#$ -l h_rt=400:00:00               #-- runtime limit (see above; this requests 24 hours)
 #$ -t 1-337                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
-readarray files < sed '1d' ~/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/sampleIDs.txt
+readarray files < /pollard/shattuck0/ngarud/BenNanditaProject/MIDAS_intermediate_files_hmp/sampleIDs.txt
 files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
 file=${files[$SGE_TASK_ID]}
+echo $file
 
 OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/${file}
 
