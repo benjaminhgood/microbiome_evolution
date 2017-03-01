@@ -807,7 +807,24 @@ def pipe_snps(species_name, combination_type=None, avg_depth_threshold=20, direc
     info_file.close()
     
     # returns nothing
+
+####################
+def load_metaphlan2_genes(desired_species_name):
+    gene_file = open("%smetaphlan2_genes/%s_metaphlan2_genes_mapped.txt" % (default_directory_prefix, desired_species_name), 'r')
     
+    metaphlan2_genes=[]
+    for line in gene_file:
+        metaphlan2_genes.append(line.strip())
+
+    gene_file.close()    
+    
+    return metaphlan2_genes
+
+
+
+
+
+#######################    
 
 if __name__=='__main__':
 

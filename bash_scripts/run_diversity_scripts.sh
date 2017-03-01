@@ -17,4 +17,6 @@ species=$1
 
 #python ~/projectBenNandita/plot_gene_haplotypes.py $species
 
-python ~/projectBenNandita/plot_tree.py $species
+#python ~/projectBenNandita/plot_tree.py $species
+
+python ~/projectBenNandita/plot_pNpS_vs_pi_metaphlan2_genes.py $species

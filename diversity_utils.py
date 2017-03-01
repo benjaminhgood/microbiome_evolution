@@ -250,23 +250,25 @@ def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type=
     fixation_matrix = numpy.zeros_like(passed_sites_map[passed_sites_map.keys()[0]][variant_type]['sites'])*1.0
     
     for gene_name in allowed_genes:
-    
-        allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
-
-        if len(allele_counts)==0:
-            continue
-
-        depths = allele_counts.sum(axis=2)
-        alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
-        alt_freqs[alt_freqs<min_freq] = 0.0
-        alt_freqs[alt_freqs>(1-min_freq)] = 1.0
-        passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
-    
-        delta_freq = numpy.fabs(alt_freqs[:,:,None]-alt_freqs[:,None,:])
-        delta_freq[passed_depths==0] = 0
-        delta_freq[delta_freq<min_change] = 0
         
-        fixation_matrix += delta_freq.sum(axis=0)
+        if gene_name in allele_counts_map.keys():
+
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+
+            if len(allele_counts)==0:
+                continue
+
+            depths = allele_counts.sum(axis=2)
+            alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
+            alt_freqs[alt_freqs<min_freq] = 0.0
+            alt_freqs[alt_freqs>(1-min_freq)] = 1.0
+            passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
+    
+            delta_freq = numpy.fabs(alt_freqs[:,:,None]-alt_freqs[:,None,:])
+            delta_freq[passed_depths==0] = 0
+            delta_freq[delta_freq<min_change] = 0
+        
+            fixation_matrix += delta_freq.sum(axis=0)
         
     return fixation_matrix
     
@@ -281,35 +283,36 @@ def calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', 
     
     for gene_name in allowed_genes:
         
-        #print passed_sites_map[gene_name][variant_type].shape, passed_sites.shape
-        #print gene_name, variant_type
+        if gene_name in passed_sites_map.keys():
+            #print passed_sites_map[gene_name][variant_type].shape, passed_sites.shape
+            #print gene_name, variant_type
         
-        passed_sites += passed_sites_map[gene_name][variant_type]['sites']
+            passed_sites += passed_sites_map[gene_name][variant_type]['sites']
            
-        allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
 
-        if len(allele_counts)==0:
-            continue
+            if len(allele_counts)==0:
+                continue
          
 
-        depths = allele_counts.sum(axis=2)
-        freqs = allele_counts/(depths+(depths==0))[:,:,None]
-        self_freqs = (allele_counts-1)/(depths-1+2*(depths==0))[:,:,None]
-        self_pis = ((depths>0)-(freqs*self_freqs).sum(axis=2))
+            depths = allele_counts.sum(axis=2)
+            freqs = allele_counts/(depths+(depths==0))[:,:,None]
+            self_freqs = (allele_counts-1)/(depths-1+2*(depths==0))[:,:,None]
+            self_pis = ((depths>0)-(freqs*self_freqs).sum(axis=2))
              
-        I,J = depths.shape
+            I,J = depths.shape
     
-        # pi between sample j and sample l
-        gene_pi_matrix = numpy.einsum('ij,il',(depths>0)*1.0,(depths>0)*1.0)-numpy.einsum('ijk,ilk',freqs,freqs)
+            # pi between sample j and sample l
+            gene_pi_matrix = numpy.einsum('ij,il',(depths>0)*1.0,(depths>0)*1.0)-numpy.einsum('ijk,ilk',freqs,freqs)
     
-        # average of pi within sample j and within sample i
-        gene_avg_pi_matrix = (numpy.einsum('ij,il',self_pis,(depths>0)*1.0)+numpy.einsum('ij,il',(depths>0)*1.0,self_pis))/2
+            # average of pi within sample j and within sample i
+            gene_avg_pi_matrix = (numpy.einsum('ij,il',self_pis,(depths>0)*1.0)+numpy.einsum('ij,il',(depths>0)*1.0,self_pis))/2
     
-        diagonal_idxs = numpy.diag_indices(J)
-        gene_pi_matrix[diagonal_idxs] = gene_avg_pi_matrix[diagonal_idxs]
+            diagonal_idxs = numpy.diag_indices(J)
+            gene_pi_matrix[diagonal_idxs] = gene_avg_pi_matrix[diagonal_idxs]
     
-        pi_matrix += gene_pi_matrix
-        avg_pi_matrix += gene_avg_pi_matrix
+            pi_matrix += gene_pi_matrix
+            avg_pi_matrix += gene_avg_pi_matrix
         
     pi_matrix = pi_matrix/(passed_sites+(passed_sites==0))
     avg_pi_matrix = avg_pi_matrix/(passed_sites+(passed_sites==0))
