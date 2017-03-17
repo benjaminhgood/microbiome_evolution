@@ -1,0 +1,31 @@
+#!/bin/bash                         #-- what is the language of this shell
+#                                  #-- Any line that starts with #$ is an instruction to SGE
+#$ -S /bin/bash                     #-- the shell for the job
+#$ -o output_error_directory       #-- output directory (fill in)
+#$ -e output_error_directory       #-- error directory (fill in)
+#$ -cwd                            #-- tell the job that it should start in your working directory
+#$ -r y                            #-- tell the system that if a job crashes, it should be restarted
+#$ -j y                            #-- tell the system that the STDERR and STDOUT should be joined
+#$ -l mem_free=1G                  #-- submits on nodes with enough free memory (required)
+#$ -l arch=linux-x64               #-- SGE resources (CPU type)
+#$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
+#$ -l h_rt=336:00:00               #-- runtime limit (see above; this requests 24 hours)
+#$ -t 1-1                        #-- remove first '#' to specify the number of
+                                   #-- tasks if desired (see Tips section)
+
+#readarray files < /netapp/home/ngarud/shattuck/metagenomic_fastq_files/Kuleshov/accession_list.txt
+#files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
+#file=${files[$SGE_TASK_ID]}
+#echo $file
+
+file=SRR2822456
+OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Kuleshov/MIDAS_1.2.2_output/${file}
+
+mkdir $OUTDIR
+
+run_midas.py species $OUTDIR -1 /netapp/home/ngarud/shattuck/metagenomic_fastq_files/Kuleshov/fastq/${file}.fastq.gz 
+
+run_midas.py snps $OUTDIR -1 /netapp/home/ngarud/shattuck/metagenomic_fastq_files/Kuleshov/fastq/${file}.fastq.gz 
+
+run_midas.py genes $OUTDIR -1 /netapp/home/ngarud/shattuck/metagenomic_fastq_files/Kuleshov/fastq/${file}.fastq.gz 
+
