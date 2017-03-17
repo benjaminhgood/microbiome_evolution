@@ -126,3 +126,7 @@ for key in HMP_ids_dict.keys():
             else:
                 print '\t'.join(HMP_ids_dict[key]) +'\tNA\tNA\n'
 
+
+
+
+
