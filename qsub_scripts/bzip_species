@@ -13,8 +13,12 @@
 #$ -t 1-1                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
+#readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data#/snps/species_genes.txt
+#files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
+#file=${files[$SGE_TASK_ID]}
+#echo $file
 
-OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/
-
-merge_midas.py genes $OUTDIR/genes -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/ --sample_depth 10 --min_samples 1 --max_species 150 >& $OUTDIR/genes.log
-
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/species/coverage.txt
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/species/count_reads.txt
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/species/relative_abundance.txt
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/species/species_prevalence.txt

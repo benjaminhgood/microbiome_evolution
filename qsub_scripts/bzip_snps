@@ -10,11 +10,14 @@
 #$ -l arch=linux-x64               #-- SGE resources (CPU type)
 #$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
 #$ -l h_rt=100:00:00                #-- runtime limit (see above; this requests 24 hours)
-#$ -t 1-1                        #-- remove first '#' to specify the number of
+#$ -t 1-151                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
+readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/species_snps.txt
+files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
+species=${files[$SGE_TASK_ID]}
 
-OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/
-
-merge_midas.py genes $OUTDIR/genes -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/ --sample_depth 10 --min_samples 1 --max_species 150 >& $OUTDIR/genes.log
-
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_depth.txt
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_info.txt
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_ref_freq.txt
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_alt_allele.txt
