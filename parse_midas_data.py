@@ -31,7 +31,7 @@ def get_snp_prefix_from_combination_type(combination_type=None):
 # Returns map from subject -> map of samples -> set of accession IDs
 #
 ###############################################################################
-def parse_subject_sample_map(filename=os.path.expanduser("~/projectBenNandita/HMP_ids.txt")): # NOTE THAT THE PATH HAS CHANGED. Also, use os.path.expanduser to read what the absolute path of '~' is
+def parse_subject_sample_map(filename=os.path.expanduser("~/projectBenNandita/HMP_ids.txt")): 
     file = open(filename,"r")
     file.readline() # header
     
@@ -808,7 +808,12 @@ def pipe_snps(species_name, combination_type=None, avg_depth_threshold=20, direc
     
     # returns nothing
 
-####################
+################################################################################
+#
+# Loads metaphlan2 genes
+# returns a list of metaphlan2 genes
+#
+################################################################################
 def load_metaphlan2_genes(desired_species_name):
     gene_file = open("%smetaphlan2_genes/%s_metaphlan2_genes_mapped.txt" % (default_directory_prefix, desired_species_name), 'r')
     
@@ -820,6 +825,33 @@ def load_metaphlan2_genes(desired_species_name):
     
     return metaphlan2_genes
 
+########################################################################################
+#
+# Loads time data for HMP samples 
+# Returns map from sample_id -> [[visno_1, study_day_1], [visno_2, study_day_2], etc]
+#
+#######################################################################################
+def parse_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp_data/HMP_ids_time.txt")): 
+    file = open(filename,"r")
+    file.readline() # header
+    
+    
+    sample_time_map = {}
+    
+    for line in file:
+        items = line.split("\t")
+        print items
+        subject_id= items[0].strip()
+        sample_id = items[1].strip()
+        visno     = int(items[5].strip())
+        study_day = int(items[6].strip())
+
+        if subject_id not in sample_time_map:
+            sample_time_map[subject_id] = {}
+                        
+        sample_time_map[subject_id][sample_id]=[visno,study_day]
+        
+    return sample_time_map 
 
 
 
