@@ -13,7 +13,7 @@ species=sys.argv[1]
 from parse_midas_data import *
 
 #default_directory_prefix =  os.path.expanduser("~/Documents/files_too_big_for_Dropbox/midas_output_121816/")
-combination_type = "sample"
+combination_type = None
 snp_prefix = get_snp_prefix_from_combination_type(combination_type)
 
 allowed_variant_types = set(["1D","2D","3D","4D"]) # use all types of sites to include most information
