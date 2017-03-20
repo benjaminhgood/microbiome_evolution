@@ -828,32 +828,59 @@ def load_metaphlan2_genes(desired_species_name):
 ########################################################################################
 #
 # Loads time data for HMP samples 
-# Returns map from sample_id -> [[visno_1, study_day_1], [visno_2, study_day_2], etc]
+# Returns map from subject_id -> visno -> [[sample_id, study_day_1], [sample_id, study_day_2], etc]
 #
 #######################################################################################
-def parse_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp_data/HMP_ids_time.txt")): 
+def parse_subject_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp_data/HMP_ids_time.txt")): 
     file = open(filename,"r")
     file.readline() # header
     
     
-    sample_time_map = {}
+    subject_sample_time_map = {}
     
     for line in file:
         items = line.split("\t")
-        print items
         subject_id= items[0].strip()
         sample_id = items[1].strip()
         visno     = int(items[5].strip())
         study_day = int(items[6].strip())
 
-        if subject_id not in sample_time_map:
-            sample_time_map[subject_id] = {}
+        if subject_id not in subject_sample_time_map:
+            subject_sample_time_map[subject_id] = {}
                         
-        sample_time_map[subject_id][sample_id]=[visno,study_day]
+        subject_sample_time_map[subject_id][visno]=[sample_id,study_day]
         
-    return sample_time_map 
+    return subject_sample_time_map 
 
 
+########################################################################################
+#
+# Returns index pairs for time points corresponding to the same subject_id.
+# Also returns the corresponding visnos and days. 
+#
+#######################################################################################
+
+def calculate_time_pairs(subject_sample_time_map, samples):
+    index1=[]
+    index2=[]
+    visno=[]
+    day=[]
+
+    for subject_id in subject_sample_time_map.keys():
+        visnos=subject_sample_time_map[subject_id].keys() #visit numbers
+        if (len(visnos) > 1) and (1 in visnos):           
+            if (subject_sample_time_map[subject_id][1][0] in samples): #check if first visit in samples 
+                #iterate through visit numbers. Append the index, day, and visnos to their lists
+                for i in visnos:        
+                    if (subject_sample_time_map[subject_id][i][0] in samples) and (i !=1):
+                        index1.append(samples.index(subject_sample_time_map[subject_id][1][0]))
+                        index2.append(samples.index(subject_sample_time_map[subject_id][i][0]))
+                        visno.append(i)
+                        day.append(subject_sample_time_map[subject_id][i][1])
+        
+    time_pair_idxs = (numpy.array(index1,dtype=numpy.int32), numpy.array(index2,dtype=numpy.int32))
+
+    return time_pair_idxs, visno, day
 
 
 #######################    

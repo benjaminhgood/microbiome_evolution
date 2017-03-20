@@ -19,4 +19,6 @@ species=$1
 
 #python ~/projectBenNandita/plot_tree.py $species
 
-python ~/projectBenNandita/plot_pNpS_vs_pi_metaphlan2_genes.py $species
+#python ~/projectBenNandita/plot_pNpS_vs_pi_metaphlan2_genes.py $species
+
+python ~/projectBenNandita/plot_fixations_vs_time.py $species 
