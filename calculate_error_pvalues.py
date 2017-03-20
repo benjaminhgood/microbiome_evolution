@@ -1,18 +1,16 @@
-import parse_midas_data
 import sys
 import os
-species=sys.argv[1]
+import bz2
+import parse_midas_data
 
-#default_directory_prefix =  os.path.expanduser("~/Documents/files_too_big_for_Dropbox/midas_output_121816/")
-default_directory_prefix = parse_midas_data.default_directory_prefix
-combination_type = None
-snp_prefix = parse_midas_data.get_snp_prefix_from_combination_type(combination_type)
+if len(sys.argv) > 1:
+    species_name=sys.argv[1]
+else:
+    species_name=parse_midas_data.debug_species_name
 
+sys.stderr.write("Calculating pvalues for %s...\n" % species_name)
 
-sys.stderr.write("Processing %s...\n" % species)
+output_filename = "%ssnps/%s/annotated_snps.txt.bz2" % (parse_midas_data.data_directory, species_name)
 
-output_filename = "%ssnps/%s/%sannotated_snps.txt.bz2" % (default_directory_prefix, species, snp_prefix)
-
-# NOTE: I HAVE INCLUDED THE DIRECTORY FOR ANNOTATE_PVALUE -- hence $PATH must be updated with the projectBenNandita dir. 
-os.system('python ~/projectBenNandita/pipe_midas_data.py %s | ./projectBenNandita/annotate_pvalue | bzip2 -c > %s' % (species,output_filename) )  
+os.system('python %spipe_midas_data.py %s | %sannotate_pvalue --disabled | bzip2 -c > %s' % (parse_midas_data.scripts_directory, species_name, parse_midas_data.scripts_directory, output_filename) )  
  

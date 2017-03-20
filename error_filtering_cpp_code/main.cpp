@@ -16,6 +16,12 @@ const char delim=',';
 
 int main(int argc, char * argv[]){
 
+    bool DISABLED=false;
+    if(argc>1){
+        DISABLED = true;
+        std::cerr << "Warning: skipping pvalue calculation & setting p=0!" << std::endl; 
+    }
+    
     // random number generator
     // deterministic seed to ensure reproducibility
     // once pipeline is completed
@@ -72,7 +78,12 @@ int main(int argc, char * argv[]){
         else{
             // actually calculate autocorrelation score
             num_passed+=1;
-            pvalue = calculate_pvalue(random, trajectory); 
+            if(!DISABLED){
+                pvalue = calculate_pvalue(random, trajectory); 
+            }
+            else{
+                pvalue = 0;
+            }
         }
             
         // increment number of "surprising" trajectories
@@ -81,8 +92,8 @@ int main(int argc, char * argv[]){
             num_surprising += 1; 
         }
         
-        if(num_processed % 1000 == 0){
-                std::cerr << num_processed << " trajectories processed, " << num_passed << " passed, " << num_surprising << " surprising!\n";
+        if(num_processed % 10000 == 0){
+                std::cerr << num_processed/10000 << "0k trajectories processed, " << num_passed << " passed, " << num_surprising << " surprising!\n";
         }
         
         // print annotated line

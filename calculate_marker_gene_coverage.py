@@ -1,18 +1,22 @@
 import sys
-species=sys.argv[1]
+import bz2
+import numpy
+import parse_midas_data
+
+if len(sys.argv) > 1:
+    species_name=sys.argv[1]
+else:
+    species_name=parse_midas_data.debug_species_name
+
+sys.stderr.write("Calculating marker gene coverage for %s...\n" % species_name)
 
 #####
 #
-# Creates a marker_coverage.txt.bz2 in the species snp directory
+# Creates a species-specific marker_coverage.txt.bz2 in the species snp directory
 #
 #####
 
-from parse_midas_data import *
-
-
-sys.stderr.write("Processing %s...\n" % species)
-
-depth_file = bz2.BZ2File("%ssnps/%s/snps_depth.txt.bz2" % (default_directory_prefix, species),"r")
+depth_file = bz2.BZ2File("%ssnps/%s/snps_depth.txt.bz2" % (parse_midas_data.data_directory, species_name),"r")
     
 # get list of samples to use
 depth_line = depth_file.readline()
@@ -20,11 +24,9 @@ depth_items = depth_line.split()
 output_samples = depth_items[1:]
 depth_file.close()
     
-coverage_file = bz2.BZ2File("%sspecies/coverage.txt.bz2" % (default_directory_prefix),"r")
+coverage_file = bz2.BZ2File("%sspecies/coverage.txt.bz2" % (parse_midas_data.data_directory),"r")
 
-output_coverage_file = bz2.BZ2File("%ssnps/%s/marker_coverage.txt.bz2" % (default_directory_prefix, species),"w")
-
-print("%ssnps/%s/marker_coverage.txt.bz2" % (default_directory_prefix, species),"w")
+output_coverage_file = bz2.BZ2File("%ssnps/%s/marker_coverage.txt.bz2" % (parse_midas_data.data_directory, species_name),"w")
 
 # get header line
 line = coverage_file.readline()
@@ -53,7 +55,7 @@ while True:
     current_species = items[0]
     depths = numpy.array([float(item) for item in items[1:]])[output_idxs]
         
-    if current_species==species:
+    if current_species==species_name:
         # write output
         output_coverage_file.write("\n")
         output_coverage_file.write("\t".join([current_species]+["%g" % d for d in depths]))

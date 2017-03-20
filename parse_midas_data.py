@@ -3,27 +3,26 @@ import sys
 import bz2
 import os.path 
 import stats_utils
+from math import floor, ceil
+
+###############################################################################
+#
+# Set up default source and output directories
+#
+###############################################################################
 
 data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
 analysis_directory = os.path.expanduser("~/ben_nandita_hmp_analysis/")
+scripts_directory = os.path.expanduser("~/ben_nandita_hmp_scripts/")
 
-default_directory_prefix =  data_directory
+# We use this one to debug because it was the first one we looked at
+debug_species_name = 'Bacteroides_uniformis_57318'
 
 ###############################################################################
 #
-# Returns: the string to append at the front of the filename for a given 
-#          combination type.
-#
-# Valid combination types are None, "sample", "subject"
+# Methods for parsing sample metadata
 #
 ###############################################################################
-def get_snp_prefix_from_combination_type(combination_type=None):
-    if combination_type==None:
-        snp_prefix = ""
-    else:
-        snp_prefix = combination_type + "_"
-    
-    return snp_prefix
 
 ###############################################################################
 #
@@ -31,13 +30,13 @@ def get_snp_prefix_from_combination_type(combination_type=None):
 # Returns map from subject -> map of samples -> set of accession IDs
 #
 ###############################################################################
-def parse_subject_sample_map(filename=os.path.expanduser("~/projectBenNandita/HMP_ids.txt")): 
-    file = open(filename,"r")
-    file.readline() # header
-    
-    
+def parse_subject_sample_map(): 
+
     subject_sample_map = {}
     
+    # First load HMP metadata
+    file = open(scripts_directory+"HMP_ids.txt","r")
+    file.readline() # header
     for line in file:
         items = line.split("\t")
         subject_id = items[0].strip()
@@ -53,7 +52,31 @@ def parse_subject_sample_map(filename=os.path.expanduser("~/projectBenNandita/HM
             subject_sample_map[subject_id][sample_id] = set()
             
         subject_sample_map[subject_id][sample_id].add(accession_id)
+    file.close()
+    
+    # Then load Kuleshov data 
+    file = open(scripts_directory+"kuleshov_ids.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.split("\t")
+        subject_id = items[0].strip()
+        sample_id = items[1].strip()
+        accession_id = items[2].strip()
+        country = items[3].strip()
+        continent = items[4].strip()
         
+        if subject_id not in subject_sample_map:
+            subject_sample_map[subject_id] = {}
+            
+        if sample_id not in subject_sample_map[subject_id]:
+            subject_sample_map[subject_id][sample_id] = set()
+            
+        subject_sample_map[subject_id][sample_id].add(accession_id)
+    file.close()  
+    
+    # Repeat for other data
+    # Nothing else so far
+     
     return subject_sample_map 
 
 ###############################################################################
@@ -192,13 +215,108 @@ def calculate_grouping_idxs(groupings, samples):
         grouping_idxs.append(idxs)
     
     return grouping_idxs
-    
 
-def parse_gene_coverages(desired_species_name, combination_type=None, directory_prefix=default_directory_prefix):
 
-    snp_prefix = get_snp_prefix_from_combination_type(combination_type)
+###############################################################################
+#
+# Methods for parsing species metadata
+#
+###############################################################################
+
+#############
+#
+# Returns a list of all species that MIDAS called SNPS for
+#
+#############
+def parse_species_list():
     
-    coverage_file = bz2.BZ2File("%ssnps/%s/%sgene_coverage.txt.bz2" % (default_directory_prefix, desired_species_name, snp_prefix))
+    species_names = []
+    
+    file = open(data_directory+"snps/species_snps.txt","r")
+    for line in file:
+        species_names.append(line.strip())
+    file.close()
+    
+    return species_names
+
+#############
+#
+# Returns a list of all species that MIDAS called SNPS for
+# sorted in order of decreasing total sequencing depth
+#
+#############
+def parse_depth_sorted_species_list():
+    species_coverage_matrix, samples, species = parse_global_marker_gene_coverages()
+    return species
+
+
+#############
+#
+# Returns a list of all species that MIDAS called SNPS for
+# that passed a certain depth / prevalence requirement,
+# again sorted in order of decreasing total sequencing depth
+#
+#############
+def parse_good_species_list(min_marker_coverage=5, min_prevalence=10):
+    good_species_list = []
+    
+    species_coverage_matrix, samples, species = parse_global_marker_gene_coverages()
+    for i in xrange(0,len(species)):
+        
+        species_coverages = species_coverage_matrix[i,:]
+        if (species_coverages>=min_marker_coverage).sum() >= min_prevalence:
+            good_species_list.append(species[i])
+    
+    return good_species_list
+
+    
+    
+    
+###############################################################################
+#
+# Methods for parsing coverage of different species across samples
+#
+###############################################################################
+
+###############################################################################
+#
+# Loads marker gene coverages produced by MIDAS
+# for all species in which SNPs were called 
+#
+# Returns: species-by-sample matrix of marker gene coverages,
+#          with species sorted in descending order of total coverage;
+#          ordered list of sample ids; ordered list of species names;
+#
+###############################################################################
+def parse_global_marker_gene_coverages():
+
+    desired_species_names = set(parse_species_list())
+
+    file = bz2.BZ2File("%sspecies/coverage.txt.bz2" %  (data_directory),"r")
+    line = file.readline() # header
+    samples = line.split()[1:]
+    species = []
+    species_coverage_matrix = []
+    for line in file:
+        items = line.split()
+        species_name = items[0]
+        #print items
+        coverages = numpy.array([float(item) for item in items[1:]])
+        
+        if species_name in desired_species_names:
+            species.append(species_name)
+            species_coverage_matrix.append(coverages)
+    
+    file.close()    
+    species, species_coverage_matrix = zip(*sorted(zip(species, species_coverage_matrix), key=lambda pair: pair[1].sum(), reverse=True))
+    
+    species_coverage_matrix = numpy.array(species_coverage_matrix)
+    return species_coverage_matrix, samples, species
+
+
+def parse_gene_coverages(desired_species_name):
+
+    coverage_file = bz2.BZ2File("%ssnps/%s/gene_coverage.txt.bz2" % (data_directory, desired_species_name))
 
     line = coverage_file.readline() # header
     items = line.split()
@@ -214,11 +332,9 @@ def parse_gene_coverages(desired_species_name, combination_type=None, directory_
         
     return gene_coverages, samples
 
-def parse_coverage_distribution(desired_species_name, combination_type=None, directory_prefix=default_directory_prefix):
+def parse_coverage_distribution(desired_species_name):
 
-    snp_prefix = get_snp_prefix_from_combination_type(combination_type)
-    
-    coverage_distribution_file = bz2.BZ2File("%ssnps/%s/%scoverage_distribution.txt.bz2" % (default_directory_prefix, desired_species_name, snp_prefix))
+    coverage_distribution_file = bz2.BZ2File("%ssnps/%s/coverage_distribution.txt.bz2" % (data_directory, desired_species_name))
 
     line = coverage_distribution_file.readline() # header
     samples = []
@@ -234,12 +350,14 @@ def parse_coverage_distribution(desired_species_name, combination_type=None, dir
         
     return sample_coverage_histograms, samples
     
-
-def parse_marker_gene_coverages(desired_species_name, combination_type=None, directory_prefix=default_directory_prefix):
+## 
+# 
+# Loads species-specific marker gene coverage
+#
+##
+def parse_marker_gene_coverages(desired_species_name):
     
-    snp_prefix = get_snp_prefix_from_combination_type(combination_type)
-    
-    marker_file = bz2.BZ2File("%ssnps/%s/%smarker_coverage.txt.bz2" % (default_directory_prefix, desired_species_name, snp_prefix))
+    marker_file = bz2.BZ2File("%ssnps/%s/marker_coverage.txt.bz2" % (data_directory, desired_species_name))
     
     line = marker_file.readline() # header
     samples = line.split()[1:]
@@ -258,38 +376,15 @@ def parse_marker_gene_coverages(desired_species_name, combination_type=None, dir
     species_coverage_matrix = numpy.array(species_coverage_matrix)
     return species_coverage_matrix, samples, species
 
-    
-def parse_global_marker_gene_coverages(combination_type=None, depth_threshold=10, directory_prefix=default_directory_prefix):
 
-    if combination_type==None:
-        coverage_file_prefix = ""
-    else:
-        coverage_file_prefix = combination_type + "_"
-    
+################
+#
+# Methods for determining whether samples or sites pass certain depth requirements
+#
+################
+  
 
-    file = bz2.BZ2File("%sspecies/%scoverage.txt.bz2" %  (directory_prefix, coverage_file_prefix),"r")
-    line = file.readline() # header
-    samples = line.split()[1:]
-    species = []
-    species_coverage_matrix = []
-    for line in file:
-        items = line.split()
-        species_name = items[0]
-        #print items
-        coverages = numpy.array([float(item) for item in items[1:]])
-        
-        if coverages.sum() > depth_threshold:
-            species.append(species_name)
-            species_coverage_matrix.append(coverages)
-    
-    file.close()    
-    species, species_coverage_matrix = zip(*sorted(zip(species, species_coverage_matrix), key=lambda pair: pair[1].sum(), reverse=True))
-    
-    species_coverage_matrix = numpy.array(species_coverage_matrix)
-    return species_coverage_matrix, samples, species
-
-
-def calculate_relative_depth_threshold_map(species_coverage_vector, samples, avg_depth_threshold=20, lower_factor=0.5, upper_factor=2):
+def calculate_relative_depth_threshold_map(sample_coverage_histograms, samples, min_nonzero_median_coverage=5, lower_factor=0.5, upper_factor=2):
     
     # returns map of sample name: coverage threshold
     # essentially filtering out samples whose marker depth coverage
@@ -298,13 +393,34 @@ def calculate_relative_depth_threshold_map(species_coverage_vector, samples, avg
     depth_threshold_map = {}
     for i in xrange(0,len(samples)):
         
-        if species_coverage_vector[i]<avg_depth_threshold:    
-            lower_depth_threshold=1000000001
-            upper_depth_threshold=1000000001
-        else:
-            lower_depth_threshold = species_coverage_vector[i]*lower_factor
-            upper_depth_threshold = species_coverage_vector[i]*upper_factor
+        # Check if coverage distribution meets certain requirements
+        is_bad_coverage_distribution = False
+        
+        # First check if passes median coverage requirement
+        nonzero_median_coverage = stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histograms[i])
+        if round(nonzero_median_coverage) < min_nonzero_median_coverage:
+            is_bad_coverage_distribution=True
     
+        # Passed median coverage requirement
+        # Now check whether a significant number of sites fall between lower and upper factor. 
+        lower_depth_threshold = floor(nonzero_median_coverage*lower_factor)-0.5
+        upper_depth_threshold = ceil(nonzero_median_coverage*upper_factor)+0.5
+    
+        depths, depth_CDF = stats_utils.calculate_CDF_from_histogram(sample_coverage_histograms[i])
+        # remove zeros
+        if depths[0]<0.5:
+            depth_CDF -= depth_CDF[0]
+            depth_CDF /= depth_CDF[-1]
+        
+        fraction_in_good_range = depth_CDF[(depths>lower_depth_threshold)*(depths<upper_depth_threshold)].sum()
+    
+        if fraction_in_good_range < 0.6:
+            is_bad_coverage_distribution=True
+            
+        if is_bad_coverage_distribution:
+            lower_depth_threshold = 1000000001
+            upper_depth_threshold = 1000000001
+        
         depth_threshold_map[samples[i]] = (lower_depth_threshold, upper_depth_threshold)
         
     return depth_threshold_map
@@ -328,42 +444,80 @@ def calculate_absolute_depth_threshold_map(species_coverage_vector, samples, avg
         depth_threshold_map[samples[i]] = (lower_depth_threshold, upper_depth_threshold)
         
     return depth_threshold_map
+  
+
+###############################################################################
+#
+# Reads midas output and prints to stdout in a format 
+# suitable for further downstream processing
+#
+# In the process, filters sites that fail to meet the depth requirements
+#
+###############################################################################
+def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.5, upper_factor=2, debug=False):
     
     
-def combine_replicates(species_name, grouping_replicate_map, output_prefix, directory_prefix=default_directory_prefix,debug=False):
-    # writes new files after combining technical replicates according to groupings in the grouping -> {replicates} map
-      
-    ref_freq_file = bz2.BZ2File("%ssnps/%s/snps_ref_freq.txt.bz2" % (default_directory_prefix, species_name),"r")
-    depth_file = bz2.BZ2File("%ssnps/%s/snps_depth.txt.bz2" % (default_directory_prefix, species_name),"r")
+    # Load genomic coverage distributions
+    sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name)
+    depth_threshold_map = calculate_relative_depth_threshold_map(sample_coverage_histograms, sample_list, min_nonzero_median_coverage, lower_factor, upper_factor)
     
-    combined_ref_freq_file = bz2.BZ2File("%ssnps/%s/%s_snps_ref_freq.txt.bz2" % (default_directory_prefix, species_name, output_prefix),"w")
-    combined_depth_file = bz2.BZ2File("%ssnps/%s/%s_snps_depth.txt.bz2" % (default_directory_prefix, species_name, output_prefix),"w")
+   
+    # Open MIDAS output files
+    ref_freq_file = bz2.BZ2File("%ssnps/%s/snps_ref_freq.txt.bz2" % (data_directory, species_name),"r")
+    depth_file = bz2.BZ2File("%ssnps/%s/snps_depth.txt.bz2" % (data_directory, species_name),"r")
+    alt_allele_file = bz2.BZ2File("%ssnps/%s/snps_alt_allele.txt.bz2" % (data_directory, species_name),"r")
+    info_file = bz2.BZ2File("%ssnps/%s/snps_info.txt.bz2" % (data_directory, species_name),"r")
+    marker_file = bz2.BZ2File("%ssnps/%s/marker_coverage.txt.bz2" % (data_directory, species_name))
     
     # get header lines from each file
     depth_line = depth_file.readline()
     ref_freq_line = ref_freq_file.readline()
+    alt_line = alt_allele_file.readline()
+    info_line = info_file.readline()
+    marker_line = marker_file.readline()
     
     # get list of samples
     depth_items = depth_line.split()
-    samples = depth_items[1:]
+    samples = numpy.array(depth_items[1:])
     
-    # get list of samples
-    ref_freq_items = ref_freq_line.split()
-
-    # calculate new groupings and their associated sample idxs
-    grouping_ids = []
-    replicate_groupings = []
-    for grouping_id in sorted(grouping_replicate_map.keys()):
+    # create depth threshold vector from depth threshold map
+    lower_depth_threshold_vector = []
+    upper_depth_threshold_vector = []
+    for sample in samples:
+        lower_depth_threshold_vector.append(depth_threshold_map[sample][0])
+        upper_depth_threshold_vector.append(depth_threshold_map[sample][1])
         
-        grouping_ids.append(grouping_id)
-        replicate_groupings.append(grouping_replicate_map[grouping_id])
-        
-    grouping_idxs = calculate_grouping_idxs(replicate_groupings, samples)
-
-    # write header lines for both output files
-    combined_depth_file.write("\t".join([depth_items[0]]+grouping_ids))
-    combined_ref_freq_file.write("\t".join([ref_freq_items[0]]+grouping_ids))
+    lower_depth_threshold_vector = numpy.array(lower_depth_threshold_vector)
+    upper_depth_threshold_vector = numpy.array(upper_depth_threshold_vector)
     
+    # Figure out which samples passed our avg_depth_threshold
+    passed_samples = (lower_depth_threshold_vector<1e09)
+    total_passed_samples = passed_samples.sum()
+    
+    # Let's focus on those from now on
+    samples = list(samples[passed_samples])
+    lower_depth_threshold_vector = lower_depth_threshold_vector[passed_samples]
+    upper_depth_threshold_vector = upper_depth_threshold_vector[passed_samples]
+    
+    #print lower_depth_threshold_vector
+    
+    # print header
+    print_str = "\t".join(["site_id"]+samples)
+    print print_str
+    
+    # Only going to look at 1D, 2D, 3D, and 4D sites
+    # (we will restrict to 1D and 4D downstream
+    allowed_variant_types = set(['1D','2D','3D','4D'])
+    
+    allele_counts_syn = [] # alt and reference allele counts at 4D synonymous sites with snps
+    locations_syn = [] # genomic location of 4D synonymous sites with snps
+    genes_syn = [] # gene name of 4D synonymous sites with snps
+    passed_sites_syn = numpy.zeros(len(samples))*1.0
+    
+    allele_counts_non = [] # alt and reference allele counts at 1D nonsynonymous sites with snps
+    locations_non = [] # genomic location of 1D nonsynonymous sites
+    genes_non = [] # gene name of 1D nonsynonymous sites with snps
+    passed_sites_non = numpy.zeros_like(passed_sites_syn)
     
     num_sites_processed = 0
     while True:
@@ -371,153 +525,79 @@ def combine_replicates(species_name, grouping_replicate_map, output_prefix, dire
         # load next lines
         depth_line = depth_file.readline()
         ref_freq_line = ref_freq_file.readline()
+        alt_line = alt_allele_file.readline()
+        info_line = info_file.readline()
         
         # quit if file has ended
         if depth_line=="":
             break
         
-        depth_items = depth_line.split()
-        ref_freq_items = ref_freq_line.split()
-
-        # now parse allele count info
-        depths = numpy.array([float(item) for item in depth_items[1:]])
-        ref_freqs = numpy.array([float(item) for item in ref_freq_items[1:]]) 
-        refs = ref_freqs*depths    
+        # parse site info
+        info_items = info_line.split()
+        variant_type = info_items[5]
         
-        combined_depths = numpy.array([depths[grouping_idxs[i]].sum() for i in xrange(0,len(grouping_idxs))])
-        combined_refs = numpy.array([refs[grouping_idxs[i]].sum() for i in xrange(0,len(grouping_idxs))])
-        combined_ref_freqs = (combined_refs+(combined_depths==0))*1.0/(combined_depths+(combined_depths==0))
-        
-        # write output lines for both output files
-        combined_depth_file.write("\n")
-        combined_depth_file.write("\t".join([depth_items[0]]+["%g" % d for d in combined_depths]))
-        combined_ref_freq_file.write("\n")
-        combined_ref_freq_file.write("\t".join([ref_freq_items[0]]+["%g" % f for f in combined_ref_freqs]))
+        # make sure it is either a 1D or 4D site
+        if not variant_type in allowed_variant_types:
+            continue
     
+        # continue parsing site info
+        gene_name = info_items[6]
+        site_id_items = info_items[0].split("|")
+        contig = site_id_items[0]
+        location = site_id_items[1]
+        new_site_id_str = "|".join([contig, location, gene_name, variant_type])
+        
+        
+    
+        # now parse allele count info
+        depths = numpy.array([float(item) for item in depth_line.split()[1:]])[passed_samples]
+        ref_freqs = numpy.array([float(item) for item in ref_freq_line.split()[1:]])[passed_samples]
+        refs = numpy.round(ref_freqs*depths)   
+        alts = depths-refs
+        
+        passed_sites = (depths>=lower_depth_threshold_vector)*1.0
+        passed_sites *= (depths<=upper_depth_threshold_vector)
+        
+        #print passed_sites.sum(), total_passed_samples, passed_sites.sum()/total_passed_samples
+        
+        # make sure the site is prevalent in enough samples to count as "core"
+        if (passed_sites).sum()*1.0/total_passed_samples < 0.5:
+            continue
+            #passed_sites *= 0
+            
+        refs = refs*passed_sites
+        alts = alts*passed_sites
+        depths = depths*passed_sites
+        
+        total_alts = alts.sum()
+        total_refs = depths.sum()
+        total_depths = total_alts+total_refs
+        
+        
+        # polarize SNP based on consensus in entire dataset
+        if total_alts>total_refs:
+            alts,refs = refs,alts
+            total_alts, total_refs = total_refs, total_alts
+        
+        # print string
+        read_strs = ["%g,%g" % (A,A+R) for A,R in zip(alts, refs)]
+        print_str = "\t".join([new_site_id_str]+read_strs)
+        
+        print print_str
+        #print total_alts
+        
         num_sites_processed+=1
         if num_sites_processed%10000==0:
-            sys.stderr.write("%dk sites processed...\n" % (num_sites_processed/1000))   
+            #sys.stderr.write("%dk sites processed...\n" % (num_sites_processed/1000))   
             if debug:
                 break
     
     ref_freq_file.close()
     depth_file.close()
-    combined_ref_freq_file.close()
-    combined_depth_file.close()
+    alt_allele_file.close()
+    info_file.close()
     
-    # Done!
-    # no return value
-
-def combine_species_marker_gene_replicates(species_name, grouping_replicate_map, output_prefix, directory_prefix=default_directory_prefix):
-    # writes new files after combining technical replicates according to groupings in the grouping -> {replicates} map
-    
-    coverage_file = bz2.BZ2File("%ssnps/%s/marker_coverage.txt.bz2" % (default_directory_prefix, species_name),"r")
-    
-    combined_coverage_file = bz2.BZ2File("%ssnps/%s/%s_marker_coverage.txt.bz2" % (default_directory_prefix, species_name, output_prefix),"w")
-    
-    # get header line
-    line = coverage_file.readline()
-    
-    # get list of samples
-    items = line.split()
-    samples = items[1:]
-    
-    # calculate new groupings and their associated sample idxs
-    grouping_ids = []
-    replicate_groupings = []
-    for grouping_id in sorted(grouping_replicate_map.keys()):
-        
-        grouping_ids.append(grouping_id)
-        replicate_groupings.append(grouping_replicate_map[grouping_id])
-        
-    grouping_idxs = calculate_grouping_idxs(replicate_groupings, samples)
-
-    # write header lines for output file
-    combined_coverage_file.write("\t".join([items[0]]+grouping_ids))
-    
-    num_sites_processed = 0
-    while True:
-            
-        # load next lines
-        line = coverage_file.readline()
-        
-        # quit if file has ended
-        if line=="":
-            break
-        
-        items = line.split()
-        
-        # now parse allele count info
-        depths = numpy.array([float(item) for item in items[1:]])
-        
-        combined_depths = numpy.array([depths[grouping_idxs[i]].sum() for i in xrange(0,len(grouping_idxs))])
-        
-        # write output lines for both output files
-        combined_coverage_file.write("\n")
-        combined_coverage_file.write("\t".join([items[0]]+["%g" % d for d in combined_depths]))
-        
-        
-    coverage_file.close()
-    combined_coverage_file.close()
-    
-    # Done!
-    # no return value
-
-    
-def combine_marker_gene_replicates(grouping_replicate_map, output_prefix, directory_prefix=default_directory_prefix):
-    # writes new files after combining technical replicates according to groupings in the grouping -> {replicates} map
-      
-    coverage_file = bz2.BZ2File("%sspecies/coverage.txt.bz2" % (default_directory_prefix),"r")
-    combined_coverage_file = bz2.BZ2File("%sspecies/%s_coverage.txt.bz2" % (default_directory_prefix, output_prefix),"w")
-    
-    # get header line
-    line = coverage_file.readline()
-    
-    # get list of samples
-    items = line.split()
-    samples = items[1:]
-    
-    # calculate new groupings and their associated sample idxs
-    grouping_ids = []
-    replicate_groupings = []
-    for grouping_id in sorted(grouping_replicate_map.keys()):
-        
-        grouping_ids.append(grouping_id)
-        replicate_groupings.append(grouping_replicate_map[grouping_id])
-        
-    grouping_idxs = calculate_grouping_idxs(replicate_groupings, samples)
-
-    # write header lines for output file
-    combined_coverage_file.write("\t".join([items[0]]+grouping_ids))
-    
-    num_sites_processed = 0
-    while True:
-            
-        # load next lines
-        line = coverage_file.readline()
-        
-        # quit if file has ended
-        if line=="":
-            break
-        
-        items = line.split()
-        
-        # now parse allele count info
-        depths = numpy.array([float(item) for item in items[1:]])
-        
-        combined_depths = numpy.array([depths[grouping_idxs[i]].sum() for i in xrange(0,len(grouping_idxs))])
-        
-        # write output lines for both output files
-        combined_coverage_file.write("\n")
-        combined_coverage_file.write("\t".join([items[0]]+["%g" % d for d in combined_depths]))
-        
-        
-    coverage_file.close()
-    combined_coverage_file.close()
-    
-    # Done!
-    # no return value
-
+    # returns nothing
 
 ###############################################################################
 #
@@ -526,16 +606,10 @@ def combine_marker_gene_replicates(grouping_replicate_map, output_prefix, direct
 # returns (lots of things, see below)
 #
 ###############################################################################
-def parse_snps(species_name, combination_type=None, debug=False):
-    
-    if combination_type==None:
-        snp_prefix = ""
-    else:
-        snp_prefix = combination_type + "_"
-    
+def parse_snps(species_name, debug=False):
     
     # Open post-processed MIDAS output
-    snp_file =  bz2.BZ2File("%ssnps/%s/%sannotated_snps.txt.bz2" % (default_directory_prefix, species_name, snp_prefix),"r")
+    snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")
     
     line = snp_file.readline() # header
     items = line.split()
@@ -639,174 +713,7 @@ def parse_snps(species_name, combination_type=None, debug=False):
             allele_counts_map[gene_name][variant_type]['alleles'] = numpy.array(allele_counts_map[gene_name][variant_type]['alleles'])
 
     return samples, allele_counts_map, passed_sites_map
-    
 
-  
-
-###############################################################################
-#
-# Reads midas output and prints to stdout in a format 
-# suitable for further downstream processing
-#
-###############################################################################
-def pipe_snps(species_name, combination_type=None, avg_depth_threshold=20, directory_prefix=default_directory_prefix,debug=False):
-    
-    
-    # Load marker gene coverage data
-    species_coverage_matrix, sample_list, species_list = parse_marker_gene_coverages(species_name, combination_type, directory_prefix=directory_prefix)
-    marker_gene_coverages = species_coverage_matrix[species_list.index(species_name),:]
-    # Load genomic coverage distributions
-    sample_coverage_histograms, samples = parse_coverage_distribution(species_name, combination_type=combination_type)
-
-    median_coverages = numpy.array([stats_utils.calculate_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
-
-    #depth_vector =  marker_gene_coverages # we don't use this anymore
-    depth_vector = median_coverages
-    
-    depth_threshold_map = calculate_relative_depth_threshold_map(depth_vector, sample_list, avg_depth_threshold=avg_depth_threshold) #, site_depth_threshold)
-    
-    if combination_type==None:
-        snp_prefix = ""
-    else:
-        snp_prefix = combination_type + "_"
-    
-    # Open MIDAS output files
-    ref_freq_file = bz2.BZ2File("%ssnps/%s/%ssnps_ref_freq.txt.bz2" % (default_directory_prefix, species_name, snp_prefix),"r")
-    depth_file = bz2.BZ2File("%ssnps/%s/%ssnps_depth.txt.bz2" % (default_directory_prefix, species_name, snp_prefix),"r")
-    alt_allele_file = bz2.BZ2File("%ssnps/%s/snps_alt_allele.txt.bz2" % (default_directory_prefix,species_name),"r")
-    info_file = bz2.BZ2File("%ssnps/%s/snps_info.txt.bz2" % (default_directory_prefix, species_name),"r")
-    marker_file = bz2.BZ2File("%ssnps/%s/%smarker_coverage.txt.bz2" % (default_directory_prefix, species_name, snp_prefix))
-    
-    # get header lines from each file
-    depth_line = depth_file.readline()
-    ref_freq_line = ref_freq_file.readline()
-    alt_line = alt_allele_file.readline()
-    info_line = info_file.readline()
-    marker_line = marker_file.readline()
-    
-    # get list of samples
-    depth_items = depth_line.split()
-    samples = numpy.array(depth_items[1:])
-    
-    # get marker gene coverages
-    
-    # create depth threshold vector from depth threshold map
-    lower_depth_threshold_vector = []
-    upper_depth_threshold_vector = []
-    for sample in samples:
-        lower_depth_threshold_vector.append(depth_threshold_map[sample][0])
-        upper_depth_threshold_vector.append(depth_threshold_map[sample][1])
-        
-    lower_depth_threshold_vector = numpy.array(lower_depth_threshold_vector)
-    upper_depth_threshold_vector = numpy.array(upper_depth_threshold_vector)
-    
-    # Figure out which samples passed our avg_depth_threshold
-    passed_samples = (lower_depth_threshold_vector<1e09)
-    total_passed_samples = passed_samples.sum()
-    
-    # Let's focus on those from now on
-    samples = list(samples[passed_samples])
-    lower_depth_threshold_vector = lower_depth_threshold_vector[passed_samples]
-    upper_depth_threshold_vector = upper_depth_threshold_vector[passed_samples]
-    
-    #print lower_depth_threshold_vector
-    
-    # print header
-    print_str = "\t".join(["site_id"]+samples)
-    print print_str
-    
-    # Only going to look at 1D and 4D sites
-    allowed_variant_types = set(['1D','4D'])
-    
-    allele_counts_syn = [] # alt and reference allele counts at 4D synonymous sites with snps
-    locations_syn = [] # genomic location of 4D synonymous sites with snps
-    genes_syn = [] # gene name of 4D synonymous sites with snps
-    passed_sites_syn = numpy.zeros(len(samples))*1.0
-    
-    allele_counts_non = [] # alt and reference allele counts at 1D nonsynonymous sites with snps
-    locations_non = [] # genomic location of 1D nonsynonymous sites
-    genes_non = [] # gene name of 1D nonsynonymous sites with snps
-    passed_sites_non = numpy.zeros_like(passed_sites_syn)
-    
-    num_sites_processed = 0
-    while True:
-            
-        # load next lines
-        depth_line = depth_file.readline()
-        ref_freq_line = ref_freq_file.readline()
-        alt_line = alt_allele_file.readline()
-        info_line = info_file.readline()
-        
-        # quit if file has ended
-        if depth_line=="":
-            break
-        
-        # parse site info
-        info_items = info_line.split()
-        variant_type = info_items[5]
-        
-        # make sure it is either a 1D or 4D site
-        if not variant_type in allowed_variant_types:
-            continue
-    
-        # continue parsing site info
-        gene_name = info_items[6]
-        site_id_items = info_items[0].split("|")
-        contig = site_id_items[0]
-        location = site_id_items[1]
-        new_site_id_str = "|".join([contig, location, gene_name, variant_type])
-        
-        
-    
-        # now parse allele count info
-        depths = numpy.array([float(item) for item in depth_line.split()[1:]])[passed_samples]
-        ref_freqs = numpy.array([float(item) for item in ref_freq_line.split()[1:]])[passed_samples]
-        refs = numpy.round(ref_freqs*depths)   
-        alts = depths-refs
-        
-        passed_sites = (depths>=lower_depth_threshold_vector)*1.0
-        passed_sites *= (depths<=upper_depth_threshold_vector)
-        
-        #print passed_sites.sum(), total_passed_samples, passed_sites.sum()/total_passed_samples
-        
-        # make sure the site is prevalent in enough samples to count as "core"
-        if (passed_sites).sum()*1.0/total_passed_samples < 0.5:
-            continue
-            #passed_sites *= 0
-            
-        refs = refs*passed_sites
-        alts = alts*passed_sites
-        depths = depths*passed_sites
-        
-        total_alts = alts.sum()
-        total_refs = depths.sum()
-        total_depths = total_alts+total_refs
-        
-        
-        # polarize SNP based on consensus in entire dataset
-        if total_alts>total_refs:
-            alts,refs = refs,alts
-            total_alts, total_refs = total_refs, total_alts
-        
-        # print string
-        read_strs = ["%g,%g" % (A,A+R) for A,R in zip(alts, refs)]
-        print_str = "\t".join([new_site_id_str]+read_strs)
-        
-        print print_str
-        #print total_alts
-        
-        num_sites_processed+=1
-        if num_sites_processed%10000==0:
-            sys.stderr.write("%dk sites processed...\n" % (num_sites_processed/1000))   
-            if debug:
-                break
-    
-    ref_freq_file.close()
-    depth_file.close()
-    alt_allele_file.close()
-    info_file.close()
-    
-    # returns nothing
 
 ################################################################################
 #
@@ -815,7 +722,7 @@ def pipe_snps(species_name, combination_type=None, avg_depth_threshold=20, direc
 #
 ################################################################################
 def load_metaphlan2_genes(desired_species_name):
-    gene_file = open("%smetaphlan2_genes/%s_metaphlan2_genes_mapped.txt" % (default_directory_prefix, desired_species_name), 'r')
+    gene_file = open("%smetaphlan2_genes/%s_metaphlan2_genes_mapped.txt" % (data_directory, desired_species_name), 'r')
     
     metaphlan2_genes=[]
     for line in gene_file:

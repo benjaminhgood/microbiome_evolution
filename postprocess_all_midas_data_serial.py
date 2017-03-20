@@ -10,4 +10,4 @@ else:
     argument = 'all'
     
 # Call postprocess_midas_data.py for each species
-os.system('python loop_over_species_wrapper.py %s python postprocess_midas_data.py')
+os.system('python loop_over_species_wrapper.py %s python postprocess_midas_data.py' % argument)

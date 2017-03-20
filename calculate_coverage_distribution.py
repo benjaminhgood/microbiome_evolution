@@ -1,29 +1,31 @@
 import sys
-species=sys.argv[1]
+import bz2
+import numpy
+
+import parse_midas_data
+if len(sys.argv) > 1:
+    species_name=sys.argv[1]
+else:
+    species_name=parse_midas_data.debug_species_name
+
+sys.stderr.write("Calculating coverage distribution for %s...\n" % species_name)
 
 #####
 #
-# Creates a coverage_distribution.txt.bz2 in the species snp directory
-#
-# In this file rows are samples, columns are D,count pairs
+# Creates a coverage_distribution.txt.bz2 file in the species snp directory
+# 
+# In this file, rows are samples, columns are D,count pairs
 # samples are guaranteed to be same order as snps_depth.txt.bz2 file
 #
+# Also creates a gene_coverage.txt.bz2 file in the species snp directory
+# In this file, rows are genes, columns are samples, 
+# entries are avg coverage of that gene for that sample 
 #####
 
-from parse_midas_data import *
-
-#default_directory_prefix =  os.path.expanduser("~/Documents/files_too_big_for_Dropbox/midas_output_121816/")
-combination_type = None
-snp_prefix = get_snp_prefix_from_combination_type(combination_type)
-
 allowed_variant_types = set(["1D","2D","3D","4D"]) # use all types of sites to include most information
-    
 
-
-sys.stderr.write("Processing %s...\n" % species)
- 
-depth_file = bz2.BZ2File("%ssnps/%s/%ssnps_depth.txt.bz2" % (default_directory_prefix, species, snp_prefix))
-info_file = bz2.BZ2File("%ssnps/%s/snps_info.txt.bz2" % (default_directory_prefix, species),"r")
+depth_file = bz2.BZ2File("%ssnps/%s/snps_depth.txt.bz2" % (parse_midas_data.data_directory, species_name),"r")
+info_file = bz2.BZ2File("%ssnps/%s/snps_info.txt.bz2" % (parse_midas_data.data_directory, species_name),"r")
     
 depth_line = depth_file.readline() # header
 info_line = info_file.readline()
@@ -81,9 +83,9 @@ while True:
 depth_file.close()
     
 # Now write output!
-    
+        
 # First write genome-wide coverage distribution
-output_file = bz2.BZ2File("%ssnps/%s/%scoverage_distribution.txt.bz2" % (default_directory_prefix, species, snp_prefix),"w")
+output_file = bz2.BZ2File("%ssnps/%s/coverage_distribution.txt.bz2" % (parse_midas_data.data_directory, species_name),"w")
 output_file.write("SampleID\tD,n(D) ...")
 for sample in samples:
     output_file.write("\n")
@@ -91,7 +93,7 @@ for sample in samples:
 output_file.close()
 
 # Then write gene-specific coverages
-output_file = bz2.BZ2File("%ssnps/%s/%sgene_coverage.txt.bz2" % (default_directory_prefix, species, snp_prefix),"w")
+output_file = bz2.BZ2File("%ssnps/%s/gene_coverage.txt.bz2" % (parse_midas_data.data_directory, species_name),"w")
 output_file.write("\t".join(["Gene"]+samples)) # Header line
 for gene_name in sorted(gene_total_depths.keys()):
     avg_depths = gene_total_depths[gene_name]/(gene_total_sites[gene_name]+(gene_total_sites[gene_name]==0))
@@ -99,5 +101,5 @@ for gene_name in sorted(gene_total_depths.keys()):
     output_file.write("\t".join([gene_name]+["%0.1f" % D for D in avg_depths]))
 output_file.close()
     
-    # Done!
+# Done!
     
