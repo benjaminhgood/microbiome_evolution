@@ -24,8 +24,21 @@ jet = cm = pylab.get_cmap(cmap)
 cNorm  = colors.Normalize(vmin=vmin, vmax=vmax)
 pi_scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
 
-species_name=sys.argv[1]
-
+########################################################################################
+#
+# Standard header to read in argument information
+#
+########################################################################################
+if len(sys.argv)>1:
+    if len(sys.argv)>2:
+        debug=True # debug does nothing in this script
+        species_name=sys.argv[2]
+    else:
+        debug=False
+        species_name=sys.argv[1]
+else:
+    sys.stderr.write("Usage: python command.py [debug] species_name")
+########################################################################################
 
 
 # Load subject and sample metadata
@@ -42,14 +55,13 @@ pylab.title(species_name)
     
 
 # Load genomic coverage distributions
-sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name, combination_type="sample")
-median_coverages = numpy.array([stats_utils.calculate_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
-    
+sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
+median_coverages = numpy.array([stats_utils.calculate_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])    
 sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
 
 # Load SNP information for species_name
 sys.stderr.write("Loading %s...\n" % species_name)
-samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, combination_type="sample", debug=False)
+samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, debug)
 sys.stderr.write("Done!\n")
     
 median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
@@ -59,7 +71,7 @@ median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(
 sys.stderr.write("Calculate synonymous pi matrix...\n")
 pi_matrix_syn, avg_pi_matrix_syn = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D')
 
-sys.stderr.write("Calculate within person SFS")
+sys.stderr.write("Calculate within person SFS...\n")
 sample_freqs, passed_sites = diversity_utils.calculate_sample_freqs( allele_counts_map, passed_sites_map, variant_type='4D')
     
 sfss = []

@@ -79,6 +79,27 @@ def parse_subject_sample_map():
      
     return subject_sample_map 
 
+
+###############################################################################
+#
+# Creates a map of indexes from one list of samples (sample_list_from)
+# to another list of samples (sample_list_to). The from list must be a 
+# strict subset of the to list. 
+#
+###############################################################################
+def calculate_sample_idx_map(sample_list_from, sample_list_to):
+    
+    sample_list_to = list(sample_list_to)
+    sample_map = {}
+    for i in xrange(0,len(sample_list_from)):
+        sample_map[i] = sample_list_to.index(sample_list_from[i])
+    
+    return sample_map
+
+def apply_sample_index_map_to_indices(sample_idx_map, idxs):
+    new_idxs = (numpy.array([sample_idx_map[i] for i in idxs[0]]), numpy.array([sample_idx_map[i] for i in idxs[1]]))
+    return new_idxs
+
 ###############################################################################
 #
 # Prunes sample list to remove multiple timepoints from same subject
@@ -714,46 +735,97 @@ def parse_snps(species_name, debug=False):
 
     return samples, allele_counts_map, passed_sites_map
 
+
 ###############################################################################
 #
-# Loads list of SNPs and counts of target sites from annotated SNPs file
+# Loads MIDAS's pangenome coverage data for a given species 
 #
 # returns (lots of things, see below)
 #
 ###############################################################################
-def parse_gene_presences(species_name):
+def parse_pangenome_data(species_name):
     
     # Open post-processed MIDAS output
+    # Raw read counts
+    gene_reads_file =  bz2.BZ2File("%sgenes/%s/genes_reads.txt.bz2" % (data_directory, species_name),"r")
+    # Depth (read counts / length?)
+    gene_depth_file =  bz2.BZ2File("%sgenes/%s/genes_depth.txt.bz2" % (data_directory, species_name),"r")
+    # Presence absence calls
     gene_presabs_file =  bz2.BZ2File("%sgenes/%s/genes_presabs.txt.bz2" % (data_directory, species_name),"r")
     
-    line = gene_presabs_file.readline() # header
-    items = line.split()
-    samples = items[1:]
+    # First read through gene_summary_file to get marker gene coverages
+    # Gene summary file
+    gene_summary_file = file("%sgenes/%s/genes_summary.txt" % (data_directory, species_name),"r")
+    marker_coverage_map = {}
+    gene_summary_file.readline() # header
+    for summary_line in gene_summary_file:
+        items = summary_line.split()
+        sample = items[0].strip()
+        marker_coverage = float(items[5])
+        marker_coverage_map[sample] = marker_coverage
+    gene_summary_file.close()
+    
+    # Now read through remaining files
+    reads_line = gene_reads_file.readline() # header
+    depth_line = gene_depth_file.readline() # header
+    presabs_line = gene_presabs_file.readline() # header
+    items = presabs_line.split()
+    samples = numpy.array([item.strip() for item in items[1:]])
+    
+    # ordered vector of marker coverages (guaranteed to be in same order as samples)
+    marker_coverages = numpy.array([marker_coverage_map[sample] for sample in samples])
     
     
     gene_presence_matrix = []
+    gene_reads_matrix = []
+    gene_depth_matrix = []
     gene_names = []
     
     num_genes_processed = 0
-    for line in gene_presabs_file:
+    
+    reads_line = gene_reads_file.readline() # header
+    depth_line = gene_depth_file.readline() # header
+    presabs_line = gene_presabs_file.readline() # header
+    
+    while reads_line!="":
         
-        items = line.split()
-        # Load information about gene
+        # Loop through!
+        
+        items = presabs_line.split()
         gene_name = items[0]
         gene_presences = numpy.array([float(item) for item in items[1:]])
         
         if gene_presences.sum() > 0.5:
+        
+            gene_reads = numpy.array([float(item) for item in reads_line.split()[1:]])
+            gene_depths = numpy.array([float(item) for item in depth_line.split()[1:]])
+            
+            # Note to self: not uniform across samples!
+            #gene_lengths = gene_reads/(gene_depths+(gene_reads<0.5))
+            #print gene_lengths
+            
             # gene is present in at least one individual! 
             gene_presence_matrix.append(gene_presences)
-            gene_names.append(gene_name)
+            gene_depth_matrix.append(gene_depths)
+            gene_reads_matrix.append(gene_reads)
+            gene_names.append(gene_name)    
         
         num_genes_processed+=1
         
+        reads_line = gene_reads_file.readline() # header
+        depth_line = gene_depth_file.readline() # header
+        presabs_line = gene_presabs_file.readline() # header
     
+        
+    gene_reads_file.close()
+    gene_depth_file.close()
     gene_presabs_file.close()
     gene_presence_matrix = numpy.array(gene_presence_matrix)
+    gene_depth_matrix = numpy.array(gene_depth_matrix)
+    gene_reads_matrix = numpy.array(gene_reads_matrix)
 
-    return samples, gene_names, gene_presence_matrix
+    return samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
+
 
 ################################################################################
 #

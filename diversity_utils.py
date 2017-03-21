@@ -241,6 +241,39 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map,  variant_type='4
     return pooled_freqs
 
 
+
+def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=3):
+
+    marker_coverages = numpy.clip(marker_coverages,1,1e09)
+    gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)/marker_coverages[None,:]
+
+    # copynum is between 0.5 and 2
+    is_good_copynum = (gene_copynum_matrix>0.5)*(gene_copynum_matrix<2)
+
+    
+    # now size is about to get a lot bigger
+    num_genes = gene_copynum_matrix.shape[0]
+    num_samples = gene_copynum_matrix.shape[1]
+    
+    gene_hamming_matrix = numpy.zeros((num_samples, num_samples))
+    
+    # chunk it up into groups of 1000 genes
+    chunk_size = 1000
+    for i in xrange(0,num_genes/chunk_size):
+        
+        lower_gene_idx = i*chunk_size
+        upper_gene_idx = min([(i+1)*chunk_size, num_genes])
+    
+        sub_gene_copynum_matrix = gene_copynum_matrix[lower_gene_idx:upper_gene_idx,:] 
+        sub_is_good_copynum = is_good_copynum[lower_gene_idx:upper_gene_idx,:] 
+    
+        fold_change_matrix = numpy.fabs( numpy.log2(sub_gene_copynum_matrix[:,:,None]/sub_gene_copynum_matrix[:,None,:]) ) * numpy.logical_or(sub_is_good_copynum[:,:,None],sub_is_good_copynum[:,None,:])
+
+        gene_hamming_matrix += (fold_change_matrix>=min_log2_fold_change).sum(axis=0)
+    
+    return gene_hamming_matrix
+
+
 def calculate_gene_hamming_matrix(gene_presence_matrix):
     
     gene_hamming_matrix = numpy.fabs(gene_presence_matrix[:,:,None]-gene_presence_matrix[:,None,:]).sum(axis=0) 

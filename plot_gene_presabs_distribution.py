@@ -20,7 +20,7 @@ if len(sys.argv)>1:
         debug=False
         species_name=sys.argv[1]
 else:
-    sys.stderr.write("Usage: python plot_pNpS_vs_pi.py [debug] species_name")
+    sys.stderr.write("Usage: python command.py [debug] species_name")
 ########################################################################################
 
 
@@ -28,26 +28,43 @@ else:
 sys.stderr.write("Loading HMP metadata...\n")
 subject_sample_map = parse_midas_data.parse_subject_sample_map()
 sys.stderr.write("Done!\n")
+   
     
 # Load gene presence/absence information for species_name
-sys.stderr.write("Loading %s...\n" % species_name)
-samples, gene_names, gene_presence_matrix = parse_midas_data.parse_gene_presences(species_name)
+sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
+samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name)
+sys.stderr.write("Loaded %d genes across %d samples\n" % gene_depth_matrix.shape)
 sys.stderr.write("Done!\n")
+
+
+min_marker_coverage = 20
+high_coverage_samples = samples[marker_coverages>=min_marker_coverage]
+print len(high_coverage_samples), "high coverage samples"
+
+# Load metaphlan2 genes
+metaphlan2_genes = set(parse_midas_data.load_metaphlan2_genes(species_name))   
+metaphlan2_gene_idxs = numpy.array([gene_name in metaphlan2_genes for gene_name in gene_names])
     
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculate gene hamming matrix...\n")
-gene_hamming_matrix = diversity_utils.calculate_gene_hamming_matrix(gene_presence_matrix)
-    
+#gene_hamming_matrix = diversity_utils.calculate_gene_hamming_matrix(gene_presence_matrix)
+gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
 
 # Calculate fraction of shared genes
 sys.stderr.write("Calculate gene sharing matrix...\n")
 gene_sharing_matrix = diversity_utils.calculate_gene_sharing_matrix(gene_presence_matrix)
+
+
+sample_idx_map = parse_midas_data.calculate_sample_idx_map(high_coverage_samples, samples)
     
     
 # Calculate which pairs of idxs belong to the same sample, which to the same subject
 # and which to different subjects
-same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_subject_pairs(subject_sample_map, samples)
-    
+high_coverage_same_sample_idxs, high_coverage_same_subject_idxs, high_coverage_diff_subject_idxs = parse_midas_data.calculate_subject_pairs(subject_sample_map, high_coverage_samples)
+
+same_sample_idxs = parse_midas_data.apply_sample_index_map_to_indices(sample_idx_map, high_coverage_same_sample_idxs)  
+same_subject_idxs = parse_midas_data.apply_sample_index_map_to_indices(sample_idx_map, high_coverage_same_subject_idxs)  
+diff_subject_idxs = parse_midas_data.apply_sample_index_map_to_indices(sample_idx_map, high_coverage_diff_subject_idxs)  
    
 hamming_timepoints = gene_hamming_matrix[same_subject_idxs]
 hamming_timepoints.sort()
@@ -66,8 +83,8 @@ gene_count_survivals /= gene_count_survivals[0]
 
 
 print "Median gene count=", numpy.median(gene_presence_matrix.sum(axis=0))    
-print "Median timepoints=", numpy.median(hamming_timepoints)
-print "Median between=", numpy.median(hamming_between)
+print "Median timepoints=", numpy.median(hamming_timepoints[hamming_timepoints>0.8])
+print "Median between=", numpy.median(hamming_between[hamming_between>0.8])
 
 pylab.figure(1,figsize=(5,3))
 pylab.title(species_name,fontsize=11)
@@ -83,12 +100,13 @@ pylab.step(hamming_between_dns, hamming_between_survivals,color='r',label='Diffe
 pylab.step(hamming_timepoints_dns, hamming_timepoints_survivals,color='g',label='Differ across time')
 pylab.step(gene_count_ns, gene_count_survivals,color='b',label='Present per person')
 
-pylab.legend(loc='lower left',frameon=False,fontsize=9)
+pylab.legend(loc='upper right',frameon=False,fontsize=9)
 pylab.semilogx([1e-02],[-1])
 pylab.ylim([0,1.05])
 pylab.xlim([1,1e04])
 pylab.savefig('%s/%s_gene_hamming_distribution.pdf' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight')
-#pylab.show()
+pylab.savefig('%s/%s_gene_hamming_distribution.png' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight',dpi=300)
+
 
 pylab.figure(2,figsize=(5,3))
 pylab.title(species_name,fontsize=11)
@@ -117,6 +135,53 @@ pylab.legend(loc='lower left',frameon=False,fontsize=9)
 pylab.ylim([0,1.05])
 pylab.xlim([0,1.05])
 pylab.savefig('%s/%s_gene_sharing_distribution.pdf' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight')
-#pylab.show()
+pylab.savefig('%s/%s_gene_sharing_distribution.png' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight',dpi=300)
+
+pylab.figure(3,figsize=(5,3))
+pylab.title(species_name,fontsize=11)
+pylab.xlabel('Number of samples with gene',fontsize=11)
+pylab.ylabel('Fraction of genes',fontsize=11)
+pylab.gca().spines['top'].set_visible(False)
+pylab.gca().spines['right'].set_visible(False)
+pylab.gca().get_xaxis().tick_bottom()
+pylab.gca().get_yaxis().tick_left()
+  
+# Plot gene prevalence SFS
+samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
+
+gene_copy_numbers = (gene_depth_matrix/marker_coverages)[:,marker_coverages>=min_marker_coverage]
+   
+gene_prevalences = (gene_copy_numbers>0.1).sum(axis=1)
+stringent_gene_prevalences = (gene_copy_numbers>0.5).sum(axis=1)
+lax_gene_prevalences = (gene_copy_numbers>0.01).sum(axis=1)
+
+prevalence_bins = numpy.arange(0,gene_copy_numbers.shape[1]+2)-0.5
+prevalences = prevalence_bins[1:]+(prevalence_bins[1]-prevalence_bins[0])/2    
+prevalences /= prevalences[-1]
+
+prevalence_counts = numpy.histogram(gene_prevalences, prevalence_bins)[0]*1.0
+prevalence_counts /= prevalence_counts.sum()
+
+stringent_prevalence_counts = numpy.histogram(stringent_gene_prevalences, prevalence_bins)[0]*1.0
+stringent_prevalence_counts /= stringent_prevalence_counts.sum()
+
+lax_prevalence_counts = numpy.histogram(lax_gene_prevalences, prevalence_bins)[0]*1.0
+lax_prevalence_counts /= lax_prevalence_counts.sum()
+
+
+metaphlan2_prevalence_counts = numpy.histogram(gene_prevalences[metaphlan2_gene_idxs], prevalence_bins)[0]*1.0
+metaphlan2_prevalence_counts /= metaphlan2_prevalence_counts.sum()
+
+pylab.semilogy(prevalences, stringent_prevalence_counts, 'k.-',label='All genes (CN>0.5)')
+pylab.semilogy(prevalences, prevalence_counts, 'b.-',label='All genes (CN>0.1)')
+pylab.semilogy(prevalences, lax_prevalence_counts, 'g.-',label='All genes (CN>0.01)')
+
+#pylab.semilogy(prevalences, metaphlan2_prevalence_counts, 'r.',label='Metaphlan2 genes (CN>0.1)')
     
+pylab.legend(loc='upper left',frameon=False,fontsize=8)
+#pylab.semilogx([1e-02],[-1])
+pylab.ylim([0,1.05])
+pylab.xlim([-0.05, 1.05])
+pylab.savefig('%s/%s_gene_presence_sfs.pdf' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight')
+pylab.savefig('%s/%s_gene_presence_sfs.png' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight',dpi=300)
     
