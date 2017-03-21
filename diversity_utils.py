@@ -240,7 +240,20 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map,  variant_type='4
     pooled_freqs = numpy.array(pooled_freqs)
     return pooled_freqs
 
-     
+
+def calculate_gene_hamming_matrix(gene_presence_matrix):
+    
+    gene_hamming_matrix = numpy.fabs(gene_presence_matrix[:,:,None]-gene_presence_matrix[:,None,:]).sum(axis=0) 
+    return gene_hamming_matrix
+
+def calculate_gene_sharing_matrix(gene_presence_matrix):
+
+    total_genes = gene_presence_matrix.sum(axis=0)
+    
+    shared_genes = (gene_presence_matrix[:,:,None]*gene_presence_matrix[:,None,:]).sum(axis=0)
+
+    gene_sharing_matrix = shared_genes*1.0/(total_genes[:,None]+total_genes[None,:]-shared_genes)
+    return gene_sharing_matrix
 
 def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None, min_freq=0, min_change=0.8):
 

@@ -714,6 +714,46 @@ def parse_snps(species_name, debug=False):
 
     return samples, allele_counts_map, passed_sites_map
 
+###############################################################################
+#
+# Loads list of SNPs and counts of target sites from annotated SNPs file
+#
+# returns (lots of things, see below)
+#
+###############################################################################
+def parse_gene_presences(species_name):
+    
+    # Open post-processed MIDAS output
+    gene_presabs_file =  bz2.BZ2File("%sgenes/%s/genes_presabs.txt.bz2" % (data_directory, species_name),"r")
+    
+    line = gene_presabs_file.readline() # header
+    items = line.split()
+    samples = items[1:]
+    
+    
+    gene_presence_matrix = []
+    gene_names = []
+    
+    num_genes_processed = 0
+    for line in gene_presabs_file:
+        
+        items = line.split()
+        # Load information about gene
+        gene_name = items[0]
+        gene_presences = numpy.array([float(item) for item in items[1:]])
+        
+        if gene_presences.sum() > 0.5:
+            # gene is present in at least one individual! 
+            gene_presence_matrix.append(gene_presences)
+            gene_names.append(gene_name)
+        
+        num_genes_processed+=1
+        
+    
+    gene_presabs_file.close()
+    gene_presence_matrix = numpy.array(gene_presence_matrix)
+
+    return samples, gene_names, gene_presence_matrix
 
 ################################################################################
 #

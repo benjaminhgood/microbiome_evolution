@@ -45,28 +45,39 @@ def calculate_CDF_from_histogram(histogram):
     CDF = ns.cumsum()/ns.sum()
     return xs, CDF
 
+  
 ####
 #
 # Calculates unnormalized survival functions (i.e. # of observations >= x)
 # from numpy vector of observations
 #
 ####
-def calculate_unnormalized_survival_from_vector(observations):
+def calculate_unnormalized_survival_from_vector(xs, min_x=None, max_x=None, min_p=1e-10):
 
-    unique_observations = set(observations)
-    unique_observations.add(observations.min()-1)
-    unique_observations.add(observations.max()+1)
+    if min_x==None:
+        min_x = xs.min()-1
+    
+    if max_x==None:
+        max_x = xs.max()+1
+        
+    unique_xs = set(xs)
+    unique_xs.add(min_x)
+    unique_xs.add(max_x)
     
     xvalues = []
     num_observations = []
     
-    for x in sorted(unique_observations):
+    for x in sorted(unique_xs):
         xvalues.append(x)
-        num_observations.append( (observations>=x).sum() )
+        num_observations.append( (xs>=x).sum() )
     
-    num_observations[-1] = 1e-12    
+    # So that we can plot CDF, SF on log scale
+    num_observations[0] -= min_p
+    num_observations[1] -= min_p
+    num_observations[-1] += min_p    
+    
     return numpy.array(xvalues), numpy.array(num_observations)
-    
+     
     
 ####
 #
