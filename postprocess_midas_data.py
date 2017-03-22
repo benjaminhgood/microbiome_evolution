@@ -1,3 +1,4 @@
+#!/usr/bin/env python 
 ### This script runs the necessary post-processing of the MIDAS output so that we can start analyzing
 import os
 import sys

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 ### This script is used to run a subscript over a list of species. 
 ### Meant as a general purpose wrapper for species looping functionality.
 ### Maybe we'll add a cluster specific version later. 

@@ -49,7 +49,7 @@ while True:
         break
         
     # parse site info
-    info_items = info_line.split()
+    info_items = info_line.split('\t')
     variant_type = info_items[5]
         
     # make sure it is either a 1D or 4D site
