@@ -123,4 +123,5 @@ cbar.set_ticklabels(['$10^{-4}$','$10^{-3}$','$10^{-2}$'])
 fig.text(0.947,0.035,'$\\pi_s$',fontsize=12)
     
 pylab.savefig('%s/%s_within_person_sfs.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
-    
+pylab.savefig('%s/%s_within_person_sfs.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
+     
