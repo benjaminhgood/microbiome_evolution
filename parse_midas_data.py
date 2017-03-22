@@ -1,6 +1,7 @@
 import numpy
 import sys
 import bz2
+import gzip
 import os.path 
 import stats_utils
 from math import floor, ceil
@@ -752,8 +753,8 @@ def parse_snps(species_name, debug=False, desired_samples=None):
 # returns (lots of things, see below)
 #
 ###############################################################################
-def parse_pangenome_data(species_name):
-    
+def parse_pangenome_data(species_name,allowed_genes=[]):
+        
     # Open post-processed MIDAS output
     # Raw read counts
     gene_reads_file =  bz2.BZ2File("%sgenes/%s/genes_reads.txt.bz2" % (data_directory, species_name),"r")
@@ -852,6 +853,28 @@ def load_metaphlan2_genes(desired_species_name):
     gene_file.close()    
     
     return metaphlan2_genes
+    
+###############################################################################
+#
+# Loads list of genes in the reference genome used by MIDAS for a given species
+#
+###############################################################################
+def load_reference_genes(desired_species_name):
+
+    
+    features_file = gzip.open("%smidas_db_v1.2/rep_genomes/%s/genome.features.gz" % (data_directory, desired_species_name), 'r')
+    
+    features_file.readline() # header
+    reference_genes = []
+    for line in features_file:
+        items = line.split()
+        gene_name = items[0].strip()
+        reference_genes.append(gene_name)
+    features_file.close()    
+    
+    return reference_genes
+    
+    
 
 ########################################################################################
 #

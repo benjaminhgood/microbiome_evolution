@@ -36,7 +36,6 @@ samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, 
 sys.stderr.write("Loaded %d genes across %d samples\n" % gene_depth_matrix.shape)
 sys.stderr.write("Done!\n")
 
-
 min_marker_coverage = 20
 high_coverage_samples = samples[marker_coverages>=min_marker_coverage]
 print len(high_coverage_samples), "high coverage samples"
@@ -44,12 +43,18 @@ print len(high_coverage_samples), "high coverage samples"
 # Load metaphlan2 genes
 metaphlan2_genes = set(parse_midas_data.load_metaphlan2_genes(species_name))   
 metaphlan2_gene_idxs = numpy.array([gene_name in metaphlan2_genes for gene_name in gene_names])
-    
+
+# Load reference genes
+reference_genes = set(parse_midas_data.load_reference_genes(species_name))   
+reference_gene_idxs = numpy.array([gene_name in reference_genes for gene_name in gene_names])  
+  
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculate gene hamming matrix...\n")
 #gene_hamming_matrix = diversity_utils.calculate_gene_hamming_matrix(gene_presence_matrix)
-gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
-
+# For all genes in pan-genome
+#gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+# Just the subset from the MIDAS reference genome
+gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix[reference_gene_idxs,:], marker_coverages, min_log2_fold_change=4)
 # Calculate fraction of shared genes
 sys.stderr.write("Calculate gene sharing matrix...\n")
 gene_sharing_matrix = diversity_utils.calculate_gene_sharing_matrix(gene_presence_matrix)
@@ -172,12 +177,13 @@ lax_prevalence_counts /= lax_prevalence_counts.sum()
 metaphlan2_prevalence_counts = numpy.histogram(gene_prevalences[metaphlan2_gene_idxs], prevalence_bins)[0]*1.0
 metaphlan2_prevalence_counts /= metaphlan2_prevalence_counts.sum()
 
+
+
 pylab.semilogy(prevalences, stringent_prevalence_counts, 'k.-',label='All genes (CN>0.5)')
 pylab.semilogy(prevalences, prevalence_counts, 'b.-',label='All genes (CN>0.1)')
 pylab.semilogy(prevalences, lax_prevalence_counts, 'g.-',label='All genes (CN>0.01)')
 
-#pylab.semilogy(prevalences, metaphlan2_prevalence_counts, 'r.',label='Metaphlan2 genes (CN>0.1)')
-    
+   
 pylab.legend(loc='upper left',frameon=False,fontsize=8)
 #pylab.semilogx([1e-02],[-1])
 pylab.ylim([0,1.05])
@@ -185,3 +191,35 @@ pylab.xlim([-0.05, 1.05])
 pylab.savefig('%s/%s_gene_presence_sfs.pdf' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight')
 pylab.savefig('%s/%s_gene_presence_sfs.png' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight',dpi=300)
     
+# Plot gene prevalence SFS for MIDAS reference genome
+pylab.figure(4,figsize=(5,3))
+pylab.title(species_name,fontsize=11)
+pylab.xlabel('Present in fewer than $n$ samples',fontsize=11)
+pylab.ylabel('Genes in reference genome',fontsize=11)
+pylab.gca().spines['top'].set_visible(False)
+pylab.gca().spines['right'].set_visible(False)
+pylab.gca().get_xaxis().tick_bottom()
+pylab.gca().get_yaxis().tick_left()
+
+reference_gene_prevalences = (gene_copy_numbers[reference_gene_idxs,:]>0.1).sum(axis=1)
+stringent_reference_gene_prevalences = (gene_copy_numbers[reference_gene_idxs,:]>0.5).sum(axis=1)
+lax_reference_gene_prevalences = (gene_copy_numbers[reference_gene_idxs,:]>0.01).sum(axis=1)
+
+prevalence_bins = numpy.arange(0,gene_copy_numbers.shape[1]+2)-0.5
+
+reference_prevalence_counts = numpy.histogram(reference_gene_prevalences, prevalence_bins)[0].cumsum()
+stringent_reference_prevalence_counts = numpy.histogram(stringent_reference_gene_prevalences, prevalence_bins)[0].cumsum()
+lax_reference_prevalence_counts = numpy.histogram(lax_reference_gene_prevalences, prevalence_bins)[0].cumsum()
+
+prevalences = numpy.arange(0,gene_copy_numbers.shape[1]+1)
+  
+
+pylab.semilogy(prevalences, stringent_reference_prevalence_counts, 'k.-',label='CN>0.5')
+pylab.semilogy(prevalences, reference_prevalence_counts, 'b.-',label='CN>0.1')
+pylab.semilogy(prevalences, lax_reference_prevalence_counts, 'g.-',label='CN>0.01')
+pylab.semilogy([10,10],[1,1e04],'k:')
+pylab.xlim([-1,prevalences[-1]+1])
+pylab.legend(loc='lower right',frameon=False,fontsize=8)
+pylab.savefig('%s/%s_reference_gene_presence_sfs.pdf' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight')
+pylab.savefig('%s/%s_reference_gene_presence_sfs.png' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight',dpi=300)
+ 
