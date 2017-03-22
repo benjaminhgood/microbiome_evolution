@@ -16,5 +16,5 @@
 
 OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/
 
-merge_midas.py genes $OUTDIR/genes -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/ --sample_depth 10 --min_samples 1 --max_species 150 >& $OUTDIR/genes.log
+merge_midas.py genes $OUTDIR/genes -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/ -t dir --sample_depth 10 --min_samples 1 --max_species 150 >& $OUTDIR/genes.log
 
