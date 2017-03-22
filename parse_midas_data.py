@@ -100,6 +100,15 @@ def apply_sample_index_map_to_indices(sample_idx_map, idxs):
     new_idxs = (numpy.array([sample_idx_map[i] for i in idxs[0]]), numpy.array([sample_idx_map[i] for i in idxs[1]]))
     return new_idxs
 
+def sample_name_lookup(sample_name, samples):
+    
+    for sample in samples:
+    
+        if sample.startswith(sample_name):
+            return sample
+            
+    return ""
+
 ###############################################################################
 #
 # Prunes sample list to remove multiple timepoints from same subject
@@ -627,7 +636,7 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.5, upp
 # returns (lots of things, see below)
 #
 ###############################################################################
-def parse_snps(species_name, debug=False):
+def parse_snps(species_name, debug=False, desired_samples=None):
     
     # Open post-processed MIDAS output
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")
@@ -721,7 +730,7 @@ def parse_snps(species_name, debug=False):
         allele_counts_map[gene_name][variant_type]['alleles'].append(allele_counts)
         
         num_sites_processed+=1
-        if num_sites_processed%10000==0:
+        if num_sites_processed%50000==0:
             sys.stderr.write("%dk sites processed...\n" % (num_sites_processed/1000))   
             if debug:
                 break
@@ -733,7 +742,7 @@ def parse_snps(species_name, debug=False):
             
             allele_counts_map[gene_name][variant_type]['alleles'] = numpy.array(allele_counts_map[gene_name][variant_type]['alleles'])
 
-    return samples, allele_counts_map, passed_sites_map
+    return numpy.array(samples), allele_counts_map, passed_sites_map
 
 
 ###############################################################################

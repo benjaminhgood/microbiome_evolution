@@ -295,12 +295,16 @@ def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type=
         
     fixation_matrix = numpy.zeros_like(passed_sites_map[passed_sites_map.keys()[0]][variant_type]['sites'])*1.0
     
+    passed_sites = numpy.zeros_like(fixation_matrix)
+    
     for gene_name in allowed_genes:
         
         if gene_name in allele_counts_map.keys():
 
+            passed_sites += passed_sites_map[gene_name][variant_type]['sites']
+            
             allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
-
+                        
             if len(allele_counts)==0:
                 continue
 
@@ -316,7 +320,9 @@ def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type=
         
             fixation_matrix += delta_freq.sum(axis=0)
         
-    return fixation_matrix
+    persite_fixation_matrix = fixation_matrix/(passed_sites+(passed_sites<0.1))
+    
+    return fixation_matrix, persite_fixation_matrix
     
 def calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None):
 
