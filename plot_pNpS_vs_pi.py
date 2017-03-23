@@ -50,6 +50,8 @@ median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(
 # Calculate full matrix of synonymous pairwise differences
 sys.stderr.write("Calculate synonymous pi matrix...\n")
 pi_matrix_syn, avg_pi_matrix_syn = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D')
+pis = numpy.diag(pi_matrix_syn)
+
 # Calculate fixation matrix
 fixation_matrix_syn, persite_fixation_matrix_syn = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type='4D', min_change=min_change)
     
@@ -66,6 +68,8 @@ sys.stderr.write("Done!\n")
 # Only plot samples above a certain depth threshold
 high_coverage_samples = samples[median_coverages>=min_coverage]
 
+high_coverage_low_pi_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
+
 # Calculate which pairs of idxs belong to the same sample, which to the same subject
 # and which to different subjects
 high_coverage_same_sample_idxs, high_coverage_same_subject_idxs, high_coverage_diff_subject_idxs = parse_midas_data.calculate_subject_pairs(subject_sample_map, high_coverage_samples)
@@ -77,9 +81,22 @@ same_sample_idxs  = parse_midas_data.apply_sample_index_map_to_indices(sample_id
 same_subject_idxs  = parse_midas_data.apply_sample_index_map_to_indices(sample_idx_map,  high_coverage_same_subject_idxs)    
 #
 diff_subject_idxs  = parse_midas_data.apply_sample_index_map_to_indices(sample_idx_map,  high_coverage_diff_subject_idxs)    
+
+
+# Calculate which pairs of idxs belong to the same sample, which to the same subject
+# and which to different subjects
+high_coverage_low_pi_same_sample_idxs, high_coverage_low_pi_same_subject_idxs, high_coverage_low_pi_diff_subject_idxs = parse_midas_data.calculate_subject_pairs(subject_sample_map, high_coverage_low_pi_samples)
+ 
+low_pi_sample_idx_map = parse_midas_data.calculate_sample_idx_map(high_coverage_low_pi_samples, samples)
+
+low_pi_same_sample_idxs  = parse_midas_data.apply_sample_index_map_to_indices(low_pi_sample_idx_map,  high_coverage_low_pi_same_sample_idxs)    
+#
+low_pi_same_subject_idxs  = parse_midas_data.apply_sample_index_map_to_indices(low_pi_sample_idx_map,  high_coverage_low_pi_same_subject_idxs)    
+#
+low_pi_diff_subject_idxs  = parse_midas_data.apply_sample_index_map_to_indices(low_pi_sample_idx_map,  high_coverage_low_pi_diff_subject_idxs)    
+
         
 fst_matrix_syn = numpy.clip(pi_matrix_syn-avg_pi_matrix_syn,0,1)
-pis = numpy.diag(pi_matrix_syn)
 desired_idxs = numpy.nonzero(pis<1e-03)[0]
     
 print diversity_utils.phylip_distance_matrix_str(fst_matrix_syn[numpy.ix_(desired_idxs, desired_idxs)], [samples[idx] for idx in desired_idxs])
@@ -110,13 +127,13 @@ pylab.savefig('%s/%s_pNpS_vs_pi.png' % (parse_midas_data.analysis_directory,spec
 
 pylab.figure()
 pylab.xlabel('$dS$')
-pylab.ylabel('$dN/dS$')
+pylab.ylabel('$dN/(dN+dS)$')
 pylab.ylim([0,1.1])
 pylab.title(species_name)
 
-pylab.semilogx(persite_fixation_matrix_syn[diff_subject_idxs], (persite_fixation_matrix_non/persite_fixation_matrix_syn)[diff_subject_idxs],'r.')
+pylab.semilogx(persite_fixation_matrix_syn[low_pi_diff_subject_idxs], (persite_fixation_matrix_non*1.0/(persite_fixation_matrix_non+persite_fixation_matrix_syn))[low_pi_diff_subject_idxs],'r.')
 
-pylab.semilogx(persite_fixation_matrix_syn[same_subject_idxs], (persite_fixation_matrix_non/persite_fixation_matrix_syn)[same_subject_idxs],'g.')
+pylab.semilogx(persite_fixation_matrix_syn[low_pi_same_subject_idxs], (persite_fixation_matrix_non*1.0/(persite_fixation_matrix_non+persite_fixation_matrix_syn))[low_pi_same_subject_idxs],'g.')
 
 pylab.savefig('%s/%s_dNdS_vs_dS.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
 pylab.savefig('%s/%s_dNdS_vs_dS.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')

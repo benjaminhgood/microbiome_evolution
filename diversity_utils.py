@@ -311,7 +311,7 @@ def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type=
             depths = allele_counts.sum(axis=2)
             alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
             alt_freqs[alt_freqs<min_freq] = 0.0
-            alt_freqs[alt_freqs>(1-min_freq)] = 1.0
+            alt_freqs[alt_freqs>=(1-min_freq)] = 1.0
             passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
     
             delta_freq = numpy.fabs(alt_freqs[:,:,None]-alt_freqs[:,None,:])
@@ -319,6 +319,8 @@ def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type=
             delta_freq[delta_freq<min_change] = 0
         
             fixation_matrix += delta_freq.sum(axis=0)
+        
+            # add new one here only if there are a sufficient number of sites.
         
     persite_fixation_matrix = fixation_matrix/(passed_sites+(passed_sites<0.1))
     
@@ -370,6 +372,53 @@ def calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', 
     avg_pi_matrix = avg_pi_matrix/(passed_sites+(passed_sites==0))
     
     return pi_matrix, avg_pi_matrix
+
+
+def calculate_doubleton_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None, allowed_sample_idxs=numpy.array([])):
+
+    if allowed_genes == None:
+        allowed_genes = set(passed_sites_map.keys())
+    
+    
+    num_samples = passed_sites_map[passed_sites_map.keys()[0]][variant_type]['sites'].shape[1]
+     
+    if len(allowed_sample_idxs)==0:
+        allowed_sample_idxs = numpy.array([True]*num_samples)
+    else:
+        num_samples = allowed_sample_idxs.sum()    
+        
+    doubleton_matrix = numpy.zeros_like((num_samples,num_samples))*1.0
+    
+    passed_sites = numpy.zeros_like(fixation_matrix)
+    
+    for gene_name in allowed_genes:
+        
+        if gene_name in allele_counts_map.keys():
+
+            passed_sites += passed_sites_map[gene_name][variant_type]['sites']
+            
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+                        
+            if len(allele_counts)==0:
+                continue
+
+            depths = allele_counts.sum(axis=2)
+            alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
+            alt_freqs[alt_freqs<min_freq] = 0.0
+            alt_freqs[alt_freqs>=(1-min_freq)] = 1.0
+            passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
+    
+            delta_freq = numpy.fabs(alt_freqs[:,:,None]-alt_freqs[:,None,:])
+            delta_freq[passed_depths==0] = 0
+            delta_freq[delta_freq<min_change] = 0
+        
+            fixation_matrix += delta_freq.sum(axis=0)
+        
+            # add new one here only if there are a sufficient number of sites.
+        
+    persite_fixation_matrix = fixation_matrix/(passed_sites+(passed_sites<0.1))
+    
+    return fixation_matrix, persite_fixation_matrix
 
     
 def phylip_distance_matrix_str(matrix, samples):
