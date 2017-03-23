@@ -118,8 +118,8 @@ pylab.title(species_name)
 
 pylab.loglog(total_fixation_matrix[diff_subject_snp_idxs], gene_hamming_matrix[diff_subject_gene_idxs],'r.')
 pylab.loglog(total_fixation_matrix[same_subject_snp_idxs], gene_hamming_matrix[same_subject_gene_idxs],'g.')
-pylab.plot([1e-06,1e-01],[1,1],'k:')
-pylab.plot([1,1],[1e-06,1e-01],'k:')
+pylab.plot([1e-01,1e6],[1,1],'k:')
+pylab.plot([1,1],[1e-01,1e04],'k:')
 
 
 pylab.savefig('%s/%s_gene_differences_vs_substitutions.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
