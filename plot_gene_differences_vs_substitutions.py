@@ -102,7 +102,7 @@ diff_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene
 
 
 # Example: get the precise changes between samples from the same subject
-for sample_pair_idx in xrange(0,len(same_subject_snp_idxs)):
+for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 
     i = same_subject_snp_idxs[0][sample_pair_idx]
     j = same_subject_snp_idxs[1][sample_pair_idx]
