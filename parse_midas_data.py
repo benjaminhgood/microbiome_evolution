@@ -924,8 +924,8 @@ def calculate_time_pairs(subject_sample_time_map, samples):
                 #iterate through visit numbers. Append the index, day, and visnos to their lists
                 for i in visnos:        
                     if (subject_sample_time_map[subject_id][i][0] in samples) and (i !=1):
-                        index1.append(samples.index(subject_sample_time_map[subject_id][1][0]))
-                        index2.append(samples.index(subject_sample_time_map[subject_id][i][0]))
+                        index1.append(samples.tolist().index(subject_sample_time_map[subject_id][1][0]))
+                        index2.append(samples.tolist().index(subject_sample_time_map[subject_id][i][0]))
                         visno.append(i)
                         day.append(subject_sample_time_map[subject_id][i][1])
         
