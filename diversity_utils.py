@@ -350,8 +350,8 @@ def calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', 
          
 
             depths = allele_counts.sum(axis=2)
-            freqs = allele_counts/(depths+(depths==0))[:,:,None]
-            self_freqs = (allele_counts-1)/(depths-1+2*(depths==0))[:,:,None]
+            freqs = allele_counts/(depths+(depths<0.1))[:,:,None]
+            self_freqs = (allele_counts-1)/(depths-1+2*(depths<1.1))[:,:,None]
             self_pis = ((depths>0)-(freqs*self_freqs).sum(axis=2))
              
             I,J = depths.shape
