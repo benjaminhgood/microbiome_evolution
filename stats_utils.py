@@ -1,4 +1,6 @@
 import numpy
+from math import log
+from scipy.stats import gamma
 
 ####
 #
@@ -93,4 +95,25 @@ def calculate_IQR_from_histogram(histogram):
     lower_idx = numpy.nonzero(CDF>=0.25)[0][0]
     
     return xs[upper_idx]-xs[lower_idx]
- 
+    
+####
+#
+# Calculates "confidence intervals" on rate from Poisson distribution 
+# based on n>=0 counts at L>=0 sites.
+#
+####
+def calculate_poisson_rate_interval(n,L,alpha=0.05):
+    
+    if n<0.5:
+        # No counts. Have some info on upper bound, but none on lower bound.
+        plower = 0
+        pupper = log(2/alpha)/L
+    
+    else:
+        # Posterior distribution is Gamma with shape n-1 and scale 1/L 
+        # Get confidence intervals from tail probabilities
+        plower = gamma.ppf(alpha/2, n)/L
+        pupper = gamma.ppf(1-alpha/2,n)/L
+        
+    return plower,pupper
+        
