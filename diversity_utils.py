@@ -241,7 +241,8 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map,  variant_type='4
     return pooled_freqs
 
 
-
+# Sandbox method
+# to be moved to diversity_utils.py when debugged
 def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=3):
 
     marker_coverages = numpy.clip(marker_coverages,1,1e09)
@@ -255,6 +256,7 @@ def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_cover
     num_samples = gene_copynum_matrix.shape[1]
     
     gene_hamming_matrix = numpy.zeros((num_samples, num_samples))
+    num_opportunities = numpy.zeros((num_samples, num_samples))
     
     # chunk it up into groups of 1000 genes
     chunk_size = 1000
@@ -267,46 +269,43 @@ def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_cover
         sub_gene_copynum_matrix = gene_copynum_matrix[lower_gene_idx:upper_gene_idx,:] 
         sub_is_good_copynum = is_good_copynum[lower_gene_idx:upper_gene_idx,:] 
     
-        fold_change_matrix = numpy.fabs( numpy.log2(sub_gene_copynum_matrix[:,:,None]/sub_gene_copynum_matrix[:,None,:]) ) * numpy.logical_or(sub_is_good_copynum[:,:,None],sub_is_good_copynum[:,None,:])
+        is_good_opportunity = numpy.logical_or(sub_is_good_copynum[:,:,None],sub_is_good_copynum[:,None,:])
 
+        fold_change_matrix = numpy.fabs( numpy.log2(sub_gene_copynum_matrix[:,:,None]/sub_gene_copynum_matrix[:,None,:]) ) * is_good_opportunity
         gene_hamming_matrix += (fold_change_matrix>=min_log2_fold_change).sum(axis=0)
+        num_opportunities += is_good_opportunity.sum(axis=0)
     
-    return gene_hamming_matrix
+    return gene_hamming_matrix, num_opportunities
 
 
-def calculate_gene_hamming_matrix(gene_presence_matrix):
-    
-    gene_hamming_matrix = numpy.fabs(gene_presence_matrix[:,:,None]-gene_presence_matrix[:,None,:]).sum(axis=0) 
-    return gene_hamming_matrix
+def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8):
 
-def calculate_gene_sharing_matrix(gene_presence_matrix):
-
-    total_genes = gene_presence_matrix.sum(axis=0)
-    
-    shared_genes = (gene_presence_matrix[:,:,None]*gene_presence_matrix[:,None,:]).sum(axis=0)
-
-    gene_sharing_matrix = shared_genes*1.0/(total_genes[:,None]+total_genes[None,:]-shared_genes)
-    return gene_sharing_matrix
-
-def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=set([]), min_freq=0, min_change=0.8):
+    total_genes = set(passed_sites_map.keys())
 
     if len(allowed_genes)==0:
         allowed_genes = set(passed_sites_map.keys())
-            
-    fixation_matrix = numpy.zeros_like(passed_sites_map[passed_sites_map.keys()[0]][variant_type]['sites'])*1.0
     
+    allowed_genes = (allowed_genes & total_genes)     
+    
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+                    
+    fixation_matrix = numpy.zeros_like(passed_sites_map.values()[0].values()[0]['sites'])*1.0  
     passed_sites = numpy.zeros_like(fixation_matrix)
     
     for gene_name in allowed_genes:
         
-        if gene_name in allele_counts_map.keys():
-
+        for variant_type in passed_sites_map[gene_name].keys():
+             
+            if variant_type not in allowed_variant_types:
+                continue
+        
             passed_sites += passed_sites_map[gene_name][variant_type]['sites']
-            
-            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
-                        
+   
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
             if len(allele_counts)==0:
                 continue
+            
 
             depths = allele_counts.sum(axis=2)
             alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
@@ -320,12 +319,9 @@ def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type=
         
             fixation_matrix += delta_freq.sum(axis=0)
         
-            # add new one here only if there are a sufficient number of sites.
-        
-    persite_fixation_matrix = fixation_matrix/(passed_sites+(passed_sites<0.1))
-    
-    return fixation_matrix, persite_fixation_matrix
-    
+    return fixation_matrix, passed_sites  
+
+   
 def calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None):
 
     if allowed_genes == None:
