@@ -7,11 +7,11 @@ import numpy
 import diversity_utils
 import stats_utils
 
-########################################################################################
+################################################################################
 #
 # Standard header to read in argument information
 #
-########################################################################################
+################################################################################
 if len(sys.argv)>1:
     if len(sys.argv)>2:
         debug=True # debug does nothing in this script
@@ -21,15 +21,13 @@ if len(sys.argv)>1:
         species_name=sys.argv[1]
 else:
     sys.stderr.write("Usage: python command.py [debug] species_name")
-########################################################################################
-
+################################################################################
 
 # Load subject and sample metadata
 sys.stderr.write("Loading HMP metadata...\n")
 subject_sample_map = parse_midas_data.parse_subject_sample_map()
 sys.stderr.write("Done!\n")
    
-    
 # Load gene presence/absence information for species_name
 sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
 samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name)
@@ -38,7 +36,7 @@ sys.stderr.write("Done!\n")
 
 min_marker_coverage = 20
 high_coverage_samples = samples[marker_coverages>=min_marker_coverage]
-print len(high_coverage_samples), "high coverage samples"
+sys.stderr.write("Focusing on %d high coverage samples...\n" % len(high_coverage_samples))
 
 # Load metaphlan2 genes
 metaphlan2_genes = set(parse_midas_data.load_metaphlan2_genes(species_name))   
@@ -50,19 +48,19 @@ reference_gene_idxs = numpy.array([gene_name in reference_genes for gene_name in
   
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculate gene hamming matrix...\n")
-#gene_hamming_matrix = diversity_utils.calculate_gene_hamming_matrix(gene_presence_matrix)
-# For all genes in pan-genome
-#gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
-# Just the subset from the MIDAS reference genome
-gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix[reference_gene_idxs,:], marker_coverages, min_log2_fold_change=4)
+# Either: for all genes in pan-genome
+gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+#
+# Or: just the subset from the MIDAS reference genome
+#gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix[reference_gene_idxs,:], marker_coverages, min_log2_fold_change=4)
+#
+
 # Calculate fraction of shared genes
 sys.stderr.write("Calculate gene sharing matrix...\n")
 gene_sharing_matrix = diversity_utils.calculate_gene_sharing_matrix(gene_presence_matrix)
 
-
 sample_idx_map = parse_midas_data.calculate_sample_idx_map(high_coverage_samples, samples)
-    
-    
+        
 # Calculate which pairs of idxs belong to the same sample, which to the same subject
 # and which to different subjects
 high_coverage_same_sample_idxs, high_coverage_same_subject_idxs, high_coverage_diff_subject_idxs = parse_midas_data.calculate_subject_pairs(subject_sample_map, high_coverage_samples)
@@ -155,6 +153,9 @@ pylab.gca().get_yaxis().tick_left()
 samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
 
 gene_copy_numbers = (gene_depth_matrix/marker_coverages)[:,marker_coverages>=min_marker_coverage]
+gene_presence_calls = gene_copy_numbers>0.1
+   
+gene_prevalence_map = {gene_names[i]: gene_presence_calls[i,:].sum() for i in xrange(0,len(gene_names))}
    
 gene_prevalences = (gene_copy_numbers>0.1).sum(axis=1)
 stringent_gene_prevalences = (gene_copy_numbers>0.5).sum(axis=1)
@@ -223,3 +224,15 @@ pylab.legend(loc='lower right',frameon=False,fontsize=8)
 pylab.savefig('%s/%s_reference_gene_presence_sfs.pdf' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight')
 pylab.savefig('%s/%s_reference_gene_presence_sfs.png' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight',dpi=300)
  
+ 
+within_subject_gene_change_prevalences = []
+# Calculate gene content differences
+for i,j in zip(same_subject_idxs[0],same_subject_idxs[1]):
+
+     gene_differences = diversity_utils.calculate_gene_differences_between(i, j, gene_names, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+
+     if len(gene_differences)>0:
+         print "Differences between", i, j
+         for idx in xrange(0,len(gene_differences)):
+             print gene_differences[idx], gene_prevalence_map[gene_differences[idx][0]]
+             

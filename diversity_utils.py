@@ -245,12 +245,11 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map,  variant_type='4
 def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=3):
 
     marker_coverages = numpy.clip(marker_coverages,1,1e09)
-    gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)/marker_coverages[None,:]
+    gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)*1.0/marker_coverages[None,:]
 
     # copynum is between 0.5 and 2
     is_good_copynum = (gene_copynum_matrix>0.5)*(gene_copynum_matrix<2)
-
-    
+  
     # now size is about to get a lot bigger
     num_genes = gene_copynum_matrix.shape[0]
     num_samples = gene_copynum_matrix.shape[1]
@@ -259,7 +258,8 @@ def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_cover
     
     # chunk it up into groups of 1000 genes
     chunk_size = 1000
-    for i in xrange(0,num_genes/chunk_size):
+    num_chunks = long(num_genes/chunk_size)+1
+    for i in xrange(0, num_chunks):
         
         lower_gene_idx = i*chunk_size
         upper_gene_idx = min([(i+1)*chunk_size, num_genes])
@@ -288,11 +288,11 @@ def calculate_gene_sharing_matrix(gene_presence_matrix):
     gene_sharing_matrix = shared_genes*1.0/(total_genes[:,None]+total_genes[None,:]-shared_genes)
     return gene_sharing_matrix
 
-def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None, min_freq=0, min_change=0.8):
+def calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=set([]), min_freq=0, min_change=0.8):
 
-    if allowed_genes == None:
+    if len(allowed_genes)==0:
         allowed_genes = set(passed_sites_map.keys())
-        
+            
     fixation_matrix = numpy.zeros_like(passed_sites_map[passed_sites_map.keys()[0]][variant_type]['sites'])*1.0
     
     passed_sites = numpy.zeros_like(fixation_matrix)
@@ -476,3 +476,90 @@ def estimate_sfs_downsampling(allele_counts, target_depth=10):
     count_density = numpy.exp(loggamma(A+1)-loggamma(A-ks+1)-loggamma(ks+1) + loggamma(D-A+1)-loggamma(D-A-(Dmin-ks)+1)-loggamma(Dmin-ks+1) + loggamma(D-Dmin+1) + loggamma(Dmin+1) - loggamma(D+1)).sum(axis=0)
     
     return count_density
+    
+    
+
+# Calculate polarized SNP changes from i to j that exceed threshold 
+# Returns list of differences. Each difference is a tuple of form 
+#
+# (gene_name, (contig, location), (alt_i, depth_i), (alt_j, depth_j))
+#
+def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8):
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+        
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+    
+    snp_changes = []
+        
+    for gene_name in allowed_genes:
+        
+        if gene_name not in allele_counts_map.keys():
+            continue
+            
+        for variant_type in allele_counts_map[gene_name].keys():
+            
+            if variant_type not in allowed_variant_types:
+                continue
+
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+                        
+            if len(allele_counts)==0:
+                continue
+
+            allele_counts = allele_counts[:,[i,j],:]
+            depths = allele_counts.sum(axis=2)
+            alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
+            alt_freqs[alt_freqs<min_freq] = 0.0
+            alt_freqs[alt_freqs>=(1-min_freq)] = 1.0
+            
+            passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
+    
+            passed_depths = (depths>0)[:,0]*(depths>0)[:,1]
+            
+            delta_freqs = numpy.fabs(alt_freqs[:,1]-alt_freqs[:,0])
+            delta_freqs[passed_depths==0] = 0
+            delta_freqs[delta_freqs<min_change] = 0
+    
+            changed_sites = numpy.nonzero(delta_freqs)[0]
+            
+            if len(changed_sites)>0:
+                # some fixations!
+                
+                for idx in changed_sites:
+                    snp_changes.append((gene_name, allele_counts_map[gene_name][variant_type]['locations'][idx], (allele_counts[idx,0], depths[idx,0]), (allele_counts[idx,1],depths[idx,1]) ))
+                        
+    return snp_changes
+
+# Calculate polarized gene copynum changes from i to j that exceed threshold 
+# Returns list of differences. Each difference is a tuple of form 
+#
+# (gene_name, (cov_i, marker_cov_i), (cov_j, marker_cov_j))
+#
+def calculate_gene_differences_between(i, j, gene_names, gene_depth_matrix, marker_coverages, min_log2_fold_change=3):
+
+    # Look at these two samples
+    gene_depth_matrix = gene_depth_matrix[:,[i,j]]
+    marker_coverages = marker_coverages[[i,j]]
+    
+    marker_coverages = numpy.clip(marker_coverages,1,1e09)
+    gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)*1.0/marker_coverages[None,:]
+
+    gene_differences = []
+
+    # copynum is between 0.5 and 2
+    is_good_copynum = (gene_copynum_matrix>0.5)*(gene_copynum_matrix<2)
+    
+    fold_changes = numpy.fabs(numpy.log2(gene_copynum_matrix[:,1]/gene_copynum_matrix[:,0])) * numpy.logical_or(is_good_copynum[:,0],is_good_copynum[:,1])
+
+    changed_genes = numpy.nonzero(fold_changes>=min_log2_fold_change)[0]
+
+    if len(changed_genes>0):
+    
+        for idx in changed_genes:
+            
+            gene_differences.append( (gene_names[idx], (gene_depth_matrix[idx,0],marker_coverages[0]),  (gene_depth_matrix[idx,1],marker_coverages[1])) )
+            
+    return gene_differences

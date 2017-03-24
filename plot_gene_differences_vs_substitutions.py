@@ -7,11 +7,11 @@ import numpy
 import diversity_utils
 import stats_utils
 
-########################################################################################
+################################################################################
 #
 # Standard header to read in argument information
 #
-########################################################################################
+################################################################################
 if len(sys.argv)>1:
     if len(sys.argv)>2:
         debug=True # debug does nothing in this script
@@ -21,7 +21,7 @@ if len(sys.argv)>1:
         species_name=sys.argv[1]
 else:
     sys.stderr.write("Usage: python command.py [debug] species_name")
-########################################################################################
+################################################################################
 
 min_change = 0.8
 min_coverage = 20
@@ -37,10 +37,8 @@ sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distributi
 median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
 sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
     
-  
-
 # Load SNP information for species_name
-sys.stderr.write("Loading %s...\n" % species_name)
+sys.stderr.write("Loading SNP data for %s...\n" % species_name)
 snp_samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, debug)
 sys.stderr.write("Done!\n")
  
@@ -70,7 +68,7 @@ sys.stderr.write("Done!\n")
 total_fixation_matrix = fixation_matrix_syn + fixation_matrix_non
 
 # Load gene presence/absence information for species_name
-sys.stderr.write("Loading %s...\n" % species_name)
+sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
 gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name)
 sys.stderr.write("Done!\n")
     
@@ -102,6 +100,33 @@ same_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene
 diff_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_diff_subject_idxs)  
 diff_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_diff_subject_idxs)  
 
+
+# Example: get the precise changes between samples from the same subject
+for sample_pair_idx in xrange(0,len(same_subject_snp_idxs)):
+
+    i = same_subject_snp_idxs[0][sample_pair_idx]
+    j = same_subject_snp_idxs[1][sample_pair_idx]
+    snp_differences = diversity_utils.calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, min_change=min_change)
+
+    i = same_subject_gene_idxs[0][sample_pair_idx]
+    j = same_subject_gene_idxs[1][sample_pair_idx]
+    gene_differences = diversity_utils.calculate_gene_differences_between(i, j, gene_names, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+
+    if (len(snp_differences)>0) or (len(gene_differences)>0):
+        # Print them out!
+        print "Changes between pair", sample_pair_idx
+        print "SNPs:"
+        if len(snp_differences)>0:
+            for snp_diff_idx in xrange(0,len(snp_differences)):
+                print snp_differences[snp_diff_idx]
+        print "Genes:"
+        if len(gene_differences)>0:
+            for gene_diff_idx in xrange(0,len(gene_differences)):
+                print gene_differences[gene_diff_idx]
+        
+    else:
+        pass
+        
 
 # Done calculating... now plot figure!
 
