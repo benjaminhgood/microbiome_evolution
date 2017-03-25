@@ -291,7 +291,7 @@ def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_varia
         allowed_variant_types = set(['1D','2D','3D','4D'])    
                     
     fixation_matrix = numpy.zeros_like(passed_sites_map.values()[0].values()[0]['sites'])*1.0  
-    passed_sites = numpy.zeros_like(fixation_matrix)
+    passed_sites = numpy.zeros_like(fixation_matrix)*1.0
     
     for gene_name in allowed_genes:
         
