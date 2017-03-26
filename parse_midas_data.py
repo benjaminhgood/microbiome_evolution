@@ -834,7 +834,7 @@ def parse_within_sample_pi(species_name, debug=False):
 # returns (lots of things, see below)
 #
 ###############################################################################
-def parse_pangenome_data(species_name,allowed_genes=[]):
+def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[]):
         
     # Open post-processed MIDAS output
     # Raw read counts
@@ -866,7 +866,15 @@ def parse_pangenome_data(species_name,allowed_genes=[]):
     # ordered vector of marker coverages (guaranteed to be in same order as samples)
     marker_coverages = numpy.array([marker_coverage_map[sample] for sample in samples])
     
+    if len(allowed_samples)==0:
+        allowed_samples = set(samples)
+    else:
+        allowed_samples = (set(allowed_samples) & set(samples))
+        
+    desired_sample_idxs = numpy.array([sample in allowed_samples for sample in samples])
+    desired_samples = samples[desired_sample_idxs]
     
+    marker_coverages = marker_coverages[desired_sample_idxs]
     gene_presence_matrix = []
     gene_reads_matrix = []
     gene_depth_matrix = []
@@ -884,12 +892,12 @@ def parse_pangenome_data(species_name,allowed_genes=[]):
         
         items = presabs_line.split()
         gene_name = items[0]
-        gene_presences = numpy.array([float(item) for item in items[1:]])
+        gene_presences = numpy.array([float(item) for item in items[1:]])[desired_sample_idxs]
         
         if gene_presences.sum() > 0.5:
         
-            gene_reads = numpy.array([float(item) for item in reads_line.split()[1:]])
-            gene_depths = numpy.array([float(item) for item in depth_line.split()[1:]])
+            gene_reads = numpy.array([float(item) for item in reads_line.split()[1:]])[desired_sample_idxs]
+            gene_depths = numpy.array([float(item) for item in depth_line.split()[1:]])[desired_sample_idxs]
             
             # Note to self: not uniform across samples!
             #gene_lengths = gene_reads/(gene_depths+(gene_reads<0.5))
@@ -915,7 +923,7 @@ def parse_pangenome_data(species_name,allowed_genes=[]):
     gene_depth_matrix = numpy.array(gene_depth_matrix)
     gene_reads_matrix = numpy.array(gene_reads_matrix)
 
-    return samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
+    return desired_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
 
 
 ################################################################################

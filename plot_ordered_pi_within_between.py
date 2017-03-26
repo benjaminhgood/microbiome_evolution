@@ -90,6 +90,8 @@ same_sample_pi_plowers = []
 same_sample_pi_puppers = []
 for i in xrange(0,len(pis)):
 
+    if median_coverages[i]<min_coverage:
+        continue 
   
     plower,pupper = stats_utils.calculate_poisson_rate_interval(total_pis[i], total_pi_opportunities[i], alpha)
     
@@ -240,7 +242,7 @@ for pi_plower, pi_pupper in zip(same_sample_pi_plowers, same_sample_pi_puppers):
 
     y-=1
     
-    pi_axis.semilogx([pi_plower,pi_pupper],[y,y],'g.-',linewidth=0.25,markersize=1.5)
+    pi_axis.semilogx([pi_plower,pi_pupper],[y,y],'b.-',linewidth=0.25,markersize=1.5)
         
 
 

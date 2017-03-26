@@ -4,7 +4,10 @@ import parse_midas_data
 import pylab
 import sys
 import numpy
+
 import diversity_utils
+import gene_diversity_utils
+
 import stats_utils
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
@@ -50,14 +53,23 @@ sys.stderr.write("Done!\n")
 sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
 median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
 sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
-    
+
+# Load pi information for species_name
+sys.stderr.write("Loading within-sample diversity for %s...\n" % species_name)
+samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, debug)
+sys.stderr.write("Done!\n")
+pis = total_pis/total_pi_opportunities
+
+median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
+
+# Only plot samples above a certain depth threshold that are "haploids"
+snp_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
+
 # Load SNP information for species_name
-sys.stderr.write("Loading SNP data for %s...\n" % species_name)
-snp_samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, debug)
+sys.stderr.write("Loading %s...\n" % species_name)
+dummy_samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples)
 sys.stderr.write("Done!\n")
  
-median_coverages = numpy.array([sample_coverage_map[snp_samples[i]] for i in xrange(0,len(snp_samples))])
-  
 # Calculate full matrix of synonymous pairwise differences
 sys.stderr.write("Calculating synonymous pi matrix...\n")
 pi_matrix_syn, avg_pi_matrix_syn = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D')
@@ -71,17 +83,17 @@ sys.stderr.write("Calculating matrix of snp differences...\n")
 snp_difference_matrix, snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)    
 sys.stderr.write("Done!\n")
    
-# Load gene presence/absence information for species_name
+# Load gene coverage information for species_name
 sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
-gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name)
+gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
 sys.stderr.write("Done!\n")
         
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculating matrix of gene differences...\n")
-gene_difference_matrix, gene_opportunity_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+gene_difference_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
 
 # Now need to make the gene samples and snp samples match up
-desired_samples = list(set(snp_samples[(median_coverages>=min_coverage)*(pis<1e-03)]) & set(gene_samples[marker_coverages>min_coverage]))   
+desired_samples = gene_samples[marker_coverages>min_coverage]   
      
 # Calculate which pairs of idxs belong to the same sample, which to the same subject
 # and which to different subjects
@@ -108,8 +120,8 @@ typical_diff_subject_snp_opportunities = numpy.median(snp_opportunity_matrix[dif
 typical_same_subject_gene_opportunities = numpy.median(gene_opportunity_matrix[same_subject_gene_idxs])
 typical_diff_subject_gene_opportunities = numpy.median(gene_opportunity_matrix[diff_subject_gene_idxs])
 
-print typical_same_subject_snp_opportunities, typical_diff_subject_snp_opportunities
-print typical_same_subject_gene_opportunities, typical_diff_subject_gene_opportunities
+#print typical_same_subject_snp_opportunities, typical_diff_subject_snp_opportunities
+#print typical_same_subject_gene_opportunities, typical_diff_subject_gene_opportunities
 
 Lsnps = typical_diff_subject_snp_opportunities
 Lgenes = typical_diff_subject_gene_opportunities
@@ -132,7 +144,7 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 
     i = same_subject_gene_idxs[0][sample_pair_idx]
     j = same_subject_gene_idxs[1][sample_pair_idx]
-    gene_differences = diversity_utils.calculate_gene_differences_between(i, j, gene_names, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+    gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
 
     plower,pupper = stats_utils.calculate_poisson_rate_interval(gene_difference_matrix[i,j], gene_opportunity_matrix[i,j])
     
@@ -195,11 +207,6 @@ diff_subject_snp_plowers, diff_subject_gene_plowers, diff_subject_snp_puppers,  
 
 # Done calculating... now plot figure!
 
-total_num_pairs = len(same_subject_snp_plowers)+len(diff_subject_snp_plowers)
-print total_num_pairs
-
-total_height = total_num_pairs/300.0*4
-
 # Set up figure
 fig = plt.figure(figsize=(5, 5))
 
@@ -239,8 +246,6 @@ y = 0
 for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(same_subject_snp_plowers, same_subject_snp_puppers, same_subject_gene_plowers, same_subject_gene_puppers):
 
     y-=1
-    
-    print gene_plower, gene_pupper
     
     snp_axis.semilogx([snp_plower,snp_pupper],[y,y],'g.-',linewidth=0.25,markersize=1.5)
         
