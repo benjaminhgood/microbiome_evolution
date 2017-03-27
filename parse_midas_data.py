@@ -637,7 +637,7 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.5, upp
 # returns (lots of things, see below)
 #
 ###############################################################################
-def parse_snps(species_name, debug=False, allowed_samples=[]):
+def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], allowed_variant_types=['1D','2D','3D','4D'], initial_line_number=0, chunk_size=1000000000):
     
     # Open post-processed MIDAS output
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")
@@ -650,25 +650,30 @@ def parse_snps(species_name, debug=False, allowed_samples=[]):
         allowed_samples = set(samples)
     else:
         allowed_samples = set(allowed_samples)
+    
+    allowed_genes = set(allowed_genes)
+    allowed_variant_types = set(allowed_variant_types)
         
     desired_sample_idxs = numpy.array([sample in allowed_samples for sample in samples])
     desired_samples = samples[desired_sample_idxs]
     
-    # Only going to look at 1D and 4D sites
-    #allowed_variant_types = set(['1D','4D'])
-    # Only going to look at coding sites 
-    # (BG: worried about mapping errors in noncoding regions...
-    #      we might even worry about this near beginnings and ends of genes)
-    allowed_variant_types = set(['1D','2D','3D','4D'])
-    
-    allele_counts_map = {}
-    
     # map from gene_name -> var_type -> (list of locations, matrix of allele counts)
-    passed_sites_map = {}
+    allele_counts_map = {}
     # map from gene_name -> var_type -> (location, sample x sample matrix of whether both samples can be called at that site)
+    passed_sites_map = {}
     
     num_sites_processed = 0
+    line_number = -1
+    final_line_number = -1
+    previous_gene_name = ""
+    gene_name = ""
     for line in snp_file:
+        
+        line_number += 1
+        previous_gene_name = gene_name
+                
+        if line_number < initial_line_number:
+            continue
         
         items = line.split()
         # Load information about site
@@ -679,9 +684,16 @@ def parse_snps(species_name, debug=False, allowed_samples=[]):
         variant_type = info_items[3]
         pvalue = float(info_items[4])
         
-        # make sure it is either a 1D or 4D site
-        # (shouldn't be needed anymore)
+        if num_sites_processed >= chunk_size and gene_name!=previous_gene_name:
+            # We are done for now!
+            final_line_number = line_number
+            break
+        
+                
         if not variant_type in allowed_variant_types:
+            continue
+            
+        if len(allowed_genes)>0 and (not gene_name in allowed_genes):
             continue
         
         # Load alt and depth counts
@@ -737,20 +749,23 @@ def parse_snps(species_name, debug=False, allowed_samples=[]):
             allele_counts_map[gene_name][variant_type]['locations'].append((chromosome, location))
             allele_counts_map[gene_name][variant_type]['alleles'].append(allele_counts)
         
-        num_sites_processed+=1
-        if num_sites_processed%50000==0:
-            sys.stderr.write("%dk sites processed...\n" % (num_sites_processed/1000))   
-            if debug:
-                break
-    
+            num_sites_processed+=1
+        
+            if num_sites_processed>0 and num_sites_processed%1000==0:
+                sys.stderr.write("%dk sites processed...\n" % (num_sites_processed/1000))   
+                if debug:
+                    break
+         
     snp_file.close()
+
+    print line_number, final_line_number, num_sites_processed
 
     for gene_name in passed_sites_map.keys():
         for variant_type in passed_sites_map[gene_name].keys():
             
             allele_counts_map[gene_name][variant_type]['alleles'] = numpy.array(allele_counts_map[gene_name][variant_type]['alleles'])
 
-    return desired_samples, allele_counts_map, passed_sites_map
+    return desired_samples, allele_counts_map, passed_sites_map, final_line_number
 
 ###############################################################################
 #

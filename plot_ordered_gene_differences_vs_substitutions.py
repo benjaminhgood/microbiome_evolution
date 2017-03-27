@@ -28,15 +28,16 @@ mpl.rcParams['legend.fontsize']  = 'small'
 # Standard header to read in argument information
 #
 ################################################################################
-if len(sys.argv)>1:
-    if len(sys.argv)>2:
-        debug=True # debug does nothing in this script
-        species_name=sys.argv[2]
-    else:
-        debug=False
-        species_name=sys.argv[1]
-else:
-    sys.stderr.write("Usage: python command.py [debug] species_name")
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("species_name", help="name of species to process")
+parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
+parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
+args = parser.parse_args()
+
+species_name = args.species_name
+debug = args.debug
+chunk_size = args.chunk_size
 ################################################################################
 
 min_change = 0.8
@@ -65,24 +66,38 @@ median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(
 # Only plot samples above a certain depth threshold that are "haploids"
 snp_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
 
+# Analyze SNPs, looping over chunk sizes. 
+# Clunky, but necessary to limit memory usage on cluster
+
 # Load SNP information for species_name
 sys.stderr.write("Loading %s...\n" % species_name)
-dummy_samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples)
-sys.stderr.write("Done!\n")
- 
-# Calculate full matrix of synonymous pairwise differences
-sys.stderr.write("Calculating synonymous pi matrix...\n")
-pi_matrix_syn, avg_pi_matrix_syn = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D')
-pi_matrix_syn = numpy.clip(pi_matrix_syn,1e-06,1)
-avg_pi_matrix_syn = numpy.clip(avg_pi_matrix_syn,1e-06,1)
-pis = numpy.diag(pi_matrix_syn)
-sys.stderr.write("Done!\n")
 
-# Calculate fixation matrix
-sys.stderr.write("Calculating matrix of snp differences...\n")
-snp_difference_matrix, snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)    
-sys.stderr.write("Done!\n")
-   
+pi_matrix_syn = numpy.array([])
+avg_pi_matrix_syn = numpy.array([])
+snp_difference_matrix = numpy.array([])
+snp_opportunity_matrix = numpy.array([])
+final_line_number = 0
+
+while final_line_number >= 0:
+    
+    sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
+    dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number)
+    sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
+    
+    # Calculate fixation matrix
+    sys.stderr.write("Calculating matrix of snp differences...\n")
+    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix =     diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)    
+    sys.stderr.write("Done!\n")
+    
+    if snp_difference_matrix.shape[0]==0:
+        snp_difference_matrix = numpy.zeros_like(chunk_snp_difference_matrix)*1.0
+        snp_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)*1.0
+    
+    snp_difference_matrix += chunk_snp_difference_matrix
+    snp_opportunity_matrix += chunk_snp_opportunity_matrix
+
+sys.stderr.write("Done!\n")   
+
 # Load gene coverage information for species_name
 sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
 gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)

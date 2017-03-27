@@ -15,7 +15,7 @@ if len(sys.argv) < 3:
 debug_flag = ""
 if sys.argv[1]=='debug':
     species_names = [parse_midas_data.debug_species_name] 
-    debug_flag = "debug"
+    debug_flag = "--debug"
 elif sys.argv[1]=='all':
     species_names = parse_midas_data.parse_good_species_list()
 else:

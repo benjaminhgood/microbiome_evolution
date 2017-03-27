@@ -70,6 +70,64 @@ def calculate_rsquared_condition_freq(allele_counts_1, allele_counts_2, low_freq
 
 #####################################################################
 
+def calculate_unbiased_sigmasquared(allele_counts_1, allele_counts_2):
+    
+    # Note: should actually be sigma_squared! 
+    # sigma_squared= E[X]/E[Y], where X=(p_ab-pa*pb)^2 and Y=(pa*(1-pa)*pb*(1-pb))
+    # rsquared=E[X/Y]
+    # see McVean 2002 for more notes on the difference. 
+
+    # allele counts = 1 x samples x alleles vector
+    
+    depths_1 = allele_counts_1.sum(axis=2)
+    freqs_1 = allele_counts_1[:,:,0]*1.0/(depths_1+(depths_1==0))
+    depths_2 = allele_counts_2.sum(axis=2)
+    freqs_2 = allele_counts_2[:,:,0]*1.0/(depths_2+(depths_2==0))
+    
+    # consensus approximation
+    freqs_1 = numpy.around(freqs_1)
+    freqs_2 = numpy.around(freqs_2)
+    
+
+    # this asks which pairs of sites have depths >0 at BOTH sites
+    # None here takes the product of the elements in the two vectors and returns a matrix. 
+    joint_passed_sites = (depths_1>0)[None,:,:]*(depths_2>0)[:,None,:]
+    # sites x sites x samples matrix
+    
+    joint_freqs = freqs_1[None,:,:]*freqs_2[:,None,:]
+    # sites x sites x samples_matrix
+    
+    # this tells us what the denominator is for the computation below for joint_pooled_freqs
+    total_joint_passed_sites = joint_passed_sites.sum(axis=2)
+    # add 1 to denominator if some pair is 0. 
+    total_joint_passed_sites = total_joint_passed_sites+(total_joint_passed_sites==0)
+    
+    # compute p_ab
+    joint_pooled_freqs = (joint_freqs*joint_passed_sites).sum(axis=2)/total_joint_passed_sites   
+    # floting point issue
+    joint_pooled_freqs *= (joint_pooled_freqs>1e-10)
+    
+    # compute p_a
+    marginal_pooled_freqs_1 = (freqs_1[None,:,:]*joint_passed_sites).sum(axis=2)/total_joint_passed_sites
+    marginal_pooled_freqs_1 *= (marginal_pooled_freqs_1>1e-10)
+
+    # compute p_b
+    marginal_pooled_freqs_2 = (freqs_2[:,None,:]*joint_passed_sites).sum(axis=2)/total_joint_passed_sites 
+    marginal_pooled_freqs_2 *= (marginal_pooled_freqs_2>1e-10)
+       
+    # (p_ab-p_a*p_b)^2
+    rsquared_numerators = numpy.square(joint_pooled_freqs-marginal_pooled_freqs_1*marginal_pooled_freqs_2)
+    
+    # (p_a*(1-p_a)*pb*(1-p_b))
+    rsquared_denominators = marginal_pooled_freqs_1*(1-marginal_pooled_freqs_1)*marginal_pooled_freqs_2*(1-marginal_pooled_freqs_2)
+    
+    rsquareds = rsquared_numerators/(rsquared_denominators+(rsquared_denominators==0))
+    
+    return rsquared_numerators, rsquared_denominators
+
+
+#####################################################################
+
 def calculate_rsquared(allele_counts_1, allele_counts_2):
     # Note: should actually be sigma_squared! 
     # sigma_squared= E[X]/E[Y], where X=(p_ab-pa*pb)^2 and Y=(pa*(1-pa)*pb*(1-pb))
@@ -241,42 +299,6 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map,  variant_type='4
     return pooled_freqs
 
 
-# Sandbox method
-# to be moved to diversity_utils.py when debugged
-def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=3):
-
-    marker_coverages = numpy.clip(marker_coverages,1,1e09)
-    gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)*1.0/marker_coverages[None,:]
-
-    # copynum is between 0.5 and 2
-    is_good_copynum = (gene_copynum_matrix>0.5)*(gene_copynum_matrix<2)
-  
-    # now size is about to get a lot bigger
-    num_genes = gene_copynum_matrix.shape[0]
-    num_samples = gene_copynum_matrix.shape[1]
-    
-    gene_hamming_matrix = numpy.zeros((num_samples, num_samples))
-    num_opportunities = numpy.zeros((num_samples, num_samples))
-    
-    # chunk it up into groups of 1000 genes
-    chunk_size = 1000
-    num_chunks = long(num_genes/chunk_size)+1
-    for i in xrange(0, num_chunks):
-        
-        lower_gene_idx = i*chunk_size
-        upper_gene_idx = min([(i+1)*chunk_size, num_genes])
-    
-        sub_gene_copynum_matrix = gene_copynum_matrix[lower_gene_idx:upper_gene_idx,:] 
-        sub_is_good_copynum = is_good_copynum[lower_gene_idx:upper_gene_idx,:] 
-    
-        is_good_opportunity = numpy.logical_or(sub_is_good_copynum[:,:,None],sub_is_good_copynum[:,None,:])
-
-        fold_change_matrix = numpy.fabs( numpy.log2(sub_gene_copynum_matrix[:,:,None]/sub_gene_copynum_matrix[:,None,:]) ) * is_good_opportunity
-        gene_hamming_matrix += (fold_change_matrix>=min_log2_fold_change).sum(axis=0)
-        num_opportunities += is_good_opportunity.sum(axis=0)
-    
-    return gene_hamming_matrix, num_opportunities
-
 
 def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8):
 
@@ -370,51 +392,6 @@ def calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', 
     return pi_matrix, avg_pi_matrix
 
 
-def calculate_doubleton_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None, allowed_sample_idxs=numpy.array([])):
-
-    if allowed_genes == None:
-        allowed_genes = set(passed_sites_map.keys())
-    
-    
-    num_samples = passed_sites_map[passed_sites_map.keys()[0]][variant_type]['sites'].shape[1]
-     
-    if len(allowed_sample_idxs)==0:
-        allowed_sample_idxs = numpy.array([True]*num_samples)
-    else:
-        num_samples = allowed_sample_idxs.sum()    
-        
-    doubleton_matrix = numpy.zeros_like((num_samples,num_samples))*1.0
-    
-    passed_sites = numpy.zeros_like(fixation_matrix)
-    
-    for gene_name in allowed_genes:
-        
-        if gene_name in allele_counts_map.keys():
-
-            passed_sites += passed_sites_map[gene_name][variant_type]['sites']
-            
-            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
-                        
-            if len(allele_counts)==0:
-                continue
-
-            depths = allele_counts.sum(axis=2)
-            alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
-            alt_freqs[alt_freqs<min_freq] = 0.0
-            alt_freqs[alt_freqs>=(1-min_freq)] = 1.0
-            passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
-    
-            delta_freq = numpy.fabs(alt_freqs[:,:,None]-alt_freqs[:,None,:])
-            delta_freq[passed_depths==0] = 0
-            delta_freq[delta_freq<min_change] = 0
-        
-            fixation_matrix += delta_freq.sum(axis=0)
-        
-            # add new one here only if there are a sufficient number of sites.
-        
-    persite_fixation_matrix = fixation_matrix/(passed_sites+(passed_sites<0.1))
-    
-    return fixation_matrix, persite_fixation_matrix
 
     
 def phylip_distance_matrix_str(matrix, samples):
@@ -529,33 +506,3 @@ def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, a
                         
     return snp_changes
 
-# Calculate polarized gene copynum changes from i to j that exceed threshold 
-# Returns list of differences. Each difference is a tuple of form 
-#
-# (gene_name, (cov_i, marker_cov_i), (cov_j, marker_cov_j))
-#
-def calculate_gene_differences_between(i, j, gene_names, gene_depth_matrix, marker_coverages, min_log2_fold_change=3):
-
-    # Look at these two samples
-    gene_depth_matrix = gene_depth_matrix[:,[i,j]]
-    marker_coverages = marker_coverages[[i,j]]
-    
-    marker_coverages = numpy.clip(marker_coverages,1,1e09)
-    gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)*1.0/marker_coverages[None,:]
-
-    gene_differences = []
-
-    # copynum is between 0.5 and 2
-    is_good_copynum = (gene_copynum_matrix>0.5)*(gene_copynum_matrix<2)
-    
-    fold_changes = numpy.fabs(numpy.log2(gene_copynum_matrix[:,1]/gene_copynum_matrix[:,0])) * numpy.logical_or(is_good_copynum[:,0],is_good_copynum[:,1])
-
-    changed_genes = numpy.nonzero(fold_changes>=min_log2_fold_change)[0]
-
-    if len(changed_genes>0):
-    
-        for idx in changed_genes:
-            
-            gene_differences.append( (gene_names[idx], (gene_depth_matrix[idx,0],marker_coverages[0]),  (gene_depth_matrix[idx,1],marker_coverages[1])) )
-            
-    return gene_differences
