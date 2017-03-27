@@ -63,6 +63,10 @@ median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(
 
 snp_samples = samples[(median_coverages>=min_coverage)]
 
+if len(snp_samples) < 1:
+    sys.stderr.write("No high coverage SNP samples!\n")
+    sys.exit(0)
+
 # Load gene coverage information for species_name
 sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
 gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
@@ -72,6 +76,12 @@ upper_gene_numbers = gene_diversity_utils.calculate_gene_numbers(gene_depth_matr
 lower_gene_numbers = gene_diversity_utils.calculate_gene_numbers(gene_depth_matrix, marker_coverages, min_copynum=0.5)  
 
 desired_samples = gene_samples[marker_coverages>=min_coverage]
+
+if len(desired_samples) < 1:
+    sys.stderr.write("No high coverage SNP/gene samples!\n")
+    sys.exit(0)
+    
+sys.stderr.write("%d high coverage SNP/gene samples!\n" % len(desired_samples))
 
 # Calculate which pairs of idxs belong to the same sample, which to the same subject
 # and which to different subjects

@@ -19,7 +19,12 @@ if sys.argv[1]=='debug':
 elif sys.argv[1]=='all':
     species_names = parse_midas_data.parse_good_species_list()
 else:
-    species_names = [sys.argv[1]]
+    good_species_names = parse_midas_data.parse_good_species_list()
+    species_names = []
+    pattern = sys.argv[1]
+    for species_name in good_species_names:
+        if species_name.startswith(pattern):
+            species_names.append(species_name)
 
 # Remaining arguments are command to run, with species name appended as last argument
 command = " ".join(sys.argv[2:])
