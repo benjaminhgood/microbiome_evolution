@@ -106,16 +106,34 @@ sys.stderr.write("Done!\n")
 
 
 
+    
+    
+# Figure out gene gains vs losses for different time point pairs
+
+# Load gene coverage information for species_name
+sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
+gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
+sys.stderr.write("Done!\n")
+
+# get the intersection of gene_samples and snp_samples satisfying piS being low and coverage being high both both. 
+desired_samples = numpy.array(list(set(snp_samples) & set(gene_samples[marker_coverages>min_coverage])))   
+
+
+# figure out what the indexes are for the desired samples in the snp_samples
+snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)
+gene_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, gene_samples)
+
+
+
 # Calculate which pairs of idxs belong to different time points for both high cov and low piS
-time_pair_idxs, visno, day = parse_midas_data.calculate_time_pairs(subject_sample_time_map, snp_samples)
+# time_pair_idxs is comprised of 2 arrays. The first array corresponds to indecies for the 1st visno. The second array corresponds to indecies for the second or 3d visno
 
-    
-    
-# write to an intermediate file so that I can plot all species' time series plots on one plot (plot_fixations_vs_time_multispecies.py)
+time_pair_idxs, visno, day = parse_midas_data.calculate_time_pairs(subject_sample_time_map, desired_samples)
 
-#numpy.savez(os.path.expanduser('~/tmp_intermediate_files/time_fix_%s_%s.npz' %(species_name, min_change)), day=day, total_fixation_matrix=total_fixation_matrix, fixation_matrix_non=fixation_matrix_non, fixation_matrix_syn=fixation_matrix_syn, time_pair_idxs=time_pair_idxs, visno=visno, high_coverage_low_pi_time_pair_idxs=high_coverage_low_pi_time_pair_idxs,high_coverage_low_pi_visno=high_coverage_low_pi_visno, high_coverage_low_pi_day=high_coverage_low_pi_day, fixation_opportunities_non=fixation_opportunities_non, fixation_opportunities_syn=fixation_opportunities_syn)
+time_pair_snp_idxs=parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map,  time_pair_idxs) #use these idxs to get the relevant fields from total_fixation_matrix
+time_pair_gene_idxs=parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map,  time_pair_idxs) # use these idxs to get the relevant fields from gene_hamming_matrix
 
-
+gene_hamming_matrix_gain, gene_hamming_matrix_loss, num_opportunities = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
 
 
 
@@ -126,13 +144,42 @@ time_pair_idxs, visno, day = parse_midas_data.calculate_time_pairs(subject_sampl
 
 #plot fixations vs days
 
+# compte fraction of snp differences and clip for log scale
+fraction_snp_difference=snp_difference_matrix/snp_opportunity_matrix
+fraction_snp_difference=numpy.clip(fraction_snp_difference,1e-13,1)
+
 pylab.figure()
 pylab.xlabel('days')
 pylab.ylabel('Num "fixations"')
 pylab.title(species_name)
-pylab.ylim(0,0.05)
-pylab.plot(day, (snp_difference_matrix/snp_opportunity_matrix)[time_pair_idxs], 'ro')
+pylab.ylim(1e-10,1)  
+pylab.semilogy(day, fraction_snp_difference[time_pair_idxs], 'ro')
     
+pylab.savefig('%s/%s_fixation_vs_days_%0.1f.pdf' % (parse_midas_data.analysis_directory, species_name, min_change),bbox_inches='tight')
 pylab.savefig('%s/%s_fixation_vs_days_%0.1f.png' % (parse_midas_data.analysis_directory, species_name, min_change),bbox_inches='tight', dpi=300)
 
+
+
+
+
+
+############
+# clip for log scale
+gene_hamming_matrix_gain = numpy.clip(gene_hamming_matrix_gain,0.5,1e09)
+gene_hamming_matrix_loss = numpy.clip(gene_hamming_matrix_loss,0.5,1e09)
+
+pylab.figure(1)
+pylab.xlabel('Num substitutions')
+pylab.ylabel('Num gene differences')
+pylab.ylim([1e-01,1e04])
+pylab.xlim([1e-01,1e05])
+pylab.title(species_name)
+
+pylab.loglog(fraction_snp_difference[time_pair_snp_idxs], gene_hamming_matrix_gain[time_pair_snp_idxs],'r.')
+pylab.loglog(fraction_snp_difference[time_pair_snp_idxs], gene_hamming_matrix_loss[time_pair_snp_idxs],'g.')
+pylab.plot([1e-01,1e6],[1,1],'k:')
+pylab.plot([1,1],[1e-01,1e04],'k:')
+
+
+pylab.savefig('%s/%s_gene_gain_loss_vs_substitutions.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
 
