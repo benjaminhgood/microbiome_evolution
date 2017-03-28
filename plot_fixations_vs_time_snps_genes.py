@@ -140,7 +140,7 @@ desired_samples = numpy.array(list(set(snp_samples) & set(gene_samples[marker_co
 snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)
 gene_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, gene_samples)
 
-### time pair idxs:
+### time pair idxs where patients may have up to 3 time points:
 
 # Calculate which pairs of idxs belong to different time points for both high cov and low piS
 # time_pair_idxs is comprised of 2 arrays. The first array corresponds to indecies for the 1st visno. The second array corresponds to indecies for the second or 3d visno
@@ -149,6 +149,14 @@ time_pair_idxs, visno_snps_genes, day_snps_genes = parse_midas_data.calculate_ti
 # since the time_pair_idx are in terms of desired samples ordering,I need to convert the desired_samples idxs to the snp_sample and gene_sample orders. 
 time_pair_snp_idxs=parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map,  time_pair_idxs) #use these idxs to get the relevant fields from total_fixation_matrix
 time_pair_gene_idxs=parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map,  time_pair_idxs) # use these idxs to get the relevant fields from gene_hamming_matrix
+
+
+#### time pair idxs where patients can have exactly 1 time point (so that points plotted are iid)
+
+time_pair_idxs_unique, visno_snps_genes_unique, day_snps_genes_unique = parse_midas_data.calculate_unique_time_pairs(subject_sample_time_map, desired_samples)
+time_pair_snp_idxs_unique=parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map,  time_pair_idxs_unique) 
+time_pair_gene_idxs_unique=parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map,  time_pair_idxs_unique) 
+
 
 ### different patient idx: 
 # to compare results to time_pair idxs, we want different patient pair idxs. This helps us to contextualize if we are seeing events within patients that resemble replacements or modifications. 
@@ -206,13 +214,29 @@ pylab.ylim([1e-14,1e04])
 pylab.xlim([1e-14,1e05])
 pylab.title(species_name)
 
-pylab.loglog(fraction_snp_difference[diff_subject_snp_idxs], gene_hamming_matrix_loss[diff_subject_gene_idxs],'ro')
+pylab.loglog(fraction_snp_difference[diff_subject_snp_idxs], gene_hamming_matrix_loss[diff_subject_gene_idxs] + gene_hamming_matrix_gain[diff_subject_gene_idxs],'ro')
 pylab.loglog(fraction_snp_difference[time_pair_snp_idxs], gene_hamming_matrix_gain[time_pair_gene_idxs],'yo')
 pylab.loglog(fraction_snp_difference[time_pair_snp_idxs], gene_hamming_matrix_loss[time_pair_gene_idxs],'bo')
 
-pylab.legend(['diff subjects differences', 'gains','losses'],'lower right',prop={'size':6})
+pylab.legend(['diff subjects differences', 'gains','losses'],'upper right',prop={'size':6})
 
 pylab.savefig('%s/%s_gene_gain_loss_vs_substitutions.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+
+### redo plot with unique time pairs (so that every point is iid)
+pylab.figure() 
+pylab.xlabel('Num substitutions')
+pylab.ylabel('Num gene differences')
+pylab.ylim([1e-14,1e04])
+pylab.xlim([1e-14,1e05])
+pylab.title(species_name)
+
+pylab.loglog(fraction_snp_difference[diff_subject_snp_idxs], gene_hamming_matrix_loss[diff_subject_gene_idxs] + gene_hamming_matrix_gain[diff_subject_gene_idxs],'ro')
+pylab.loglog(fraction_snp_difference[time_pair_snp_idxs_unique], gene_hamming_matrix_gain[time_pair_gene_idxs_unique],'yo')
+pylab.loglog(fraction_snp_difference[time_pair_snp_idxs_unique], gene_hamming_matrix_loss[time_pair_gene_idxs_unique],'bo')
+
+pylab.legend(['diff subjects differences', 'gains','losses'],'upper right',prop={'size':6})
+
+pylab.savefig('%s/%s_gene_gain_loss_vs_substitutions_unique.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
 
 
 
@@ -228,11 +252,54 @@ pylab.title(species_name)
 
 diff_subject_control_time_pt=numpy.repeat(-10,len(diff_subject_snp_idxs[0]))
 
-pylab.semilogy(diff_subject_control_time_pt, gene_hamming_matrix_loss[diff_subject_gene_idxs],'ro')
+pylab.semilogy(diff_subject_control_time_pt, gene_hamming_matrix_loss[diff_subject_gene_idxs] + gene_hamming_matrix_gain[diff_subject_gene_idxs],'ro')
 pylab.semilogy(day_snps_genes, gene_hamming_matrix_gain[time_pair_gene_idxs],'yo')
-pylab.semilogy(day_snps_genes, gene_hamming_matrix_loss[time_pair_gene_idxs],'bo')
+jitter_day_snps_genes_unique = list(numpy.asarray(day_snps_genes) + 3)
+pylab.semilogy(jitter_day_snps_genes, gene_hamming_matrix_loss[time_pair_gene_idxs],'bo')
 
-pylab.legend(['diff subjects differences', 'gains','losses'],'lower right',prop={'size':6})
+pylab.legend(['diff subjects differences', 'gains','losses'],'upper right',prop={'size':6})
 
 pylab.savefig('%s/%s_gene_gain_loss_vs_days.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
 
+
+### redo plot with unique time pairs (so that every point is iid)
+
+pylab.figure() 
+pylab.xlabel('Days')
+pylab.ylabel('Num gene differences')
+pylab.ylim([1e-14,1e04])
+pylab.title(species_name)
+
+diff_subject_control_time_pt=numpy.repeat(-10,len(diff_subject_snp_idxs[0]))
+
+pylab.semilogy(diff_subject_control_time_pt, gene_hamming_matrix_loss[diff_subject_gene_idxs] + gene_hamming_matrix_gain[diff_subject_gene_idxs],'ro')
+pylab.semilogy(day_snps_genes_unique, gene_hamming_matrix_gain[time_pair_gene_idxs_unique],'yo')
+jitter_day_snps_genes_unique = list(numpy.asarray(day_snps_genes_unique) + 3)
+pylab.semilogy(jitter_day_snps_genes_unique, gene_hamming_matrix_loss[time_pair_gene_idxs_unique],'bo')
+
+pylab.legend(['diff subjects differences', 'gains','losses'],'upper right',prop={'size':6})
+
+pylab.savefig('%s/%s_gene_gain_loss_vs_days_unique.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+
+
+
+##############################################################
+# Plot gene gain vs loss: are there more gains than losses ? #
+#############################################################
+
+pylab.figure() 
+pylab.xlabel('Number of gene gains')
+pylab.ylabel('Number of gene losses')
+pylab.xlim([1e-14,1e05])
+pylab.ylim([1e-14,1e05])
+pylab.title(species_name)
+
+pylab.loglog(gene_hamming_matrix_gain[time_pair_gene_idxs_unique], gene_hamming_matrix_loss[time_pair_gene_idxs_unique], 'go')
+diff_subject_control=(gene_hamming_matrix_loss[diff_subject_gene_idxs] + gene_hamming_matrix_gain[diff_subject_gene_idxs])/2
+pylab.loglog(diff_subject_control, diff_subject_control,'ro')
+
+pylab.plot([1e-14,1e05], [1e-14,1e05], ls="--", c=".3")
+
+pylab.legend(['diff subjects', 'within subject'],'upper right',prop={'size':6})
+
+pylab.savefig('%s/%s_gene_gain_vs_loss_unique.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
