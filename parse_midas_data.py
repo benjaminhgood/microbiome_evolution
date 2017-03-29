@@ -1011,6 +1011,7 @@ def parse_subject_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp
 ########################################################################################
 #
 # Returns index pairs for time points corresponding to the same subject_id.
+# Only pairs corresponding to the first visno (stored in index1) and a subsequent visno (either visno 2 and/or 3) are returned. Visno pairs 2 and 3 are not returned. 
 # Also returns the corresponding visnos and days. 
 #
 #######################################################################################
@@ -1033,6 +1034,41 @@ def calculate_time_pairs(subject_sample_time_map, samples):
                         visno.append(i)
                         day.append(subject_sample_time_map[subject_id][i][1])
         
+    time_pair_idxs = (numpy.array(index1,dtype=numpy.int32), numpy.array(index2,dtype=numpy.int32))
+
+    return time_pair_idxs, visno, day
+
+
+
+
+########################################################################################
+#
+# Returns index pairs for time points corresponding to the same subject_id.
+# Only one time pair per subject is returned (so, either 1 vs2, or 1 vs 3 is returned. If both exist, 1 vs 2 is returned).  Visno pairs 2 and 3 are not returned. 
+# Also returns the corresponding visnos and days. 
+#
+#######################################################################################
+
+def calculate_unique_time_pairs(subject_sample_time_map, samples):
+    index1=[]
+    index2=[]
+    visno=[]
+    day=[]
+
+    for subject_id in subject_sample_time_map.keys():
+        visnos=subject_sample_time_map[subject_id].keys() #visit numbers
+        if (len(visnos) > 1) and (1 in visnos):           
+            if (subject_sample_time_map[subject_id][1][0] in samples): #check if first visit in samples 
+                #iterate through visit numbers. Append the index, day, and visnos to their lists
+                unique_pair_found=False
+                for i in [2,3]:
+                    if i in subject_sample_time_map[subject_id].keys() and subject_sample_time_map[subject_id][i][0] in samples and unique_pair_found==False:
+                        index1.append(samples.tolist().index(subject_sample_time_map[subject_id][1][0])) 
+                        index2.append(samples.tolist().index(subject_sample_time_map[subject_id][i][0]))
+                        visno.append(i)
+                        day.append(subject_sample_time_map[subject_id][i][1])
+                        unique_pair_found=True
+                
     time_pair_idxs = (numpy.array(index1,dtype=numpy.int32), numpy.array(index2,dtype=numpy.int32))
 
     return time_pair_idxs, visno, day
