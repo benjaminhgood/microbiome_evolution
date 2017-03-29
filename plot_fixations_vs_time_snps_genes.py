@@ -254,7 +254,7 @@ diff_subject_control_time_pt=numpy.repeat(-10,len(diff_subject_snp_idxs[0]))
 
 pylab.semilogy(diff_subject_control_time_pt, gene_hamming_matrix_loss[diff_subject_gene_idxs] + gene_hamming_matrix_gain[diff_subject_gene_idxs],'ro')
 pylab.semilogy(day_snps_genes, gene_hamming_matrix_gain[time_pair_gene_idxs],'yo')
-jitter_day_snps_genes_unique = list(numpy.asarray(day_snps_genes) + 3)
+jitter_day_snps_genes = list(numpy.asarray(day_snps_genes) + 3)
 pylab.semilogy(jitter_day_snps_genes, gene_hamming_matrix_loss[time_pair_gene_idxs],'bo')
 
 pylab.legend(['diff subjects differences', 'gains','losses'],'upper right',prop={'size':6})
@@ -303,3 +303,6 @@ pylab.plot([1e-14,1e05], [1e-14,1e05], ls="--", c=".3")
 pylab.legend(['diff subjects', 'within subject'],'upper right',prop={'size':6})
 
 pylab.savefig('%s/%s_gene_gain_vs_loss_unique.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+
+
+
