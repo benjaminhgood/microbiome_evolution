@@ -1,4 +1,60 @@
 import numpy
+from scipy.linalg import eigh
+
+# Calls consensus genotypes from matrix of allele counts
+#
+# Returns: genotype matrix, passed_sitse matrix for polymorphic sites
+#
+def calculate_consensus_genotypes(allele_counts_matrix):
+    
+    num_sites, num_samples, num_alleles = allele_counts_matrix.shape
+    
+    depths = allele_counts_matrix.sum(axis=2)
+    freqs = allele_counts_matrix[:,:,0]*1.0/(depths+(depths==0))
+    passed_sites_matrix = (depths>0)
+    # consensus approximation
+    genotype_matrix = numpy.around(freqs)
+    
+    prevalences = genotype_matrix.sum(axis=1)
+    min_prevalences = 0.5
+    max_prevalences = (passed_sites_matrix).sum(axis=1)-0.5
+    
+    polymorphic_sites = (prevalences>min_prevalences)*(prevalences<max_prevalences)
+    
+    return genotype_matrix[polymorphic_sites,:], passed_sites_matrix[polymorphic_sites,:]
+    
+
+# Calculates first two PCA coordinates for samples in allele_counts
+# using the normalization scheme outlined in McVean (PLoS Genet, 2009).
+#
+# Returns: (vector of pca1 coords, vector of pca2 coords), (percent variance 1, percent variance 2)
+#
+def calculate_pca_coordinates(genotype_matrix, passed_sites_matrix):
+
+    Zl = (genotype_matrix*passed_sites_matrix).sum(axis=1)/(passed_sites_matrix).sum(axis=1)
+
+    Zli = (genotype_matrix-Zl[:,None])*passed_sites_matrix
+    
+    Mij = numpy.einsum('li,lj',Zli,Zli)/numpy.einsum('li,lj',passed_sites_matrix, passed_sites_matrix)
+
+    # calculate eigenvectors & eigenvalues of the covariance matrix
+    # use 'eigh' rather than 'eig' since R is symmetric, 
+    # the performance gain is substantial
+    evals, evecs = eigh(Mij)
+
+    # sort eigenvalue in decreasing order
+    idx = numpy.argsort(evals)[::-1]
+    evals = evals[idx]
+    evecs = evecs[:,idx]
+    
+    variances = evals/evals.sum()
+    
+    pca1_coords = evals[0]**0.5*evecs[:,0]
+    pca2_coords = evals[1]**0.5*evecs[:,1]
+    
+    return (pca1_coords, pca2_coords), (variances[0],variances[1])
+    
+ 
 
 def calculate_rsquared_condition_freq(allele_counts_1, allele_counts_2, low_freq, high_freq):
     # Note: should actually be sigma_squared! 
