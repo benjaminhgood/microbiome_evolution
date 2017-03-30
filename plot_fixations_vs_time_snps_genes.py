@@ -64,6 +64,8 @@ sys.stderr.write("Loading within-sample diversity for %s...\n" % species_name)
 samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, debug)
 sys.stderr.write("Done!\n")
 pis = total_pis/total_pi_opportunities
+clipped_pis = (total_pis+1)/(total_pi_opportunities+1)
+high_cov_and_low_pis = clipped_pis[(median_coverages>=min_coverage)*(pis<=1e-03)]
 
 median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
 
@@ -306,3 +308,25 @@ pylab.savefig('%s/%s_gene_gain_vs_loss_unique.png' % (parse_midas_data.analysis_
 
 
 
+###############################################################
+# Plot fixations for two time pts vs between every sample pair (Ben's appraoch). Do the plots check out?
+############################################################### 
+
+# plot fixations vs piS
+# note that this is for patients that only satisfy coverage and piS requirements for SNPs -- gene constraints are not included here. 
+
+# compute fraction of snp differences and clip for log scale
+fraction_snp_difference=snp_difference_matrix/snp_opportunity_matrix
+fraction_snp_difference=numpy.clip(fraction_snp_difference,1e-13,1)
+
+pylab.figure()
+pylab.xlabel('piS')
+pylab.ylabel('Fraction "fixations"')
+pylab.title(species_name)
+pylab.ylim(1e-13,1)  
+pylab.semilogy((high_cov_pis[time_pair_idxs_snps_only[0]]+high_cov_pis[time_pair_idxs_snps_only[1]])/2, fraction_snp_difference[time_pair_idxs_snps_only], 'go')
+pylab.semilogy((high_cov_pis[snp_same_subject_idxs[0]] + high_cov_pis[snp_same_subject_idxs[1]])/2, fraction_snp_difference[snp_same_subject_idxs], 'ro')
+
+pylab.legend(['Between time points','Any pair of subjects'],'upper right',prop={'size':6})
+    
+pylab.savefig('%s/%s_time_piS_vs_fixation_%0.1f.png' % (parse_midas_data.analysis_directory, species_name, min_change),bbox_inches='tight', dpi=300)

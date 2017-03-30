@@ -1002,8 +1002,17 @@ def parse_subject_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp
 
         if subject_id not in subject_sample_time_map:
             subject_sample_time_map[subject_id] = {}
-                        
-        subject_sample_time_map[subject_id][visno]=[sample_id,study_day]
+        if visno not in subject_sample_time_map[subject_id].keys():
+            subject_sample_time_map[subject_id][visno]=[]
+        
+        found=False
+        for i in range(0, len(subject_sample_time_map[subject_id][visno])):
+            if sample_id == subject_sample_time_map[subject_id][visno][i][0]:
+                found =True 
+        if found==False:
+            subject_sample_time_map[subject_id][visno].append([sample_id,study_day])
+        
+        
         
     return subject_sample_time_map 
 
