@@ -41,8 +41,8 @@ sys.stderr.write("Loading HMP metadata...\n")
 subject_sample_map = parse_midas_data.parse_subject_sample_map()
 sys.stderr.write("Done!\n")
     
-# Load time metadata
-subject_sample_time_map = parse_midas_data.parse_subject_sample_time_map()
+# Load time meta data
+subject_sample_time_map_all_samples = parse_midas_data.parse_subject_sample_time_map()
 
 ######################
 # Load coverage data #
@@ -53,6 +53,8 @@ sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distributi
 median_coverages = numpy.array([stats_utils.calculate_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
 sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
     
+# prune time meta data
+subject_sample_time_map = parse_midas_data.prune_subject_sample_time_map(subject_sample_time_map_all_samples,sample_coverage_map)
    
 
 ###############################################################

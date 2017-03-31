@@ -1017,6 +1017,42 @@ def parse_subject_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp
     return subject_sample_time_map 
 
 
+
+########################################################################################
+#
+# Prunes time data for HMP samples 
+# If more than one sample is present for a visno, return the one with the most coverage. 
+#
+#######################################################################################
+def prune_subject_sample_time_map(subject_sample_time_map_all_samples,sample_coverage_map):
+
+    subject_sample_time_map={}
+
+    for subject in subject_sample_time_map_all_samples.keys(): # loop over subjects (hosts)
+        for visno in subject_sample_time_map_all_samples[subject].keys(): # loop over samples
+            if len(subject_sample_time_map_all_samples[subject][visno]) >1: # find the sample with highest cov
+                keep_coverage=0
+                keep_sample=''
+                keep_day=0
+
+                for i in range(0,len(subject_sample_time_map_all_samples[subject][visno])): 
+                    sample = subject_sample_time_map_all_samples[subject][visno][i][0]
+                    day=subject_sample_time_map_all_samples[subject][visno][i][1]
+                    if sample in sample_coverage_map.keys():
+                        coverage=sample_coverage_map[sample]
+                        if coverage>keep_coverage:
+                            keep_coverage=coverage
+                            keep_sample=sample
+                            keep_day=day
+
+                if keep_sample !='':
+                    if subject not in subject_sample_time_map.keys():
+                        subject_sample_time_map[subject]={}
+                    subject_sample_time_map[subject][visno]=[[keep_sample,keep_day]]
+                        
+    return subject_sample_time_map 
+
+
 ########################################################################################
 #
 # Returns index pairs for time points corresponding to the same subject_id.
@@ -1034,14 +1070,14 @@ def calculate_time_pairs(subject_sample_time_map, samples):
     for subject_id in subject_sample_time_map.keys():
         visnos=subject_sample_time_map[subject_id].keys() #visit numbers
         if (len(visnos) > 1) and (1 in visnos):           
-            if (subject_sample_time_map[subject_id][1][0] in samples): #check if first visit in samples 
+            if (subject_sample_time_map[subject_id][1][0][0] in samples): #check if first visit in samples 
                 #iterate through visit numbers. Append the index, day, and visnos to their lists
                 for i in visnos:        
-                    if (subject_sample_time_map[subject_id][i][0] in samples) and (i !=1):
-                        index1.append(samples.tolist().index(subject_sample_time_map[subject_id][1][0]))
-                        index2.append(samples.tolist().index(subject_sample_time_map[subject_id][i][0]))
+                    if (subject_sample_time_map[subject_id][i][0][0] in samples) and (i !=1):
+                        index1.append(samples.tolist().index(subject_sample_time_map[subject_id][1][0][0]))
+                        index2.append(samples.tolist().index(subject_sample_time_map[subject_id][i][0][0]))
                         visno.append(i)
-                        day.append(subject_sample_time_map[subject_id][i][1])
+                        day.append(subject_sample_time_map[subject_id][i][0][1])
         
     time_pair_idxs = (numpy.array(index1,dtype=numpy.int32), numpy.array(index2,dtype=numpy.int32))
 
@@ -1067,15 +1103,15 @@ def calculate_unique_time_pairs(subject_sample_time_map, samples):
     for subject_id in subject_sample_time_map.keys():
         visnos=subject_sample_time_map[subject_id].keys() #visit numbers
         if (len(visnos) > 1) and (1 in visnos):           
-            if (subject_sample_time_map[subject_id][1][0] in samples): #check if first visit in samples 
+            if (subject_sample_time_map[subject_id][1][0][0] in samples): #check if first visit in samples 
                 #iterate through visit numbers. Append the index, day, and visnos to their lists
                 unique_pair_found=False
                 for i in [2,3]:
-                    if i in subject_sample_time_map[subject_id].keys() and subject_sample_time_map[subject_id][i][0] in samples and unique_pair_found==False:
-                        index1.append(samples.tolist().index(subject_sample_time_map[subject_id][1][0])) 
-                        index2.append(samples.tolist().index(subject_sample_time_map[subject_id][i][0]))
+                    if i in subject_sample_time_map[subject_id].keys() and subject_sample_time_map[subject_id][i][0][0] in samples and unique_pair_found==False:
+                        index1.append(samples.tolist().index(subject_sample_time_map[subject_id][1][0][0])) 
+                        index2.append(samples.tolist().index(subject_sample_time_map[subject_id][i][0][0]))
                         visno.append(i)
-                        day.append(subject_sample_time_map[subject_id][i][1])
+                        day.append(subject_sample_time_map[subject_id][i][0][1])
                         unique_pair_found=True
                 
     time_pair_idxs = (numpy.array(index1,dtype=numpy.int32), numpy.array(index2,dtype=numpy.int32))
