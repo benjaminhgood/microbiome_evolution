@@ -88,7 +88,7 @@ for i in range(0,10):
 header_visno=visNo2.readline()
 
 for line in visNo2:
-    VISNO=line.split('\t')[7][1]
+    VISNO=line.split('\t')[8][1]
     sample_id=line.split('\t')[10]
     sample_id_alt=line.split('\t')[6]
     RANDSID= line.split('\t')[13]
