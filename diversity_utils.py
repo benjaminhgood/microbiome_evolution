@@ -303,7 +303,7 @@ def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary, 
 
 ####################################
 
-def calculate_sample_freqs(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None):
+def calculate_sample_freqs(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None, fold=True):
 
     if allowed_genes == None:
         allowed_genes = set(passed_sites_map.keys())
@@ -321,7 +321,8 @@ def calculate_sample_freqs(allele_counts_map, passed_sites_map, variant_type='4D
             
         depths = allele_counts.sum(axis=2)
         freqs = allele_counts[:,:,0]/(depths+(depths==0))
-        freqs = numpy.fmin(freqs,1-freqs)
+        if fold == True:
+            freqs = numpy.fmin(freqs,1-freqs) #fold
         for sample_idx in xrange(0,freqs.shape[1]):
             gene_freqs = freqs[:,sample_idx]
             sample_freqs[sample_idx].extend( gene_freqs[gene_freqs>0])
@@ -331,6 +332,42 @@ def calculate_sample_freqs(allele_counts_map, passed_sites_map, variant_type='4D
     
     return sample_freqs, passed_sites
 
+
+
+
+####################################
+
+def calculate_sample_freqs_2D(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None, fold=True):
+
+    if allowed_genes == None:
+        allowed_genes = set(passed_sites_map.keys())
+     
+    sample_freqs = [[] for i in xrange(0,allele_counts_map[allele_counts_map.keys()[0]][variant_type]['alleles'].shape[1])]
+    
+    num_samples=passed_sites_map[passed_sites_map.keys()[0]][variant_type]['sites'].shape[0]
+    passed_sites = numpy.zeros((num_samples, num_samples))*1.0
+    
+    for gene_name in allowed_genes:
+    
+        allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+
+        if len(allele_counts)==0:
+            continue
+            
+        depths = allele_counts.sum(axis=2)
+        freqs = allele_counts[:,:,0]/(depths+(depths==0))
+        if fold== True:
+            freqs = numpy.fmin(freqs,1-freqs) 
+        for sample_idx in xrange(0,freqs.shape[1]):
+            gene_freqs = freqs[:,sample_idx]
+            sample_freqs[sample_idx].extend(gene_freqs)
+            
+        passed_sites += passed_sites_map[gene_name][variant_type]['sites']
+        
+    
+    return sample_freqs, passed_sites
+
+####################
         
 def calculate_pooled_freqs(allele_counts_map, passed_sites_map,  variant_type='4D', allowed_genes=None):
 
