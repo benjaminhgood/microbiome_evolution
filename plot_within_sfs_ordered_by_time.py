@@ -300,7 +300,7 @@ for j in range(0, len(time_pair_idxs[0])):
     pylab.xlim([0,1])
     pylab.ylim([0,1])
     pylab.title(species_name)
-    im=pylab.imshow(sfs_2D,interpolation='nearest', origin='low',extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], norm=LogNorm(vmin=1e-5, vmax=1), cmap='jet')
+    im=pylab.imshow(sfs_2D,interpolation='nearest', origin='low',extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], norm=LogNorm(vmin=1e-5, vmax=1e-2), cmap='jet')
     pylab.colorbar(im)
     pylab.savefig('%s/%s_within_person_2D_sfs_time_pair_folded_%s_%s.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
 
