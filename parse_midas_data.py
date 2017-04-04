@@ -1030,11 +1030,11 @@ def prune_subject_sample_time_map(subject_sample_time_map_all_samples,sample_cov
 
     for subject in subject_sample_time_map_all_samples.keys(): # loop over subjects (hosts)
         for visno in subject_sample_time_map_all_samples[subject].keys(): # loop over samples
+            keep_coverage=0
+            keep_sample=''
+            keep_day=0
             if len(subject_sample_time_map_all_samples[subject][visno]) >1: # find the sample with highest cov
-                keep_coverage=0
-                keep_sample=''
-                keep_day=0
-
+                
                 for i in range(0,len(subject_sample_time_map_all_samples[subject][visno])): 
                     sample = subject_sample_time_map_all_samples[subject][visno][i][0]
                     day=subject_sample_time_map_all_samples[subject][visno][i][1]
@@ -1044,11 +1044,14 @@ def prune_subject_sample_time_map(subject_sample_time_map_all_samples,sample_cov
                             keep_coverage=coverage
                             keep_sample=sample
                             keep_day=day
-
-                if keep_sample !='':
-                    if subject not in subject_sample_time_map.keys():
-                        subject_sample_time_map[subject]={}
-                    subject_sample_time_map[subject][visno]=[[keep_sample,keep_day]]
+            else:
+                keep_sample = subject_sample_time_map_all_samples[subject][visno][0][0]
+                keep_day=subject_sample_time_map_all_samples[subject][visno][0][1]
+                
+            if keep_sample !='':
+                if subject not in subject_sample_time_map.keys():
+                    subject_sample_time_map[subject]={}
+                subject_sample_time_map[subject][visno]=[[keep_sample,keep_day]]
                         
     return subject_sample_time_map 
 
@@ -1056,7 +1059,7 @@ def prune_subject_sample_time_map(subject_sample_time_map_all_samples,sample_cov
 ########################################################################################
 #
 # Returns index pairs for time points corresponding to the same subject_id.
-# Only pairs corresponding to the first visno (stored in index1) and a subsequent visno (either visno 2 and/or 3) are returned. Visno pairs 2 and 3 are not returned. 
+# pairs corresponding to the first visno (stored in index1) and a subsequent visno (either visno 2 and/or 3) are returned. Visno pairs 2 and 3 are not returned. 
 # Also returns the corresponding visnos and days. 
 #
 #######################################################################################
@@ -1082,6 +1085,46 @@ def calculate_time_pairs(subject_sample_time_map, samples):
     time_pair_idxs = (numpy.array(index1,dtype=numpy.int32), numpy.array(index2,dtype=numpy.int32))
 
     return time_pair_idxs, visno, day
+
+
+
+########################################################################################
+#
+# Returns index pairs for time points corresponding to the same subject_id.
+# pairs corresponding to the first visno (visno 1 or 2) (stored in index1) and a subsequent visno (either visno 2 and/or 3) are returned.  
+# Also returns the corresponding visnos and days between the visnos. 
+#
+#######################################################################################
+
+def calculate_all_time_pairs(subject_sample_time_map, samples):
+    index1=[]
+    index2=[]
+    visno1=[]
+    visno2=[]
+    day=[]
+
+    for subject_id in subject_sample_time_map.keys():
+        visnos=subject_sample_time_map[subject_id].keys() #visit numbers
+        if (len(visnos) > 1):            
+            #iterate through visit numbers. Append the index, day, and visnos to their lists
+            for i in range(0, len(visnos)):        
+                for j in range(i+1, len(visnos)):
+                    if (subject_sample_time_map[subject_id][visnos[i]][0][0] in samples and subject_sample_time_map[subject_id][visnos[j]][0][0] in samples):
+                        if visnos[i] < visnos[j]:
+                            first=visnos[i]
+                            second=visnos[j]
+                        else:
+                            first=visnos[j]
+                            second=visnos[i]
+                        index1.append(samples.tolist().index(subject_sample_time_map[subject_id][first][0][0]))
+                        index2.append(samples.tolist().index(subject_sample_time_map[subject_id][second][0][0]))
+                        visno1.append(first)
+                        visno2.append(second)
+                        day.append(subject_sample_time_map[subject_id][second][0][1]-subject_sample_time_map[subject_id][first][0][1])
+        
+    time_pair_idxs = (numpy.array(index1,dtype=numpy.int32), numpy.array(index2,dtype=numpy.int32))
+
+    return time_pair_idxs, visno1, visno2, day
 
 
 
