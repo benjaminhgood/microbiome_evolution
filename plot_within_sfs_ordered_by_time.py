@@ -253,8 +253,8 @@ for j in range(0, len(time_pair_idxs[0])):
 sample_freqs_2D, passed_sites_2D = diversity_utils.calculate_sample_freqs_2D( allele_counts_map, passed_sites_map, variant_type='4D', fold=False)
 
 
-xbins = numpy.linspace(0,1.1,21) 
-ybins = numpy.linspace(0,1.1,21)
+xbins = numpy.linspace(0,1,21) 
+ybins = numpy.linspace(0,1,21)
 
 for j in range(0, len(time_pair_idxs[0])):
     idx1=time_pair_idxs[0][j]
