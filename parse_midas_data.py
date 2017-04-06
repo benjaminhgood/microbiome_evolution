@@ -1162,6 +1162,53 @@ def calculate_unique_time_pairs(subject_sample_time_map, samples):
     return time_pair_idxs, visno, day
 
 
+########################################################################################  
+# 
+# Find the representative genome id in PATRIC for a given species 
+#
+#########################################################################################
+
+def representative_genome_id(desired_species_name):
+    species_info = open("%smidas_db_v1.2/species_info.txt" % data_directory)
+    species_info.readline() #header
+    
+    genome_id_to_return=''
+    for line in species_info:
+        items = line.split("\t")
+        species_id = items[0].strip()
+        rep_genome = items[1].strip()
+        if desired_species_name == species_id:
+            genome_id_to_return=rep_genome
+            return genome_id_to_return
+
+
+#########################################################################################
+#
+# Read in the Kegg info for a given speceis
+#
+#########################################################################################
+
+def load_kegg_annotations(desired_species_name):
+    
+    # dictionary to store the kegg ids (gene_id -> [[kegg_id, description]])
+    kegg_ids={}
+    
+    # figure out the genome_id for the desired species
+    genome_id = representative_genome_id(desired_species_name)
+    
+    file= open("%skegg/%s.kegg.txt" % (data_directory, genome_id))
+    file.readline() #header  
+    file.readline() #blank line
+    for line in file:
+        items = line.split("\t")
+        gene_name=items[0].strip().split('|')[1]
+        kegg_ids[gene_name]=[]
+        kegg_pathway_tmp=items[1].strip().split(';')
+        if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
+            for i in range(0, len(kegg_pathway_tmp)):
+                kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
+    
+    return kegg_ids
 #######################    
 
 if __name__=='__main__':
