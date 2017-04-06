@@ -436,6 +436,62 @@ def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_varia
         
     return fixation_matrix, passed_sites  
 
+####
+#
+# Calculates the number of within-patient polymorphism differences between
+# two samples. (e.g. something that is fixed in one timepoint and polymorphic
+# in another. 
+#
+####
+def calculate_new_snp_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0.05, max_freq=0.2):
+
+    total_genes = set(passed_sites_map.keys())
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+    
+    allowed_genes = (allowed_genes & total_genes)     
+    
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+                    
+    new_snp_matrix = numpy.zeros_like(passed_sites_map.values()[0].values()[0]['sites'])*1.0  
+    passed_sites = numpy.zeros_like(new_snp_matrix)*1.0
+    
+    for gene_name in allowed_genes:
+        
+        for variant_type in passed_sites_map[gene_name].keys():
+             
+            if variant_type not in allowed_variant_types:
+                continue
+        
+            passed_sites += passed_sites_map[gene_name][variant_type]['sites']
+   
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
+            if len(allele_counts)==0:
+                continue
+            
+
+            depths = allele_counts.sum(axis=2)
+            freqs = allele_counts[:,:,0]/(depths+(depths==0))
+            # turn into minor allele frequencies
+            mafs = numpy.fmin(freqs,1-freqs)
+            
+            # Turn
+            
+            new_snps_1 = (mafs[:,:,None]<min_freq)*(mafs[:,None,:]>max_freq)
+            new_snps_2 = (mafs[:,:,None]>max_freq)*(mafs[:,None,:]<min_freq)
+            total_new_snps = new_snps_1+new_snps_2
+             
+            passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
+    
+            total_new_snps[passed_depths==0] = 0
+            
+            new_snp_matrix += total_new_snps.sum(axis=0)
+        
+    return new_snp_matrix, passed_sites  
+
+
    
 def calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None):
 
