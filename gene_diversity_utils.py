@@ -129,3 +129,29 @@ def calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages
             gene_differences.append( (gene_idx, (gene_depth_matrix[gene_idx,0], marker_coverages[0]), (gene_depth_matrix[gene_idx,1], marker_coverages[1])) )
             
     return gene_differences
+
+
+
+
+############################################
+#                                          #
+#  return a histogram  of kegg pathway IDs #
+#                                          #  
+############################################  
+
+def kegg_pathways(kegg_ids, gene_list):
+    
+    pathway_histogram={}
+    pathway_description={}
+    for gene in gene_list:
+        pathways=kegg_ids[gene]
+        if len(pathways)>0:
+            for i in range(0, len(pathways)):
+                pathway=pathways[i][0]
+                description=pathways[i][1]
+                if pathway not in pathway_histogram.keys():
+                    pathway_histogram[pathway]=1
+                else:
+                    pathway_histogram[pathway]+=1
+                pathway_description[pathway]=description
+    return pathway_histogram, pathway_description

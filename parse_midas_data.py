@@ -1200,13 +1200,14 @@ def load_kegg_annotations(desired_species_name):
     file.readline() #header  
     file.readline() #blank line
     for line in file:
-        items = line.split("\t")
-        gene_name=items[0].strip().split('|')[1]
-        kegg_ids[gene_name]=[]
-        kegg_pathway_tmp=items[1].strip().split(';')
-        if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
-            for i in range(0, len(kegg_pathway_tmp)):
-                kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
+        if line.strip() != "":
+            items = line.split("\t")
+            gene_name=items[0].strip().split('|')[1]
+            kegg_ids[gene_name]=[]
+            kegg_pathway_tmp=items[1].strip().split(';')
+            if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
+                for i in range(0, len(kegg_pathway_tmp)):
+                    kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
     
     return kegg_ids
 #######################    
