@@ -1188,26 +1188,30 @@ def representative_genome_id(desired_species_name):
 #
 #########################################################################################
 
-def load_kegg_annotations(desired_species_name):
+def load_kegg_annotations(gene_names):
     
     # dictionary to store the kegg ids (gene_id -> [[kegg_id, description]])
     kegg_ids={}
     
-    # figure out the genome_id for the desired species
-    genome_id = representative_genome_id(desired_species_name)
-    
-    file= open("%skegg/%s.kegg.txt" % (data_directory, genome_id))
-    file.readline() #header  
-    file.readline() #blank line
-    for line in file:
-        if line.strip() != "":
-            items = line.split("\t")
-            gene_name=items[0].strip().split('|')[1]
-            kegg_ids[gene_name]=[]
-            kegg_pathway_tmp=items[1].strip().split(';')
-            if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
-                for i in range(0, len(kegg_pathway_tmp)):
-                    kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
+
+    genomes_visited=[]
+    for i in range(0, len(gene_names)):
+        print gene_names[i]
+        genome_id=gene_names[i].split('p')[0]
+        if genome_id not in genomes_visited:
+            genomes_visited.append(genome_id)
+            file= open("%skegg/%skegg.txt" % (data_directory, genome_id))
+            file.readline() #header  
+            file.readline() #blank line
+            for line in file:
+                if line.strip() != "":
+                    items = line.split("\t")
+                    gene_name=items[0].strip().split('|')[1]
+                    kegg_ids[gene_name]=[]
+                    kegg_pathway_tmp=items[1].strip().split(';')
+                    if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
+                        for i in range(0, len(kegg_pathway_tmp)):
+                            kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
     
     return kegg_ids
 #######################    
