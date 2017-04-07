@@ -93,7 +93,8 @@ median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(
 ###############################################################
 
 # Only plot samples above a certain depth threshold that are "haploids"
-high_cov_samples = samples[(median_coverages>=min_coverage)]
+#high_cov_samples = samples[(median_coverages>=min_coverage)]
+high_cov_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
 #high_cov_pis     = pis[(median_coverages>=min_coverage)]
 
 # get the time info for the snp_samples (this is only for visno 1 vs visno 2 or 3
@@ -182,7 +183,7 @@ for j in range(0, len(time_pair_idxs[0])):
     
     pylab.legend(['first time pt', 'second time pt'],'upper right',prop={'size':6})
     
-    pylab.savefig('%s/%s_within_person_sfs_time_pair_folded_%s_%s.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
+    pylab.savefig('%s/%s_within_person_sfs_time_pair_folded_%s_%s_low_pis.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
 
 
 #################
@@ -237,7 +238,7 @@ for j in range(0, len(time_pair_idxs[0])):
     
     pylab.legend(['first time pt', 'second time pt'],'upper right',prop={'size':6})
     
-    pylab.savefig('%s/%s_within_person_sfs_time_pair_polarized_%s_%s.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
+    pylab.savefig('%s/%s_within_person_sfs_time_pair_polarized_%s_%s_low_pis.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
 
 
 
@@ -269,9 +270,9 @@ for j in range(0, len(time_pair_idxs[0])):
     pylab.xlim([0,1])
     pylab.ylim([0,1])
     pylab.title(species_name)
-    im=pylab.imshow(sfs_2D,interpolation='nearest', origin='low',extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], norm=LogNorm(vmin=1e-5, vmax=1e-2), cmap='jet')
+    im=pylab.imshow(sfs_2D.T,interpolation='nearest', origin='low',extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], norm=LogNorm(vmin=1e-5, vmax=1e-2), cmap='jet')
     pylab.colorbar(im)
-    pylab.savefig('%s/%s_within_person_2D_sfs_time_pair_polarized_%s_%s.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
+    pylab.savefig('%s/%s_within_person_2D_sfs_time_pair_polarized_%s_%s_low_pis.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
 
 
 
@@ -300,7 +301,7 @@ for j in range(0, len(time_pair_idxs[0])):
     pylab.xlim([0,1])
     pylab.ylim([0,1])
     pylab.title(species_name)
-    im=pylab.imshow(sfs_2D,interpolation='nearest', origin='low',extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], norm=LogNorm(vmin=1e-5, vmax=1e-2), cmap='jet')
+    im=pylab.imshow(sfs_2D.T,interpolation='nearest', origin='low',extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], norm=LogNorm(vmin=1e-5, vmax=1e-2), cmap='jet')
     pylab.colorbar(im)
-    pylab.savefig('%s/%s_within_person_2D_sfs_time_pair_folded_%s_%s.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
+    pylab.savefig('%s/%s_within_person_2D_sfs_time_pair_folded_%s_%s_low_pis.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
 
