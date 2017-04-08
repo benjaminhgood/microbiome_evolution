@@ -93,29 +93,8 @@ median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(
 ###############################################################
 
 # Only plot samples above a certain depth threshold that are "haploids"
-#high_cov_samples = samples[(median_coverages>=min_coverage)]
 high_cov_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
-#high_cov_pis     = pis[(median_coverages>=min_coverage)]
-
-# get the time info for the snp_samples (this is only for visno 1 vs visno 2 or 3
-#time_pair_idxs, visno, day = parse_midas_data.calculate_time_pairs(subject_sample_time_map, high_cov_samples)
-
-# get the time info for the snp_samples -- this is for all visno combos
-time_pair_idxs, visno1, visno2, day = parse_midas_data.calculate_all_time_pairs(subject_sample_time_map, high_cov_samples)
-
-
-#### time pair idxs where patients can have exactly 1 time point (so that points plotted are iid)
-#time_pair_idxs_unique, visno_snps_genes_unique, day_snps_genes_unique = parse_midas_data.calculate_unique_time_pairs(subject_sample_time_map, high_cov_samples)
-
-
-### different patient idx: 
-# to compare results to time_pair idxs, we want different patient pair idxs. This helps us to contextualize if we are seeing events within patients that resemble replacements or modifications. 
-
-# Calculate which pairs of idxs belong to the same sample, which to the same subject
-# and which to different subjects
-#snp_same_sample_idxs, snp_same_subject_idxs, snp_diff_subject_idxs = parse_midas_data.calculate_subject_pairs(subject_sample_map, high_cov_samples)
-
-
+desired_samples=(median_coverages>=min_coverage)*(pis<=1e-03)
 
 
 
@@ -123,6 +102,9 @@ time_pair_idxs, visno1, visno2, day = parse_midas_data.calculate_all_time_pairs(
 # load SNP info
 # compute folded SFS
 ##########################################################
+# get the time info for the snp_samples -- this is for all visno combos and all samples irrespective of coverage and pis
+time_pair_idxs, visno1, visno2, day = parse_midas_data.calculate_all_time_pairs(subject_sample_time_map, samples)
+
 
 sys.stderr.write("Loading %s...\n" % species_name)
 samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug)
@@ -248,10 +230,16 @@ for j in range(0, len(time_pair_idxs[0])):
 ###################################################################
 # Plot 2d SFS for time pairs (polarized)
 ###################################################################
+# get the time info for the snp_samples -- this is for all visno combos
+# this time condition on coverage being high and pis being low. 
+
+time_pair_idxs, visno1, visno2, day = parse_midas_data.calculate_all_time_pairs(subject_sample_time_map, high_cov_samples)
+
 
 # these sfs are polarized based on teh consensus allele. 
+# note that desired samples includes the same as what is in high_cov_samples
     
-sample_freqs_2D, passed_sites_2D = diversity_utils.calculate_sample_freqs_2D( allele_counts_map, passed_sites_map, variant_type='4D', fold=False)
+sample_freqs_2D, passed_sites_2D, joint_passed_sites_2D = diversity_utils.calculate_sample_freqs_2D(allele_counts_map, passed_sites_map, desired_samples, variant_type='4D', fold=False)
 
 
 xbins = numpy.linspace(0,1,21) 
@@ -260,9 +248,15 @@ ybins = numpy.linspace(0,1,21)
 for j in range(0, len(time_pair_idxs[0])):
     idx1=time_pair_idxs[0][j]
     idx2=time_pair_idxs[1][j]
-    sample_name1=samples[idx1]
-    sample_name2=samples[idx2]
-    counts, xbins, ybins = numpy.histogram2d(sample_freqs_2D[idx1], sample_freqs_2D[idx2], bins=(xbins, ybins))
+    sample_name1=high_cov_samples[idx1]
+    sample_name2=high_cov_samples[idx2]
+    freqs_idx1=numpy.array(sample_freqs_2D[idx1])
+    freqs_idx2=numpy.array(sample_freqs_2D[idx2])
+    joint_passed_idx1=numpy.array(joint_passed_sites_2D[idx1])
+    joint_passed_idx2=numpy.array(joint_passed_sites_2D[idx2])
+    joint_passed_idx1_idx2=(joint_passed_idx1)*(joint_passed_idx2)
+    joint_passed_idx1_idx2=numpy.where(joint_passed_idx1_idx2==True)
+    counts, xbins, ybins = numpy.histogram2d(freqs_idx1[joint_passed_idx1_idx2], freqs_idx2[joint_passed_idx1_idx2], bins=(xbins, ybins))
     sfs_2D=counts*1.0/(passed_sites_2D[idx1,idx2])
     pylab.figure()
     pylab.xlabel('time point 1')
@@ -270,7 +264,7 @@ for j in range(0, len(time_pair_idxs[0])):
     pylab.xlim([0,1])
     pylab.ylim([0,1])
     pylab.title(species_name)
-    im=pylab.imshow(sfs_2D.T,interpolation='nearest', origin='low',extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], norm=LogNorm(vmin=1e-5, vmax=1e-2), cmap='jet')
+    im=pylab.imshow(sfs_2D.T,interpolation='nearest', origin='low',extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], norm=LogNorm(vmin=1e-5, vmax=1), cmap='jet')
     pylab.colorbar(im)
     pylab.savefig('%s/%s_within_person_2D_sfs_time_pair_polarized_%s_%s_low_pis.png' % (parse_midas_data.analysis_directory,species_name, sample_name1, sample_name2),bbox_inches='tight')
 
@@ -282,7 +276,7 @@ for j in range(0, len(time_pair_idxs[0])):
 ###################################################################
 
     
-sample_freqs_2D, passed_sites_2D = diversity_utils.calculate_sample_freqs_2D( allele_counts_map, passed_sites_map, variant_type='4D')
+sample_freqs_2D, passed_sites_2D, joint_passed_sites_2D = diversity_utils.calculate_sample_freqs_2D(allele_counts_map, passed_sites_map, desired_samples, variant_type='4D')
 
 
 xbins = numpy.linspace(0,1.1,21) 
@@ -291,9 +285,15 @@ ybins = numpy.linspace(0,1.1,21)
 for j in range(0, len(time_pair_idxs[0])):
     idx1=time_pair_idxs[0][j]
     idx2=time_pair_idxs[1][j]
-    sample_name1=samples[idx1]
-    sample_name2=samples[idx2]
-    counts, xbins, ybins = numpy.histogram2d(sample_freqs_2D[idx1], sample_freqs_2D[idx2], bins=(xbins, ybins))
+    sample_name1=high_cov_samples[idx1]
+    sample_name2=high_cov_samples[idx2]
+    freqs_idx1=numpy.array(sample_freqs_2D[idx1])
+    freqs_idx2=numpy.array(sample_freqs_2D[idx2])
+    joint_passed_idx1=numpy.array(joint_passed_sites_2D[idx1])
+    joint_passed_idx2=numpy.array(joint_passed_sites_2D[idx2])
+    joint_passed_idx1_idx2=(joint_passed_idx1)*(joint_passed_idx2)
+    joint_passed_idx1_idx2=numpy.where(joint_passed_idx1_idx2==True)
+    counts, xbins, ybins = numpy.histogram2d(freqs_idx1[joint_passed_idx1_idx2], freqs_idx2[joint_passed_idx1_idx2], bins=(xbins, ybins))
     sfs_2D=counts*1.0/(passed_sites_2D[idx1,idx2])
     pylab.figure()
     pylab.xlabel('time point 1')
