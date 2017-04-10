@@ -1,4 +1,5 @@
 import numpy
+import pandas
 
 # For each gene in gene_depth_matrix, calculates # of samples 
 # in which it is "present". Returns vector of prevalences
@@ -139,11 +140,11 @@ def calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages
 #                                          #  
 ############################################  
 
-def kegg_pathways(kegg_ids, gene_list):
+def kegg_pathways_histogram(kegg_ids, gene_names):
     
     pathway_histogram={}
     pathway_description={}
-    for gene in gene_list:
+    for gene in gene_names:
         pathways=kegg_ids[gene]
         if len(pathways)>0:
             for i in range(0, len(pathways)):
@@ -154,4 +155,18 @@ def kegg_pathways(kegg_ids, gene_list):
                 else:
                     pathway_histogram[pathway]+=1
                 pathway_description[pathway]=description
-    return pathway_histogram, pathway_description
+                
+    # convert to lists:
+    pathway_counts_list=[]
+    pathway_description_list=[]
+    for key in pathway_histogram:
+        if key !='':
+            pathway_counts_list.append(pathway_histogram[key])
+            pathway_description_list.append(pathway_description[key])
+
+    kegg_df=pandas.DataFrame({'counts':pathway_counts_list,'names':pathway_description_list})
+    sorted_kegg_df=pandas.DataFrame.sort(kegg_df, columns='counts')
+    pathway_counts_list=sorted_kegg_df['counts'].tolist()
+    pathway_description_list=sorted_kegg_df['names'].tolist()   
+
+    return pathway_counts_list, pathway_description_list

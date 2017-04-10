@@ -1196,11 +1196,10 @@ def load_kegg_annotations(gene_names):
 
     genomes_visited=[]
     for i in range(0, len(gene_names)):
-        print gene_names[i]
-        genome_id=gene_names[i].split('p')[0]
+        genome_id='.'.join(gene_names[i].split('.')[0:2])
         if genome_id not in genomes_visited:
             genomes_visited.append(genome_id)
-            file= open("%skegg/%skegg.txt" % (data_directory, genome_id))
+            file= bz2.BZ2File("%skegg/%s.kegg.txt.bz2" % (data_directory, genome_id),"r")
             file.readline() #header  
             file.readline() #blank line
             for line in file:
@@ -1212,7 +1211,8 @@ def load_kegg_annotations(gene_names):
                     if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
                         for i in range(0, len(kegg_pathway_tmp)):
                             kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
-    
+                    elif kegg_pathway_tmp[0] =='':
+                        kegg_ids[gene_name].append(['',''])
     return kegg_ids
 #######################    
 
