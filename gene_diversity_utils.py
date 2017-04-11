@@ -140,33 +140,57 @@ def calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages
 #                                          #  
 ############################################  
 
-def kegg_pathways_histogram(kegg_ids, gene_names):
-    
+def kegg_pathways_histogram(kegg_ids, gene_names, gene_samples,gene_prevalences=[]):
+
+    # if no gene_prevalences are provided, assume that every gene is in every person. 
+    if len(gene_prevalences)==0:
+        gene_prevalences=numpy.repeat(len(gene_samples),len(gene_names))/float(len(gene_samples))
+    else:
+        gene_prevalences=gene_prevalences/float(len(gene_samples))
+        
+  
     pathway_histogram={}
     pathway_description={}
+    gene_idx=0
     for gene in gene_names:
+        prevalence=gene_prevalences[gene_idx]
         pathways=kegg_ids[gene]
-        if len(pathways)>0:
-            for i in range(0, len(pathways)):
-                pathway=pathways[i][0]
-                description=pathways[i][1]
-                if pathway not in pathway_histogram.keys():
-                    pathway_histogram[pathway]=1
-                else:
-                    pathway_histogram[pathway]+=1
-                pathway_description[pathway]=description
-                
-    # convert to lists:
-    pathway_counts_list=[]
+        for i in range(0, len(pathways)):
+            pathway=pathways[i][0]
+            description=pathways[i][1]
+            if pathway not in pathway_histogram.keys():
+                pathway_histogram[pathway]=[prevalence]
+            else:
+                pathway_histogram[pathway].append(prevalence)
+            pathway_description[pathway]=description
+        gene_idx +=1
+
+    # create different prevalence bins for stacked histograms [100%, <0x<100, 0%]
+    bins = numpy.asarray([0,0.1,0.5,0.9,1.0]) 
+    pathway_counts_list={}
+    for val in range(0, len(bins)): # the last value will be the total
+        pathway_counts_list[val]=[]
     pathway_description_list=[]
-    for key in pathway_histogram:
-        if key !='':
-            pathway_counts_list.append(pathway_histogram[key])
-            pathway_description_list.append(pathway_description[key])
 
-    kegg_df=pandas.DataFrame({'counts':pathway_counts_list,'names':pathway_description_list})
-    sorted_kegg_df=pandas.DataFrame.sort(kegg_df, columns='counts')
-    pathway_counts_list=sorted_kegg_df['counts'].tolist()
-    pathway_description_list=sorted_kegg_df['names'].tolist()   
+    for pathway in pathway_histogram.keys():
+        counts,dummy=numpy.histogram(pathway_histogram[pathway],bins)
+        if pathway != '':
+            pathway_description_list.append(pathway_description[pathway])
+            for val in range(0, len(bins)-1):
+                pathway_counts_list[val].append(counts[val])
+            pathway_counts_list[len(bins)-1].append(sum(counts))
 
-    return pathway_counts_list, pathway_description_list
+    # convert to dataframe:
+    kegg_df={'total':pathway_counts_list[len(bins)-1],'names':pathway_description_list}
+    for val in range(0, len(bins)-1):
+        kegg_df[bins[val]]=pathway_counts_list[val]
+
+    kegg_df=pandas.DataFrame(kegg_df)
+    
+#    sorted_kegg_df=pandas.DataFrame.sort(kegg_df, columns='total')
+#    pathway_counts_list=sorted_kegg_df['counts'].tolist()
+#    pathway_description_list=sorted_kegg_df['names'].tolist()   
+
+#    return pathway_counts_list, pathway_description_list
+
+    return kegg_df, pathway_description_list
