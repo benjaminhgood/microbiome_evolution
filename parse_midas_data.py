@@ -941,6 +941,31 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[]):
     return desired_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
 
 
+
+
+###############################################################################
+#
+# Loads MIDAS's pangenome and returns a complete list of genes irrespective of prevalence 
+#
+###############################################################################
+def all_pangenome_genes(species_name):
+
+    gene_names=[]
+    # Open post-processed MIDAS output
+    # Presence absence calls
+    gene_presabs_file =  bz2.BZ2File("%sgenes/%s/genes_presabs.txt.bz2" % (data_directory, species_name),"r")
+    presabs_line = gene_presabs_file.readline() # header
+    
+    while presabs_line!="":
+        
+        # Loop through!        
+        items = presabs_line.split()
+        gene_name = items[0]
+        if gene_name !='gene_id':
+            gene_names.append(gene_name)            
+        presabs_line = gene_presabs_file.readline() # header
+
+    return gene_names
 ################################################################################
 #
 # Loads metaphlan2 genes

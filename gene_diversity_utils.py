@@ -133,6 +133,28 @@ def calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages
 
 
 
+################################################################################
+#
+#  return a complete list of prevalences including all genes in the pangenome
+#
+################################################################################
+def gene_prevalences_whole_pangenome(gene_names, gene_names_subset, prevalences):
+    
+    # first make a dictionary of gene names and prevalences:
+    prevalence_dict={}
+    for i in range(0, len(gene_names_subset)):
+        gene=gene_names_subset[i]
+        prevalence_dict[gene]=prevalences[i]
+
+    gene_prevalences=[]
+    for gene in gene_names:
+        if gene in prevalence_dict.keys():
+            gene_prevalences.append(prevalence_dict[gene])
+        else:
+            gene_prevalences.append(0)
+            
+    return numpy.asarray(gene_prevalences)
+
 
 ############################################
 #                                          #

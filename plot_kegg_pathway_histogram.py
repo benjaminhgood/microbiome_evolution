@@ -87,6 +87,7 @@ low_pi_gene_samples, low_pi_gene_names, low_pi_gene_presence_matrix, low_pi_gene
 high_pi_gene_samples, high_pi_gene_names, high_pi_gene_presence_matrix, high_pi_gene_depth_matrix, high_pi_marker_coverages, high_pi_gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=high_pi_snp_samples)
 sys.stderr.write("Done!\n")
 
+gene_names=parse_midas_data.all_pangenome_genes(species_name) # this represents all gene names regardless of prevalences
 
 ###############################################
 # Load kegg information 
@@ -95,7 +96,7 @@ sys.stderr.write("Done!\n")
 # redo loading of gene_names -- currently requires that gene is present in at least one ind. 
 
 # load the kegg information for this species
-kegg_ids=parse_midas_data.load_kegg_annotations(low_pi_gene_names)
+kegg_ids=parse_midas_data.load_kegg_annotations(gene_names)
 
 # iterate through the kegg_ids and make a histogram of what is there. 
 #kegg_df, pathway_description_list=gene_diversity_utils.kegg_pathways_histogram(kegg_ids, gene_names, gene_samples)
@@ -110,10 +111,16 @@ low_pi_gene_prevalences=gene_diversity_utils.calculate_gene_prevalences(low_pi_g
 
 high_pi_gene_prevalences=gene_diversity_utils.calculate_gene_prevalences(high_pi_gene_depth_matrix, high_pi_marker_coverages, min_copynum=0.5)
 
-# using the gene_names list, figure out what pathways are present at which frequency across samples. 
-low_pi_kegg_df, low_pi_pathway_description_list=gene_diversity_utils.kegg_pathways_histogram(kegg_ids, low_pi_gene_names, low_pi_gene_samples, low_pi_gene_prevalences)
+# the prevalence given above is only for the subset where prev is at least 1. 
+# want the full set, so merge low_pi_gene_names with gene_names and assign prev =0 to those gene names where there is no overlap.
 
-high_pi_kegg_df, high_pi_pathway_description_list=gene_diversity_utils.kegg_pathways_histogram(kegg_ids, high_pi_gene_names, high_pi_gene_samples,high_pi_gene_prevalences)
+low_pi_gene_prevalences_pangenome=gene_diversity_utils.gene_prevalences_whole_pangenome(gene_names, low_pi_gene_names, low_pi_gene_prevalences)
+high_pi_gene_prevalences_pangenome=gene_diversity_utils.gene_prevalences_whole_pangenome(gene_names, high_pi_gene_names, high_pi_gene_prevalences)
+
+# using the gene_names list, figure out what pathways are present at which frequency across samples. 
+low_pi_kegg_df, low_pi_pathway_description_list=gene_diversity_utils.kegg_pathways_histogram(kegg_ids, gene_names, low_pi_gene_samples, low_pi_gene_prevalences_pangenome)
+
+high_pi_kegg_df, high_pi_pathway_description_list=gene_diversity_utils.kegg_pathways_histogram(kegg_ids, gene_names, high_pi_gene_samples,high_pi_gene_prevalences_pangenome)
 
 
 
@@ -190,8 +197,25 @@ pylab.savefig('%s/%s_high_pi_kegg_histogram_all_prevalences.png' % (parse_midas_
 
 
 
+##################################################################
+# plot side by side plot of number of genes in pathways for high vs low pis
+##################################################################
+
+# create a new df with the low and high pi values for prevalence between 0.9 and 1
+low_high_pi_kegg_df={'low_pis':low_pi_kegg_df[0.9], 'high_pis':high_pi_kegg_df[0.9], 'names':low_pi_kegg_df['names'], 'total':low_pi_kegg_df['total']}
+low_high_pi_kegg_df = pandas.DataFrame(low_high_pi_kegg_df)
 
 
-# also plot later: what is the distribution of copy number values? Why is the max all the way up to 112? What properties does this gene have? I.e. could it be some weird pathway? 
+label_size = 8
+matplotlib.rcParams['ytick.labelsize'] = label_size 
+pos = numpy.arange(len(high_pi_pathway_description_list))
+width = 1.0
 
+kegg_df=pandas.DataFrame.sort(low_high_pi_kegg_df, columns='total')
+ax =kegg_df[['low_pis','high_pis','total']].plot(kind='barh', stacked=False, figsize=(10,18), title=species_name, color=['r','y','b'], width=width)
+ax.set_xlabel("Number of genes")
+ax.set_ylabel("Kegg pathway")
+ax.set_yticks(pos + (width / 2))
+ax.set_yticklabels(kegg_df['names'].tolist())
 
+pylab.savefig('%s/%s_high_pi_kegg_histogram_high_vs_low_pis.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
