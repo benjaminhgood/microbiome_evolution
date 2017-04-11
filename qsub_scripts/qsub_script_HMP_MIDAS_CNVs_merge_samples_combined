@@ -9,15 +9,12 @@
 #$ -l mem_free=1G                  #-- submits on nodes with enough free memory (required)
 #$ -l arch=linux-x64               #-- SGE resources (CPU type)
 #$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
-#$ -l h_rt=100:00:00                #-- runtime limit (see above; this requests 24 hours)
+#$ -l h_rt=300:00:00                #-- runtime limit (see above; this requests 24 hours)
 #$ -t 1-1                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
 
 OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/
 
-merge_midas.py species $OUTDIR/species -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/ -t dir  >& $OUTDIR/species.log
-
-
-
+merge_midas.py genes $OUTDIR/genes_samples_combined -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/sample_paths.txt -t file --sample_depth 10 --min_samples 1 --max_species 150 >& $OUTDIR/genes_samples_combined.log
 
