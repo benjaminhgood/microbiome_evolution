@@ -663,3 +663,126 @@ def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, a
                         
     return snp_changes
 
+# min_d = pick only a single sample per cluster with distance below this value
+# max_d = cut tree at this distance
+def cluster_samples(distance_matrix, min_d=0, max_d=1e09):
+ 
+    # calculate compressed distance matrix suitable for agglomerative clustering
+    Y = []
+    for i in xrange(0,distance_matrix.shape[0]):
+        for j in xrange(i+1,distance_matrix.shape[1]):
+            Y.append(distance_matrix[i,j]) 
+    Y = numpy.array(Y) 
+     
+    Z = linkage(Y, method='average')        
+     
+    c, coph_dists = cophenet(Z, Y)
+     
+    cluster_assignments = fcluster(Z, max_d, criterion='distance')
+    subcluster_assignments = fcluster(Z, min_d, criterion='distance')
+     
+    cluster_labels = list(set(cluster_assignments))
+     
+    cluster_idx_map = {cluster_label: [] for cluster_label in cluster_labels}
+    subcluster_map = {cluster_label: set([]) for cluster_label in cluster_labels}
+    for i in xrange(0,len(cluster_assignments)):
+        if subcluster_assignments[i] not in subcluster_map[cluster_assignments[i]]:
+            cluster_idx_map[cluster_assignments[i]].append(i)
+            subcluster_map[cluster_assignments[i]].add(subcluster_assignments[i])
+         
+    cluster_idxss = [set(cluster_idx_map[cluster_label]) for cluster_label in cluster_labels]
+    cluster_sizes = [len(cluster_idxs) for cluster_idxs in cluster_idxss]
+     
+    # only return ones with more than one individual
+    final_clusters = []
+    final_cluster_sizes = []
+     
+    all_unique_idxs = set([])
+    for cluster_idxs in cluster_idxss:
+        all_unique_idxs.update(cluster_idxs)
+     
+    for cluster_idx_set in cluster_idxss:
+         
+        if len(cluster_idx_set)>1:
+         
+            cluster_idxs = numpy.array([(i in cluster_idx_set) for i in xrange(0,len(cluster_assignments))])
+            anticluster_idxs = numpy.array([((i not in cluster_idx_set) and (i in all_unique_idxs)) for i in xrange(0,len(cluster_assignments))])  
+         
+            final_clusters.append((cluster_idxs, anticluster_idxs))
+            final_cluster_sizes.append((cluster_idxs*1.0).sum())
+             
+     
+    final_cluster_idxs = [i for i in xrange(0,len(final_cluster_sizes))]
+         
+    final_cluster_sizes, final_cluster_idxs = zip(*sorted(zip(final_cluster_sizes, final_cluster_idxs),reverse=True))
+     
+    sorted_final_clusters = [final_clusters[idx] for idx in final_cluster_idxs]
+         
+    return sorted_final_clusters
+     
+ 
+def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clusters, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8):
+ 
+    total_genes = set(passed_sites_map.keys())
+ 
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+     
+    allowed_genes = (allowed_genes & total_genes)     
+     
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+                     
+    total_polymorphic_sites = 0
+    total_inconsistent_sites = 0
+     
+    for gene_name in allowed_genes:
+         
+        for variant_type in passed_sites_map[gene_name].keys():
+              
+            if variant_type not in allowed_variant_types:
+                continue
+         
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
+            if len(allele_counts)==0:
+                continue
+             
+            # good to go, let's get calculating!
+            depths = allele_counts.sum(axis=2)
+            freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
+            passed_sites_matrix = (depths>0)
+            # consensus approximation
+            genotype_matrix = numpy.around(freqs)
+     
+            for cluster_idxs, anticluster_idxs in clusters:
+             
+                #print cluster_idxs.shape, anticluster_idxs.shape, genotype_matrix.shape, passed_sites_matrix.shape
+             
+                cluster_prevalence = (genotype_matrix[:,cluster_idxs]*passed_sites_matrix[:,cluster_idxs]).sum(axis=1)
+                cluster_min_prevalence = 0.5
+                cluster_max_prevalence = (passed_sites_matrix[:,cluster_idxs]).sum(axis=1)-0.5
+             
+                anticluster_prevalence = (genotype_matrix[:,anticluster_idxs]*passed_sites_matrix[:,anticluster_idxs]).sum(axis=1)
+                anticluster_min_prevalence = 0.5
+                anticluster_max_prevalence = (passed_sites_matrix[:,anticluster_idxs]).sum(axis=1) - 0.5
+             
+                # Those that are polymorphic in the clade!
+                polymorphic_sites = (cluster_prevalence>cluster_min_prevalence)*(cluster_prevalence<cluster_max_prevalence)
+                 
+                # Those that are also polymorphic in the remaining population!
+                inconsistent_sites = polymorphic_sites*(anticluster_prevalence>anticluster_min_prevalence)*(anticluster_prevalence<anticluster_max_prevalence)
+             
+                num_polymorphic_sites = polymorphic_sites.sum()
+                num_inconsistent_sites = inconsistent_sites.sum()
+             
+                total_polymorphic_sites += num_polymorphic_sites
+                total_inconsistent_sites += num_inconsistent_sites
+             
+                if num_inconsistent_sites > 0:
+                    print cluster_prevalence[inconsistent_sites], cluster_max_prevalence[inconsistent_sites]
+                    print anticluster_prevalence[inconsistent_sites], anticluster_max_prevalence[inconsistent_sites]
+                    print (cluster_idxs*anticluster_idxs).sum()
+             
+         
+    return total_inconsistent_sites, total_polymorphic_sites
+ 
