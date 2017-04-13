@@ -6,18 +6,54 @@ import pylab
 import sys
 import numpy
 import diversity_utils
+import stats_utils
 from numpy.random import choice
 species_name=sys.argv[1]
-
+debug=True
+min_coverage=20
 
 # Load subject and sample metadata
 sys.stderr.write("Loading HMP metadata...\n")
 subject_sample_map = parse_midas_data.parse_subject_sample_map()
 sys.stderr.write("Done!\n")
     
+###
+
+# Load genomic coverage distributions
+sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
+median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
+sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
+
+# Load pi information for species_name
+sys.stderr.write("Loading within-sample diversity for %s...\n" % species_name)
+samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, debug)
+sys.stderr.write("Done!\n")
+pis = total_pis/total_pi_opportunities
+clipped_pis = (total_pis+1)/(total_pi_opportunities+1)
+
+median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
+
+# Calculate which pairs of idxs belong to the same sample, which to the same subject
+# and which to different subjects
+same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_subject_pairs(subject_sample_map, samples)
+
+# Calculate the smaller and larger of the two pi estimates so we can look at correlation over time
+lower_pis = numpy.fmin(clipped_pis[same_subject_idxs[0]],clipped_pis[same_subject_idxs[1]])
+upper_pis = numpy.fmax(clipped_pis[same_subject_idxs[0]],clipped_pis[same_subject_idxs[1]])
+
+# Only plot samples above a certain depth threshold that are "haploids"
+desired_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
+
+
+
+
+###
+
+
+
 # Load SNP information for species_name
 sys.stderr.write("Loading %s...\n" % species_name)
-samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, combination_type="sample", debug=False)
+samples, allele_counts_map, passed_sites_map, final_line_number= parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=desired_samples)
 sys.stderr.write("Done!\n")
     
 pi_matrix_syn, avg_pi_matrix_syn = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D')
