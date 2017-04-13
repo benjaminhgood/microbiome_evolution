@@ -1,5 +1,9 @@
 import numpy
 from scipy.linalg import eigh
+from scipy.cluster.hierarchy import dendrogram, linkage
+from scipy.cluster.hierarchy import cophenet
+from scipy.cluster.hierarchy import fcluster
+ 
 
 # Calls consensus genotypes from matrix of allele counts
 #
