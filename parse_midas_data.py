@@ -5,6 +5,7 @@ import gzip
 import os.path 
 import stats_utils
 from math import floor, ceil
+import gene_diversity_utils
 
 ###############################################################################
 #
@@ -1004,6 +1005,42 @@ def load_reference_genes(desired_species_name):
     return reference_genes
     
     
+def load_core_genes(desired_species_name, min_copynum=0.25, min_prevalence=0.9, min_marker_coverage=20):
+
+    # Load gene coverage information for species_name
+    gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_pangenome_data(desired_species_name)
+
+    good_idxs = marker_coverages>=min_marker_coverage
+
+    # Restrict attention to samples with a decent amount of marker coverage
+    if good_idxs.sum() == 0:
+        sys.stderr.write("Warning: no samples with sufficient marker coverage when calculating core genome for %s!\n" % species_name)
+        marker_coverage_threshold=0
+
+    gene_depth_matrix = gene_depth_matrix[:,good_idxs]
+
+    marker_coverages = marker_coverages[good_idxs]
+
+    # Calculate prevalences    
+    prevalences = gene_diversity_utils.calculate_fractional_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum)
+    
+    
+    print prevalences
+    
+    # Restrict to genes that are actually in the reference genome!
+    reference_genes = set(load_reference_genes(desired_species_name))
+    
+    print len(prevalences), len(reference_genes), len(marker_coverages)
+    
+    
+    # Calculate core gene set
+    core_genes = []
+    for idx in numpy.nonzero(prevalences>=min_prevalence)[0]:
+        if gene_names[idx] in reference_genes:
+            core_genes.append(gene_names[idx])
+            
+    return core_genes
+
 
 ########################################################################################
 #

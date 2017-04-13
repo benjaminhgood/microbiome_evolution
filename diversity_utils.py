@@ -540,11 +540,13 @@ def calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', 
     
             pi_matrix += gene_pi_matrix
             avg_pi_matrix += gene_avg_pi_matrix
-        
-    pi_matrix = pi_matrix/(passed_sites+(passed_sites==0))
-    avg_pi_matrix = avg_pi_matrix/(passed_sites+(passed_sites==0))
+     
+    # We used to normalize here    
+    #pi_matrix = pi_matrix /(passed_sites+(passed_sites==0))
+    #avg_pi_matrix = avg_pi_matrix/(passed_sites+(passed_sites==0))
+    # Now we return passed sites
     
-    return pi_matrix, avg_pi_matrix
+    return pi_matrix, avg_pi_matrix, passed_sites
 
 
 

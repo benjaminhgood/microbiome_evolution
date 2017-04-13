@@ -1,5 +1,4 @@
 import numpy
-import pandas
 
 # For each gene in gene_depth_matrix, calculates # of samples 
 # in which it is "present". Returns vector of prevalences
@@ -9,6 +8,12 @@ def calculate_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum=
     
     return (gene_copynum_matrix>=min_copynum).sum(axis=1)
 
+
+def calculate_fractional_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum=0.5):    
+    
+    return calculate_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum)*1.0/len(marker_coverages)
+
+
 # For each sample in gene_depth_matrix, calculates # of genes
 # that are "present". Returns vector of gene numbers
 def calculate_gene_numbers(gene_depth_matrix, marker_coverages, min_copynum=0.5):
@@ -16,7 +21,6 @@ def calculate_gene_numbers(gene_depth_matrix, marker_coverages, min_copynum=0.5)
     gene_copynum_matrix = gene_depth_matrix * 1.0 / numpy.clip(marker_coverages,1,1e09)
     
     return (gene_copynum_matrix>=min_copynum).sum(axis=0)
-    
 
 # Calculates the number of gene differences between pairs of samples
 # Returns: matrix of # of gene differences
@@ -164,6 +168,8 @@ def gene_prevalences_whole_pangenome(gene_names, gene_names_subset, prevalences)
 
 def kegg_pathways_histogram(kegg_ids, gene_names, gene_samples,gene_prevalences=[]):
 
+    import pandas
+  
     # if no gene_prevalences are provided, assume that every gene is in every person. 
     if len(gene_prevalences)==0:
         gene_prevalences=numpy.repeat(len(gene_samples),len(gene_names))/float(len(gene_samples))

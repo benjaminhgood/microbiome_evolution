@@ -5,6 +5,7 @@ import pylab
 import sys
 import numpy
 import diversity_utils
+import gene_diversity_utils
 import stats_utils
 
 ################################################################################
@@ -39,25 +40,28 @@ high_coverage_samples = samples[marker_coverages>=min_marker_coverage]
 sys.stderr.write("Focusing on %d high coverage samples...\n" % len(high_coverage_samples))
 
 # Load metaphlan2 genes
+sys.stderr.write("Loading metaphlan2 genes...\n")
 metaphlan2_genes = set(parse_midas_data.load_metaphlan2_genes(species_name))   
 metaphlan2_gene_idxs = numpy.array([gene_name in metaphlan2_genes for gene_name in gene_names])
+sys.stderr.write("Done! (%d genes)\n" % len(metaphlan2_genes))
 
 # Load reference genes
+sys.stderr.write("Loading reference genes...\n")
 reference_genes = set(parse_midas_data.load_reference_genes(species_name))   
 reference_gene_idxs = numpy.array([gene_name in reference_genes for gene_name in gene_names])  
+sys.stderr.write("Done! (%d genes)\n" % len(reference_genes))
+
+print reference_genes[0:10]
+print gene_names[0:10]
   
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculate gene hamming matrix...\n")
 # Either: for all genes in pan-genome
-gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+gene_hamming_matrix, num_opportunities = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
 #
 # Or: just the subset from the MIDAS reference genome
 #gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix[reference_gene_idxs,:], marker_coverages, min_log2_fold_change=4)
 #
-
-# Calculate fraction of shared genes
-sys.stderr.write("Calculate gene sharing matrix...\n")
-gene_sharing_matrix = diversity_utils.calculate_gene_sharing_matrix(gene_presence_matrix)
 
 sample_idx_map = parse_midas_data.calculate_sample_idx_map(high_coverage_samples, samples)
         
@@ -68,7 +72,7 @@ high_coverage_same_sample_idxs, high_coverage_same_subject_idxs, high_coverage_d
 same_sample_idxs = parse_midas_data.apply_sample_index_map_to_indices(sample_idx_map, high_coverage_same_sample_idxs)  
 same_subject_idxs = parse_midas_data.apply_sample_index_map_to_indices(sample_idx_map, high_coverage_same_subject_idxs)  
 diff_subject_idxs = parse_midas_data.apply_sample_index_map_to_indices(sample_idx_map, high_coverage_diff_subject_idxs)  
-   
+     
 hamming_timepoints = gene_hamming_matrix[same_subject_idxs]
 hamming_timepoints.sort()
 hamming_timepoints_dns, hamming_timepoints_survivals = stats_utils.calculate_unnormalized_survival_from_vector(hamming_timepoints, min_x=0.1, max_x=1e05)
@@ -111,34 +115,6 @@ pylab.savefig('%s/%s_gene_hamming_distribution.pdf' % (parse_midas_data.analysis
 pylab.savefig('%s/%s_gene_hamming_distribution.png' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight',dpi=300)
 
 
-pylab.figure(2,figsize=(5,3))
-pylab.title(species_name,fontsize=11)
-pylab.xlabel('Fraction shared genes',fontsize=11)
-pylab.ylabel('Survival function',fontsize=11)
-pylab.gca().spines['top'].set_visible(False)
-pylab.gca().spines['right'].set_visible(False)
-pylab.gca().get_xaxis().tick_bottom()
-pylab.gca().get_yaxis().tick_left()
-
-sharing_timepoints = gene_sharing_matrix[same_subject_idxs]
-sharing_timepoints.sort()
-sharing_timepoints_dns, sharing_timepoints_survivals = stats_utils.calculate_unnormalized_survival_from_vector(sharing_timepoints, min_x=0.1, max_x=1e05)
-sharing_timepoints_survivals /= sharing_timepoints_survivals[0]    
-    
-sharing_between = gene_sharing_matrix[diff_subject_idxs]
-sharing_between.sort()
-sharing_between_dns, sharing_between_survivals = stats_utils.calculate_unnormalized_survival_from_vector(sharing_between, min_x=0.1, max_x=1e05)
-sharing_between_survivals /= sharing_between_survivals[0]
-
-pylab.step(sharing_between_dns, sharing_between_survivals,color='r',label='Between people')
-pylab.step(sharing_timepoints_dns, sharing_timepoints_survivals,color='g',label='Across time')
-
-pylab.legend(loc='lower left',frameon=False,fontsize=9)
-#pylab.semilogx([1e-02],[-1])
-pylab.ylim([0,1.05])
-pylab.xlim([0,1.05])
-pylab.savefig('%s/%s_gene_sharing_distribution.pdf' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight')
-pylab.savefig('%s/%s_gene_sharing_distribution.png' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight',dpi=300)
 
 pylab.figure(3,figsize=(5,3))
 pylab.title(species_name,fontsize=11)
@@ -213,7 +189,8 @@ stringent_reference_prevalence_counts = numpy.histogram(stringent_reference_gene
 lax_reference_prevalence_counts = numpy.histogram(lax_reference_gene_prevalences, prevalence_bins)[0].cumsum()
 
 prevalences = numpy.arange(0,gene_copy_numbers.shape[1]+1)
-  
+
+print reference_prevalence_counts[-1], numpy.histogram(stringent_reference_gene_prevalences, prevalence_bins)[0].sum() 
 
 pylab.semilogy(prevalences, stringent_reference_prevalence_counts, 'k.-',label='CN>0.5')
 pylab.semilogy(prevalences, reference_prevalence_counts, 'b.-',label='CN>0.1')
@@ -224,12 +201,12 @@ pylab.legend(loc='lower right',frameon=False,fontsize=8)
 pylab.savefig('%s/%s_reference_gene_presence_sfs.pdf' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight')
 pylab.savefig('%s/%s_reference_gene_presence_sfs.png' % (parse_midas_data.analysis_directory,species_name), bbox_inches='tight',dpi=300)
  
- 
+sys.exit(0) 
 within_subject_gene_change_prevalences = []
 # Calculate gene content differences
 for i,j in zip(same_subject_idxs[0],same_subject_idxs[1]):
 
-     gene_differences = diversity_utils.calculate_gene_differences_between(i, j, gene_names, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+     gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_names, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
 
      if len(gene_differences)>0:
          print "Differences between", i, j

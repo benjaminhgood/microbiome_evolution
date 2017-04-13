@@ -50,6 +50,11 @@ sys.stderr.write("Loading HMP metadata...\n")
 subject_sample_map = parse_midas_data.parse_subject_sample_map()
 sys.stderr.write("Done!\n")
     
+# Load core gene set
+sys.stderr.write("Loading core genes...\n")
+core_genes = parse_midas_data.load_core_genes(species_name)
+sys.stderr.write("Done! Core genome consists of %d genes\n" % len(core_genes))
+    
 # Load genomic coverage distributions
 sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
 median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
