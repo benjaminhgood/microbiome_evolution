@@ -10,7 +10,7 @@
 #$ -l arch=linux-x64               #-- SGE resources (CPU type)
 #$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
 #$ -l h_rt=100:00:00                #-- runtime limit (see above; this requests 24 hours)
-#$ -t 1-134                        #-- remove first '#' to specify the number of
+#$ -t 1-139                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
 readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/genes/species_genes.txt

@@ -8,7 +8,8 @@ import numpy
 import diversity_utils
 from numpy.random import choice
 
-species_names=['Prevotella_copri_61740','Butyrivibrio_crossotus_61674','Bacteroides_uniformis_57318','Roseburia_intestinalis_56239','Eubacterium_eligens_61678']
+#species_names=['Prevotella_copri_61740','Butyrivibrio_crossotus_61674','Bacteroides_uniformis_57318','Roseburia_intestinalis_56239','Eubacterium_eligens_61678']
+species_names=['Alistipes_putredinis_61533','Bacteroides_uniformis_57318']
 
 files={}
 
