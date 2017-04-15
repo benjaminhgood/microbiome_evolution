@@ -26,6 +26,17 @@ debug_species_name = 'Bacteroides_uniformis_57318'
 #
 ###############################################################################
 
+def parse_merged_sample_names(items):
+    samples = []
+    for item in items:
+        sample = item.strip()
+        #if sample.endswith('c'):
+        #    sample = sample[:-1]
+        samples.append(sample)
+        
+    samples = numpy.array(samples)
+    return samples
+
 ###############################################################################
 #
 # Loads metadata for HMP samples 
@@ -131,7 +142,10 @@ def calculate_unique_samples(subject_sample_map, sample_list=[]):
     subject_idx_map = {}
         
     for i in xrange(0,len(sample_list)):
-        subject = sample_subject_map[sample_list[i]]
+        sample = sample_list[i]
+        if sample.endswith('c'):
+            sample = sample[:-1]
+        subject = sample_subject_map[sample]
         if not subject in subject_idx_map:
             subject_idx_map[subject] = i
             
@@ -156,6 +170,15 @@ def calculate_subject_pairs(subject_sample_map, sample_list=[]):
 
     if len(sample_list)==0:
         sample_list = list(sorted(flatten_samples(subject_sample_map).keys()))
+    
+    new_sample_list = []
+    for sample in sample_list:
+        if sample.endswith('c'):
+            new_sample_list.append(sample[:-1])
+        else: 
+            new_sample_list.append(sample)
+    
+    sample_list = new_sample_list
     
     # invert subject sample map
     sample_subject_map = {}
@@ -363,6 +386,50 @@ def parse_gene_coverages(desired_species_name):
         gene_coverages[gene_name] = depths
         
     return gene_coverages, samples
+
+def parse_marker_gene_coverage_distribution(desired_species_name):
+    coverage_distribution_file = bz2.BZ2File("%ssnps/%s/marker_coverage_distribution.txt.bz2" % (data_directory, desired_species_name))
+
+    line = coverage_distribution_file.readline() # header
+    samples = []
+    seen_samples = set([])
+    gene_name_map = {}
+    histogram_map = {}
+    
+    sample_coverage_histograms = []
+    for line in coverage_distribution_file:
+        items = line.split("\t")
+        subitems = items[0].split(",")
+        sample = subitems[0].strip()
+        gene_name = subitems[1].strip()
+        
+        if sample not in seen_samples:
+            samples.append(sample)
+            seen_samples.add(sample)
+            gene_name_map[sample] = []
+            histogram_map[sample] = {}
+        
+        gene_name_map[sample].append(gene_name)
+        histogram_map[sample][gene_name] = {}    
+        
+        for item in items[1:]:
+            subitems = item.split(",")
+            histogram_map[sample][gene_name][float(subitems[0])] = float(subitems[1])
+        
+    marker_gene_coverages = []
+    pooled_marker_coverages = []
+    for sample in samples:
+        
+        pooled_marker_coverages.append( stats_utils.calculate_nonzero_median_from_histogram(histogram_map[sample]['all']))
+        
+        marker_gene_coverages.append( [stats_utils.calculate_nonzero_median_from_histogram(histogram_map[sample][gene_name]) for gene_name in gene_name_map[sample][1:]])
+        
+    marker_gene_coverages = numpy.array(marker_gene_coverages).T
+    
+    marker_genes = gene_name_map[samples[0]][1:]
+    pooled_marker_coverages = numpy.array(pooled_marker_coverages)
+    
+    return marker_gene_coverages, pooled_marker_coverages, marker_genes, samples
 
 def parse_coverage_distribution(desired_species_name):
 
@@ -582,8 +649,15 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.5, upp
         
     
         # now parse allele count info
-        depths = numpy.array([float(item) for item in depth_line.split()[1:]])[passed_samples]
-        ref_freqs = numpy.array([float(item) for item in ref_freq_line.split()[1:]])[passed_samples]
+        depths = numpy.array([float(item) for item in depth_line.split()[1:]])
+        ref_freqs = numpy.array([float(item) for item in ref_freq_line.split()[1:]])
+        
+        depths = depths[passed_samples]
+        ref_freqs = ref_freqs[passed_samples]
+        
+        #if (ref_freqs==1.0).all():
+        #    sys.stderr.write("Non-polymorphic site!\n")
+        
         refs = numpy.round(ref_freqs*depths)   
         alts = depths-refs
         
@@ -644,8 +718,8 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")
     
     line = snp_file.readline() # header
-    items = line.split()
-    samples = numpy.array(items[1:])
+    items = line.split()[1:]    
+    samples = parse_merged_sample_names(items)
     
     if len(allowed_samples)==0:
         allowed_samples = set(samples)
@@ -784,8 +858,9 @@ def parse_within_sample_pi(species_name, debug=False):
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")
     
     line = snp_file.readline() # header
-    items = line.split()
-    samples = items[1:]
+    items = line.split()[1:]
+    samples = parse_merged_sample_names(items)
+    
     
     
     total_opportunities = numpy.zeros(len(samples))*1.0
@@ -939,17 +1014,65 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[]):
     gene_depth_matrix = numpy.array(gene_depth_matrix)
     gene_reads_matrix = numpy.array(gene_reads_matrix)
 
-    return desired_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
+    new_gene_names = []
+    centroid_gene_map = load_centroid_gene_map(species_name)
+    for gene_name in gene_names:
+        new_gene_names.append(centroid_gene_map[gene_name])
 
-
-
+    return desired_samples, new_gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
 
 ###############################################################################
 #
-# Loads MIDAS's pangenome and returns a complete list of genes irrespective of prevalence 
+# A set of (lightweight) methods for loading gene_ids
+# that satisfy various criteria (e.g. in reference genome
+# part of metaphlan2 set, etc.
 #
 ###############################################################################
-def all_pangenome_genes(species_name):
+
+####
+#
+# The gene_ids in the pangenome list are the centroids of gene clusters.
+# Sometimes the gene in the reference genome is not chosen as the centroid.
+# This function creates a map between pangenome_centroids and genes in 
+# reference genome (if it exists)
+#
+###
+def load_centroid_gene_map(desired_species_name):
+    
+    # First load reference genes
+    reference_genes = load_reference_genes(desired_species_name)
+    
+    gene_info_file = gzip.open("%smidas_db_v1.2/pan_genomes/%s/gene_info.txt.gz" % (data_directory, desired_species_name), 'r')
+    
+    gene_info_file.readline() # header
+    
+    centroid_gene_map = {}
+    
+    for line in gene_info_file:
+        
+        items = line.split("\t") 
+        gene_id = items[0].strip()
+        centroid_id = items[3].strip()
+        
+        if centroid_id not in centroid_gene_map:
+            centroid_gene_map[centroid_id] = centroid_id
+            
+        if (gene_id in reference_genes) and (centroid_id not in reference_genes):
+            centroid_gene_map[centroid_id] = gene_id
+            
+        
+    gene_info_file.close()
+    
+    return centroid_gene_map
+
+###############################################################################
+#
+# Loads the MIDAS's pangenome (after clustering at X% identity)
+# 
+# returns a complete set of genes (irrespective of prevalence)
+#
+###############################################################################
+def load_pangenome_genes(species_name):
 
     gene_names=[]
     # Open post-processed MIDAS output
@@ -966,23 +1089,15 @@ def all_pangenome_genes(species_name):
             gene_names.append(gene_name)            
         presabs_line = gene_presabs_file.readline() # header
 
-    return gene_names
-################################################################################
-#
-# Loads metaphlan2 genes
-# returns a list of metaphlan2 genes
-#
-################################################################################
-def load_metaphlan2_genes(desired_species_name):
-    gene_file = open("%smetaphlan2_genes/%s_metaphlan2_genes_mapped.txt" % (data_directory, desired_species_name), 'r')
-    
-    metaphlan2_genes=[]
-    for line in gene_file:
-        metaphlan2_genes.append(line.strip())
+    centroid_gene_map = load_centroid_gene_map(species_name)
 
-    gene_file.close()    
-    
-    return metaphlan2_genes
+    new_species_names = []
+    for gene_name in gene_names:
+        new_species_names.append(centroid_gene_map[gene_name])
+        
+    return set(new_gene_names)
+
+
     
 ###############################################################################
 #
@@ -1002,9 +1117,88 @@ def load_reference_genes(desired_species_name):
         reference_genes.append(gene_name)
     features_file.close()    
     
-    return reference_genes
+    return set(reference_genes)
     
+################################################################################
+#
+# Loads metaphlan2 genes (that are present in the reference genome)
+# returns a list of metaphlan2 genes
+#
+################################################################################
+def load_metaphlan2_genes(desired_species_name):
+    gene_file = open("%smetaphlan2_genes/%s_metaphlan2_genes_mapped.txt" % (data_directory, desired_species_name), 'r')
     
+    reference_genes = load_reference_genes(desired_species_name)
+    
+    metaphlan2_genes=[]
+    for line in gene_file:
+        gene_name = line.strip()
+        
+        if gene_name in reference_genes:
+            metaphlan2_genes.append(gene_name)
+        else:
+            pass
+            #print gene_name
+
+    gene_file.close()    
+    
+    return set(metaphlan2_genes)
+    
+###############################################################################
+#
+# Loads list of MIDAS marker genes for a given species
+# (by default, load only those that are present in reference genome)
+#
+###############################################################################
+def load_marker_genes(desired_species_name, require_in_reference_genome=True):   
+
+    # Chosen markers (From table S7 of Nayfach et al (Genome Res 2016)
+    marker_ids = set(['B000032', 'B000039', 'B000041', 'B000062', 'B000063', 'B000065', 'B000071', 'B000079', 'B000080', 'B000081', 'B000082', 'B000086', 'B000096', 'B000103', 'B000114'])
+
+    marker_gene_map = {marker_id : [] for marker_id in marker_ids}
+
+    reference_genes = set(load_reference_genes(desired_species_name))
+    
+    marker_gene_file = open("%smidas_db_v1.2/marker_genes/phyeco.map" % (data_directory), 'r')
+    
+    marker_gene_file.readline() # header
+    
+    marker_genes = []
+    #print "Markers absent from the reference genome"
+    for line in marker_gene_file:
+        
+        items = line.split("\t")
+        gene_name = items[0].strip()
+        species_name = items[3].strip()
+        marker_id = items[4].strip()
+        
+        if desired_species_name == species_name:
+            if marker_id in marker_ids:
+                if (not require_in_reference_genome) or (gene_name in reference_genes):
+                    marker_genes.append(gene_name)
+                    marker_gene_map[marker_id].append(gene_name)
+                    
+                else:
+                    pass
+                    #print gene_name, marker_id
+            else:
+                pass
+    
+    #print marker_gene_map
+                
+    #print 'Two markers that are present in the reference genome:'
+    #print marker_genes[0]
+    #print marker_genes[1]
+ 
+    return set(marker_genes)
+ 
+ 
+###############################################################################
+#
+# Loads a subset of "core" genes. 
+# *UNDER CONSTRUCTION*
+#
+###############################################################################   
 def load_core_genes(desired_species_name, min_copynum=0.25, min_prevalence=0.9, min_marker_coverage=20):
 
     # Load gene coverage information for species_name

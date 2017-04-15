@@ -89,7 +89,7 @@ snp_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
 # Clunky, but necessary to limit memory usage on cluster
 
 # Load SNP information for species_name
-sys.stderr.write("Loading %s...\n" % species_name)
+sys.stderr.write("Loading SNP information for %d high-coverage haploid samples...\n" % len(snp_samples))
 
 pi_matrix_syn = numpy.array([])
 avg_pi_matrix_syn = numpy.array([])
@@ -101,7 +101,7 @@ while final_line_number >= 0:
     
     sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
     dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number)
-    sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
+    sys.stderr.write("Done! Loaded %d genes in %d samples\n" % (len(allele_counts_map.keys()), len(dummy_samples)))
     
     # Calculate fixation matrix
     sys.stderr.write("Calculating matrix of snp differences...\n")

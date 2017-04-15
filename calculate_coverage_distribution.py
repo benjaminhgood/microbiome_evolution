@@ -22,6 +22,9 @@ sys.stderr.write("Calculating coverage distribution for %s...\n" % species_name)
 # entries are avg coverage of that gene for that sample 
 #####
 
+prevalence_threshold = 0.95
+prevalence_min_coverage = 3
+
 allowed_variant_types = set(["1D","2D","3D","4D"]) # use all types of sites to include most information
 
 depth_file = bz2.BZ2File("%ssnps/%s/snps_depth.txt.bz2" % (parse_midas_data.data_directory, species_name),"r")
@@ -60,6 +63,10 @@ while True:
         
     items = depth_line.split()   
     depths = numpy.array([long(item) for item in items[1:]])
+    
+    # Manual prevalence filter
+    if (depths>=prevalence_min_coverage).sum()*1.0/len(depths)<prevalence_threshold:
+        continue
         
     # Add to genome-wide depth distribution
     for sample,D in zip(samples,depths):

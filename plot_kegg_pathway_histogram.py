@@ -87,7 +87,8 @@ low_pi_gene_samples, low_pi_gene_names, low_pi_gene_presence_matrix, low_pi_gene
 high_pi_gene_samples, high_pi_gene_names, high_pi_gene_presence_matrix, high_pi_gene_depth_matrix, high_pi_marker_coverages, high_pi_gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=high_pi_snp_samples)
 sys.stderr.write("Done!\n")
 
-gene_names=parse_midas_data.all_pangenome_genes(species_name) # this represents all gene names regardless of prevalences
+gene_names=list(parse_midas_data.load_pangenome_genes(species_name))
+# this represents all gene names regardless of prevalences
 
 ###############################################
 # Load kegg information 

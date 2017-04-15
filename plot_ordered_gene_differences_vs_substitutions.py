@@ -212,7 +212,7 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
     
     i = diff_subject_gene_idxs[0][sample_pair_idx]
     j = diff_subject_gene_idxs[1][sample_pair_idx]
-    gene_differences = diversity_utils.calculate_gene_differences_between(i, j, gene_names, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+    gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
 
     plower,pupper = stats_utils.calculate_poisson_rate_interval(gene_difference_matrix[i,j], gene_opportunity_matrix[i,j],alpha)
     
@@ -267,9 +267,11 @@ for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(same_subject_snp_plo
 
     y-=1
     
-    snp_axis.semilogx([snp_plower,snp_pupper],[y,y],'g.-',linewidth=0.25,markersize=1.5)
+    snp_axis.semilogx([snp_plower,snp_pupper],[y,y],'g-',linewidth=0.25,markersize=1.5)
+    snp_axis.semilogx([snp_plower],[y],'g.',linewidth=0.25,markersize=1.5)
         
-    gene_axis.semilogx([gene_plower,gene_pupper], [y,y], 'g.-',linewidth=0.25,markersize=1.5)
+    gene_axis.semilogx([gene_plower,gene_pupper], [y,y], 'g-',linewidth=0.25,markersize=1.5)
+    gene_axis.semilogx([gene_plower], [y], 'g.',linewidth=0.25,markersize=1.5)
 
 y-=1
 snp_axis.semilogx([1e-09,1e09],[y,y,],'-',linewidth=0.25,color='0.7')

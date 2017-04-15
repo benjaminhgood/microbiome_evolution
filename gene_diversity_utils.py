@@ -2,14 +2,14 @@ import numpy
 
 # For each gene in gene_depth_matrix, calculates # of samples 
 # in which it is "present". Returns vector of prevalences
-def calculate_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum=0.5):
+def calculate_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum=0.3):
 
     gene_copynum_matrix = gene_depth_matrix * 1.0 / numpy.clip(marker_coverages,1,1e09)
     
     return (gene_copynum_matrix>=min_copynum).sum(axis=1)
 
 
-def calculate_fractional_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum=0.5):    
+def calculate_fractional_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum=0.3):    
     
     return calculate_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum)*1.0/len(marker_coverages)
 

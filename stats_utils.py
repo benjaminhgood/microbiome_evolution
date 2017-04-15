@@ -22,15 +22,67 @@ def calculate_median_from_histogram(histogram):
 ####
 def calculate_nonzero_median_from_histogram(histogram):
 
+    
+
     xs, CDF = calculate_CDF_from_histogram(histogram)
     
+    if len(xs)<2:
+        return xs[0]
+
+    #if CDF[-1]==0:
+    #    return xs[0]
+    
+    
     if xs[0]<0.5:
+    
+        if CDF[0]>0.8:
+            return xs[0]
+    
         CDF -= CDF[0]
         CDF /= CDF[-1]
         
     median_idx = numpy.nonzero(CDF>=0.5)[0][0]
     return xs[median_idx]
+
+####
+#
+# Calculates median from histogram
+# histogram is map of value: counts
+#
+####
+def calculate_thresholded_median_from_histogram(histogram,xmin=0):
+
+
+    xs, CDF = calculate_CDF_from_histogram(histogram)
+
+    
+    
+    # Get last index below xmin
+    idx = numpy.nonzero(xs>xmin+0.5)[0][0]-1
+    
+    CDF -= CDF[idx]
+    CDF /= CDF[-1]
+    CDF = numpy.clip(CDF,0,1e09)
+    
+    median_idx = numpy.nonzero(CDF>=0.5)[0][0]
+    return xs[median_idx]
+
  
+
+####
+#
+# Calculates CDF from histogram
+# histogram is map of value: counts
+#
+####
+def calculate_unnormalized_CDF_from_histogram(histogram):
+
+    xs = sorted(histogram.keys())
+    ns = numpy.array([histogram[x] for x in xs])*1.0
+    xs = numpy.array(xs)*1.0
+    
+    CDF = ns.cumsum()
+    return xs, CDF
     
 ####
 #
@@ -47,6 +99,11 @@ def calculate_CDF_from_histogram(histogram):
     CDF = ns.cumsum()/ns.sum()
     return xs, CDF
 
+
+def calculate_total_from_histogram(histogram):
+    xs = sorted(histogram.keys())
+    ns = numpy.array([histogram[x] for x in xs])*1.0
+    return ns.sum()
   
 ####
 #
