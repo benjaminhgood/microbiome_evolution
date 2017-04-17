@@ -388,52 +388,43 @@ def parse_gene_coverages(desired_species_name):
     return gene_coverages, samples
 
 def parse_marker_gene_coverage_distribution(desired_species_name):
+    
     coverage_distribution_file = bz2.BZ2File("%ssnps/%s/marker_coverage_distribution.txt.bz2" % (data_directory, desired_species_name))
 
     line = coverage_distribution_file.readline() # header
-    samples = []
-    seen_samples = set([])
-    gene_name_map = {}
-    histogram_map = {}
-    
-    sample_coverage_histograms = []
+    marker_gene_coverages = {}
     for line in coverage_distribution_file:
         items = line.split("\t")
         subitems = items[0].split(",")
         sample = subitems[0].strip()
         gene_name = subitems[1].strip()
         
-        if sample not in seen_samples:
-            samples.append(sample)
-            seen_samples.add(sample)
-            gene_name_map[sample] = []
-            histogram_map[sample] = {}
-        
-        gene_name_map[sample].append(gene_name)
-        histogram_map[sample][gene_name] = {}    
-        
+        if sample not in marker_gene_coverages:
+            marker_gene_coverages[sample] = {}
+            
+        locations = []
+        coverages = []
         for item in items[1:]:
             subitems = item.split(",")
-            histogram_map[sample][gene_name][float(subitems[0])] = float(subitems[1])
+            locations.append( long(subitems[0]) )
+            coverages.append( float(subitems[1]) )
         
-    marker_gene_coverages = []
-    pooled_marker_coverages = []
-    for sample in samples:
+        locations = numpy.array(locations)
+        coverages = numpy.array(coverages)
         
-        pooled_marker_coverages.append( stats_utils.calculate_nonzero_median_from_histogram(histogram_map[sample]['all']))
+        marker_gene_coverages[sample][gene_name] = (locations,coverages)
         
-        marker_gene_coverages.append( [stats_utils.calculate_nonzero_median_from_histogram(histogram_map[sample][gene_name]) for gene_name in gene_name_map[sample][1:]])
-        
-    marker_gene_coverages = numpy.array(marker_gene_coverages).T
-    
-    marker_genes = gene_name_map[samples[0]][1:]
-    pooled_marker_coverages = numpy.array(pooled_marker_coverages)
-    
-    return marker_gene_coverages, pooled_marker_coverages, marker_genes, samples
+    return marker_gene_coverages
 
-def parse_coverage_distribution(desired_species_name):
+def parse_coverage_distribution(desired_species_name,prevalence_filter=True):
 
-    coverage_distribution_file = bz2.BZ2File("%ssnps/%s/coverage_distribution.txt.bz2" % (data_directory, desired_species_name))
+    if prevalence_filter:
+        full_str = ""
+    else:
+        full_str = "full_"
+        
+
+    coverage_distribution_file = bz2.BZ2File("%ssnps/%s/%scoverage_distribution.txt.bz2" % (data_directory, desired_species_name, full_str))
 
     line = coverage_distribution_file.readline() # header
     samples = []
@@ -553,8 +544,13 @@ def calculate_absolute_depth_threshold_map(species_coverage_vector, samples, avg
 # In the process, filters sites that fail to meet the depth requirements
 #
 ###############################################################################
-def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.5, upper_factor=2, debug=False):
-    
+def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upper_factor=3, min_samples=4, debug=False):
+
+
+# lower_factor = 0.3 is the default to be consistent with MIDAS gene presence criterion
+# upper factor = 3 is the default for (logarithmic) symmetry 
+# min_samples=4 is the default because then the site is guaranteed to be present in 
+# at least 2 independent people. 
     
     # Load genomic coverage distributions
     sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name)
@@ -578,6 +574,9 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.5, upp
     # get list of samples
     depth_items = depth_line.split()
     samples = numpy.array(depth_items[1:])
+    
+    # samples
+    prevalence_threshold = min([min_samples*1.0/len(samples), 0.5])
     
     # create depth threshold vector from depth threshold map
     lower_depth_threshold_vector = []
@@ -667,7 +666,7 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.5, upp
         #print passed_sites.sum(), total_passed_samples, passed_sites.sum()/total_passed_samples
         
         # make sure the site is prevalent in enough samples to count as "core"
-        if (passed_sites).sum()*1.0/total_passed_samples < 0.5:
+        if (passed_sites).sum()*1.0/total_passed_samples < prevalence_threshold:
             continue
             #passed_sites *= 0
             
@@ -852,7 +851,7 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
 # returns vector of samples, vector of pi_s (raw counts), vector of opportunities
 #
 ###############################################################################
-def parse_within_sample_pi(species_name, debug=False):
+def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_types=set(['1D','2D','3D','4D']), debug=False):
     
     # Open post-processed MIDAS output
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")
@@ -878,7 +877,10 @@ def parse_within_sample_pi(species_name, debug=False):
         variant_type = info_items[3]
         pvalue = float(info_items[4])
         
-        if variant_type!='4D':
+        if variant_type not in allowed_variant_types:
+            continue
+        
+        if len(allowed_genes)>0 and (gene_name not in allowed_genes):
             continue
         
         # Load alt and depth counts
@@ -905,7 +907,7 @@ def parse_within_sample_pi(species_name, debug=False):
         alt_upper_threshold = numpy.floor(depths*0.95)-0.5 #at least one read below 95%
         alts[alts>alt_upper_threshold] = depths[alts>alt_upper_threshold]
         
-        total_pi += 2*alts*(depths-alts)*1.0/(depths*(depths-1)+(depths<0.1))
+        total_pi += 2*alts*(depths-alts)*1.0/(depths*(depths-1)+(depths<1.1))
         total_opportunities += passed_sites
         
         num_sites_processed+=1
@@ -1199,42 +1201,41 @@ def load_marker_genes(desired_species_name, require_in_reference_genome=True):
 # *UNDER CONSTRUCTION*
 #
 ###############################################################################   
-def load_core_genes(desired_species_name, min_copynum=0.25, min_prevalence=0.9, min_marker_coverage=20):
+def load_core_genes(desired_species_name, min_copynum=0.3, min_prevalence=0.9, min_marker_coverage=20, unique_individuals=True):
 
-    # Load gene coverage information for species_name
+    # Two choices: from pangenome or directly from reference genome
+    return load_core_genes_from_pangenome(desired_species_name, min_copynum, min_prevalence, min_marker_coverage, unique_individuals)
+
+###############################################################################
+#
+# Loads a subset of "core" genes using copynum information in the genes/ folder 
+#
+###############################################################################   
+def load_core_genes_from_pangenome(desired_species_name, min_copynum=0.3, min_prevalence=0.9, min_marker_coverage=20, unique_individuals=True):
+
+    # Load subject and sample metadata
+    subject_sample_map = parse_subject_sample_map()
+    
+    # Load reference genes
+    reference_genes = load_reference_genes(desired_species_name)
+    
     gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_pangenome_data(desired_species_name)
-
-    good_idxs = marker_coverages>=min_marker_coverage
-
-    # Restrict attention to samples with a decent amount of marker coverage
-    if good_idxs.sum() == 0:
-        sys.stderr.write("Warning: no samples with sufficient marker coverage when calculating core genome for %s!\n" % species_name)
-        marker_coverage_threshold=0
-
-    gene_depth_matrix = gene_depth_matrix[:,good_idxs]
-
-    marker_coverages = marker_coverages[good_idxs]
-
-    # Calculate prevalences    
-    prevalences = gene_diversity_utils.calculate_fractional_gene_prevalences(gene_depth_matrix, marker_coverages, min_copynum)
     
-    
-    print prevalences
-    
-    # Restrict to genes that are actually in the reference genome!
-    reference_genes = set(load_reference_genes(desired_species_name))
-    
-    print len(prevalences), len(reference_genes), len(marker_coverages)
-    
-    
-    # Calculate core gene set
-    core_genes = []
-    for idx in numpy.nonzero(prevalences>=min_prevalence)[0]:
-        if gene_names[idx] in reference_genes:
-            core_genes.append(gene_names[idx])
-            
-    return core_genes
+    gene_names = numpy.array(gene_names)
+   
+    reference_gene_idxs = numpy.array([gene_name in reference_genes for gene_name in gene_names])
 
+    if unique_individuals:
+        sample_idxs = (calculate_unique_samples(subject_sample_map, gene_samples))*(marker_coverages>=min_marker_coverage)
+    else:
+        sample_idxs = marker_coverages>=min_marker_coverage
+    
+    prevalences = gene_diversity_utils.calculate_fractional_gene_prevalences(gene_depth_matrix[:,sample_idxs], marker_coverages[sample_idxs], min_copynum)
+
+    core_gene_idxs = reference_gene_idxs*(prevalences>=min_prevalence)
+
+    return set(gene_names[core_gene_idxs])
+    
 
 ########################################################################################
 #

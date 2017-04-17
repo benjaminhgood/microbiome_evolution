@@ -49,6 +49,10 @@ alpha = 0.5 # Confidence interval range for rate estimates
 sys.stderr.write("Loading HMP metadata...\n")
 subject_sample_map = parse_midas_data.parse_subject_sample_map()
 sys.stderr.write("Done!\n")
+
+sys.stderr.write("Loading core genes...\n")
+core_genes = parse_midas_data.load_core_genes(species_name)
+sys.stderr.write("Done! %d core genes\n" % len(core_genes))
     
 # Load genomic coverage distributions
 sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
@@ -57,7 +61,7 @@ sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(sam
 
 # Load pi information for species_name
 sys.stderr.write("Loading within-sample diversity for %s...\n" % species_name)
-samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, debug)
+samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, allowed_variant_types=set(['4D']), allowed_genes=core_genes, debug=debug)
 sys.stderr.write("Done!\n")
 pis = total_pis/total_pi_opportunities
 
@@ -100,12 +104,12 @@ final_line_number = 0
 while final_line_number >= 0:
     
     sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
-    dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number)
+    dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,allowed_genes=core_genes, chunk_size=chunk_size,initial_line_number=final_line_number)
     sys.stderr.write("Done! Loaded %d genes in %d samples\n" % (len(allele_counts_map.keys()), len(dummy_samples)))
     
     # Calculate fixation matrix
     sys.stderr.write("Calculating matrix of snp differences...\n")
-    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix =     diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)    
+    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix =     diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change, allowed_variant_types=set(['4D']),allowed_genes=core_genes)    
     sys.stderr.write("Done!\n")
     
     if snp_difference_matrix.shape[0]==0:

@@ -44,6 +44,8 @@ min_change = 0.8
 min_coverage = 20
 alpha = 0.5 # Confidence interval range for rate estimates
 
+desired_samples = set(['700037453', '700037539'])
+
 
 # Load subject and sample metadata
 sys.stderr.write("Loading HMP metadata...\n")
@@ -70,10 +72,100 @@ metaphlan2_gene_coverages = numpy.array(metaphlan2_gene_coverages)
 median_metaphlan2_coverages = numpy.median(metaphlan2_gene_coverages,axis=0)
 #mean_metaphlan2_coverages = metaphlan2_gene_coverages.mean(axis=0)
 mean_metaphlan2_coverages = (metaphlan2_gene_coverages*(metaphlan2_gene_coverages>=1)).sum(axis=0)/((metaphlan2_gene_coverages>=1).sum(axis=0))
-    
 
+
+# Load gene coverage information for species_name
+sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
+gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name)
+sys.stderr.write("Done!\n")
+
+midas_marker_coverage_map = {}
+for i in xrange(0,len(gene_samples)):
+    midas_marker_coverage_map[gene_samples[i]] = marker_coverages[i]
+    
+pylab.figure(1,figsize=(22,2))
  
-marker_gene_coverages, pooled_marker_coverages, marker_genes, samples = parse_midas_data.parse_marker_gene_coverage_distribution(species_name)
+marker_gene_coverages = parse_midas_data.parse_marker_gene_coverage_distribution(species_name)
+
+max_coverages = []
+median_coverages = []
+
+marker_genes = sorted(marker_gene_coverages[marker_gene_coverages.keys()[0]].keys())
+
+for sample in desired_samples:
+    current_loc = 0
+    pooled_coverages = []
+    
+    line, = pylab.plot([-1],[1],'-')
+    color = pylab.getp(line,'color')
+    
+    print sample
+    
+    for gene_idx in xrange(0,len(marker_genes)):
+        gene_name = marker_genes[gene_idx]
+        current_loc += 1
+        pylab.plot([current_loc,current_loc],[1e-09,1e09],'k-')
+        current_loc += 1
+        
+        if gene_idx%2==0:
+            pylab.text(current_loc+10, 900, gene_name, fontsize=6)
+        else:
+            pylab.text(current_loc+10, 800, gene_name, fontsize=6)
+        
+        locs,depths = marker_gene_coverages[sample][gene_name]
+        
+        if len(locs)==0:
+            print gene_name, "has no sites!"
+            continue
+        
+        pylab.plot(locs+current_loc, depths, '-', color=color)
+        
+        current_loc += locs[-1]
+        pooled_coverages.extend(depths)
+        
+        print gene_name, numpy.median(depths)
+        
+    
+    pooled_coverages = numpy.array(pooled_coverages)
+    median_coverage = numpy.median(pooled_coverages[pooled_coverages>0])
+    
+    pylab.plot([-1],[1],'-',color=color,label=("%s (Median(>0)=%g, genes/=%g)" % (sample, median_coverage, midas_marker_coverage_map[sample])))
+    
+    
+    print "Pooled:", median_coverage
+    
+    median_coverages.append( median_coverage  )
+    max_coverages.append( pooled_coverages.max() )
+    
+pylab.ylim([0,1000])
+pylab.xlim([0.5,current_loc+0.5])
+pylab.legend(loc='center right',frameon=False,fontsize=6)
+
+pylab.xlabel('Position of site (marker genes are concatenated)') 
+pylab.ylabel('Coverage') 
+
+pylab.savefig('%s/%s_marker_coverages.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',transparent=True)
+pylab.savefig('%s/%s_marker_coverages.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+
+
+sys.exit(0)
+
+samples = numpy.array(marker_gene_coverages.keys())
+
+pooled_marker_gene_coverages = []
+for sample in samples:
+    coverages = []
+    for gene_name in marker_gene_coverages[sample].keys():
+        locs,depths = marker_gene_coverages[sample][gene_name]
+        coverages.extend(depths)
+    
+    pooled_marker_gene_coverages.append(coverages)
+    
+pooled_marker_gene_coverages = numpy.array(pooled_marker_gene_coverages)
+
+
+sys.exit(0)
+
 
 print marker_gene_coverages.shape
 
@@ -99,7 +191,6 @@ sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distributi
 median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
 sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
 
-desired_samples = set(['700037453', '700037539'])
 
 pylab.figure(1)
 for i in xrange(0,len(sample_coverage_histograms)):

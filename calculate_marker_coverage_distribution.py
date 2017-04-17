@@ -38,12 +38,11 @@ depth_line = depth_file.readline() # header
 info_line = info_file.readline()
     
 samples = depth_line.split()[1:]
-    
-sample_depth_histograms = {}
-for sample in samples:
-    sample_depth_histograms[sample] =  {gene_name: {} for gene_name in marker_genes}
-    sample_depth_histograms[sample]['all'] = {}
-    
+
+marker_coverages = {gene_name: [] for gene_name in marker_genes}
+marker_gene_starts = {gene_name: -1 for gene_name in marker_genes}
+marker_locations = {gene_name: [] for gene_name in marker_genes}
+        
 num_sites_processed = 0
 total_marker_sites = 0
     
@@ -67,9 +66,6 @@ while True:
     info_items = info_line.split('\t')
     variant_type = info_items[5]
     
-    
-        
-    # make sure it is either a 1D or 4D site
     if not variant_type in allowed_variant_types:
         continue
     
@@ -79,40 +75,35 @@ while True:
         continue
         
     items = depth_line.split('\t')   
-    depths = numpy.array([long(item) for item in items[1:]])
-        
-    # Add to gene-specific depth distribution
-    for sample,D in zip(samples,depths):
-        if D not in sample_depth_histograms[sample][gene_name]:
-            sample_depth_histograms[sample][gene_name][D]=0
-        sample_depth_histograms[sample][gene_name][D] += 1
-        
-        if D not in sample_depth_histograms[sample]['all']:
-            sample_depth_histograms[sample]['all'][D]=0
-        sample_depth_histograms[sample]['all'][D] += 1
     
+    subitems = items[0].split("|")
+    location = long(subitems[1])
+    
+    depths = numpy.array([long(item) for item in items[1:]])
+    
+    if marker_gene_starts[gene_name]<0:
+        marker_gene_starts[gene_name]=location
         
+    marker_locations[gene_name].append(location-marker_gene_starts[gene_name])
+    marker_coverages[gene_name].append(depths)
             
 depth_file.close()
+    
+for gene_name in marker_coverages.keys():
+    marker_coverages[gene_name] = numpy.array(marker_coverages[gene_name]).T
     
 # Now write output!
         
 # First write genome-wide coverage distribution
 output_file = bz2.BZ2File("%ssnps/%s/marker_coverage_distribution.txt.bz2" % (parse_midas_data.data_directory, species_name),"w")
 output_file.write("SampleID,GeneID\tD,n(D) ...")
-for sample in samples:
-    total_marker_sites=0
-    output_file.write("\n")
-    output_file.write("\t".join(["%s,%s" % (sample,'all')]+["%d,%d" % (D,sample_depth_histograms[sample]['all'][D]) for D in sorted(sample_depth_histograms[sample]['all'].keys())]))
+for sample_idx in xrange(0,len(samples)):
+    sample=samples[sample_idx]
     for gene_name in marker_genes:
-        num_sites = stats_utils.calculate_total_from_histogram(sample_depth_histograms[sample][gene_name])  
-        if num_sites>=100:
-            total_marker_sites+=num_sites
-            output_file.write("\n")
-            output_file.write("\t".join(["%s,%s" % (sample,gene_name)]+["%d,%d" % (D,sample_depth_histograms[sample][gene_name][D]) for D in sorted(sample_depth_histograms[sample][gene_name].keys())]))
+        output_file.write("\n")
+        output_file.write("\t".join(["%s,%s" % (sample,gene_name)]+["%d,%d" % (marker_locations[gene_name][i], marker_coverages[gene_name][sample_idx,i]) for i in xrange(0,len(marker_locations[gene_name]))]))
     
 output_file.close()
-
-print total_marker_sites 
+ 
 # Done!
     

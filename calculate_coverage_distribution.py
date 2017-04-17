@@ -22,6 +22,7 @@ sys.stderr.write("Calculating coverage distribution for %s...\n" % species_name)
 # entries are avg coverage of that gene for that sample 
 #####
 
+# These are the default MIDAS parameters. Used to ensure consistency
 prevalence_threshold = 0.95
 prevalence_min_coverage = 3
 
@@ -36,6 +37,9 @@ info_line = info_file.readline()
 samples = depth_line.split()[1:]
     
 sample_depth_histograms = {sample: {} for sample in samples}
+full_sample_depth_histograms = {sample: {} for sample in samples}
+
+
 gene_total_depths = {}
 gene_total_sites = {}
 
@@ -65,14 +69,18 @@ while True:
     depths = numpy.array([long(item) for item in items[1:]])
     
     # Manual prevalence filter
-    if (depths>=prevalence_min_coverage).sum()*1.0/len(depths)<prevalence_threshold:
-        continue
-        
-    # Add to genome-wide depth distribution
+    if (depths>=prevalence_min_coverage).sum()*1.0/len(depths)>=prevalence_threshold:
+        # Add to genome-wide depth distribution
+        for sample,D in zip(samples,depths):
+            if D not in sample_depth_histograms[sample]:
+                sample_depth_histograms[sample][D]=0
+            sample_depth_histograms[sample][D] += 1
+    
     for sample,D in zip(samples,depths):
-        if D not in sample_depth_histograms[sample]:
-            sample_depth_histograms[sample][D]=0
-        sample_depth_histograms[sample][D] += 1
+        if D not in full_sample_depth_histograms[sample]:
+            full_sample_depth_histograms[sample][D]=0
+        full_sample_depth_histograms[sample][D] += 1
+        
     
     # Add to gene-specific avg depth
     if gene_name not in gene_total_depths:
@@ -91,12 +99,20 @@ depth_file.close()
     
 # Now write output!
         
-# First write genome-wide coverage distribution
+# First write (filtered) genome-wide coverage distribution
 output_file = bz2.BZ2File("%ssnps/%s/coverage_distribution.txt.bz2" % (parse_midas_data.data_directory, species_name),"w")
 output_file.write("SampleID\tD,n(D) ...")
 for sample in samples:
     output_file.write("\n")
     output_file.write("\t".join([sample]+["%d,%d" % (D,sample_depth_histograms[sample][D]) for D in sorted(sample_depth_histograms[sample].keys())]))
+output_file.close()
+
+# First write (filtered) genome-wide coverage distribution
+output_file = bz2.BZ2File("%ssnps/%s/full_coverage_distribution.txt.bz2" % (parse_midas_data.data_directory, species_name),"w")
+output_file.write("SampleID\tD,n(D) ...")
+for sample in samples:
+    output_file.write("\n")
+    output_file.write("\t".join([sample]+["%d,%d" % (D, full_sample_depth_histograms[sample][D]) for D in sorted(full_sample_depth_histograms[sample].keys())]))
 output_file.close()
 
 # Then write gene-specific coverages
