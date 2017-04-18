@@ -220,3 +220,55 @@ ax.set_yticks(pos + (width / 2))
 ax.set_yticklabels(kegg_df['names'].tolist())
 
 pylab.savefig('%s/%s_high_pi_kegg_histogram_high_vs_low_pis.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
+
+
+#######################################
+# plot again with less prevalent genes
+#######################################
+low_high_pi_kegg_df={'low_pis':low_pi_kegg_df[0.5], 'high_pis':high_pi_kegg_df[0.5], 'names':low_pi_kegg_df['names'], 'total':low_pi_kegg_df['total']}
+low_high_pi_kegg_df = pandas.DataFrame(low_high_pi_kegg_df)
+
+
+label_size = 8
+matplotlib.rcParams['ytick.labelsize'] = label_size 
+pos = numpy.arange(len(high_pi_pathway_description_list))
+width = 1.0
+
+kegg_df=pandas.DataFrame.sort(low_high_pi_kegg_df, columns='total')
+ax =kegg_df[['low_pis','high_pis','total']].plot(kind='barh', stacked=False, figsize=(10,18), title=species_name, color=['r','y','b'], width=width)
+ax.set_xlabel("Number of genes")
+ax.set_ylabel("Kegg pathway")
+ax.set_yticks(pos + (width / 2))
+ax.set_yticklabels(kegg_df['names'].tolist())
+
+pylab.savefig('%s/%s_high_pi_kegg_histogram_high_vs_low_pis_0.5.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
+
+
+
+
+
+
+low_high_pi_kegg_df={'low_pis':low_pi_kegg_df[0.1], 'high_pis':high_pi_kegg_df[0.1], 'names':low_pi_kegg_df['names'], 'total':low_pi_kegg_df['total']}
+low_high_pi_kegg_df = pandas.DataFrame(low_high_pi_kegg_df)
+
+
+label_size = 8
+matplotlib.rcParams['ytick.labelsize'] = label_size 
+pos = numpy.arange(len(high_pi_pathway_description_list))
+width = 1.0
+
+kegg_df=pandas.DataFrame.sort(low_high_pi_kegg_df, columns='total')
+ax =kegg_df[['low_pis','high_pis','total']].plot(kind='barh', stacked=False, figsize=(10,18), title=species_name, color=['r','y','b'], width=width)
+ax.set_xlabel("Number of genes")
+ax.set_ylabel("Kegg pathway")
+ax.set_yticks(pos + (width / 2))
+ax.set_yticklabels(kegg_df['names'].tolist())
+
+pylab.savefig('%s/%s_high_pi_kegg_histogram_high_vs_low_pis_0.1.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
+
+
+
+####################################################
+# how many species share a single pathway?         #
+####################################################
+
