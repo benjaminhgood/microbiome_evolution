@@ -32,6 +32,10 @@ chunk_size = args.chunk_size
 # Minimum median coverage of sample to look at
 min_coverage = 20
 
+sys.stderr.write("Loading core genes...\n")
+core_genes = parse_midas_data.load_core_genes(species_name)
+sys.stderr.write("Done! %d core genes\n" % len(core_genes))
+
 #################
 # Load metadata #
 #################
@@ -56,7 +60,7 @@ sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(sam
 
 # Load pi information for species_name
 sys.stderr.write("Loading within-sample diversity for %s...\n" % species_name)
-samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, debug)
+samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, allowed_variant_types=set(['4D']), allowed_genes=core_genes, debug=debug)
 sys.stderr.write("Done!\n")
 pis = total_pis/total_pi_opportunities
 
@@ -87,20 +91,17 @@ low_pi_gene_samples, low_pi_gene_names, low_pi_gene_presence_matrix, low_pi_gene
 high_pi_gene_samples, high_pi_gene_names, high_pi_gene_presence_matrix, high_pi_gene_depth_matrix, high_pi_marker_coverages, high_pi_gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=high_pi_snp_samples)
 sys.stderr.write("Done!\n")
 
-gene_names=list(parse_midas_data.load_pangenome_genes(species_name))
 # this represents all gene names regardless of prevalences
+gene_names, new_species_names=list(parse_midas_data.load_pangenome_genes(species_name))
+
+# convert format of gene names from set to list:
+gene_names=list(gene_names)
 
 ###############################################
 # Load kegg information 
 ##############################################
-
-# redo loading of gene_names -- currently requires that gene is present in at least one ind. 
-
 # load the kegg information for this species
 kegg_ids=parse_midas_data.load_kegg_annotations(gene_names)
-
-# iterate through the kegg_ids and make a histogram of what is there. 
-#kegg_df, pathway_description_list=gene_diversity_utils.kegg_pathways_histogram(kegg_ids, gene_names, gene_samples)
 
 
 ############################################################## 
@@ -126,26 +127,11 @@ high_pi_kegg_df, high_pi_pathway_description_list=gene_diversity_utils.kegg_path
 
 
 
-##########################################
-# plot stacked histogram with pandas df  #
-########################################## 
+#############################################################################
+# plot stacked histogram with pandas df                                     #
+# Each stack represents the numebr of genes in different prevalence classes #
+########################################## ##################################
 # low pi
-
-label_size = 8
-matplotlib.rcParams['ytick.labelsize'] = label_size 
-pos = numpy.arange(len(low_pi_pathway_description_list))
-width = 1.0 
-
-kegg_df=pandas.DataFrame.sort(low_pi_kegg_df, columns='total')
-ax =kegg_df[[0.9,0.5,0.1,0.0]].plot(kind='barh', stacked=True, figsize=(10,18), title=species_name, color=['r','b','b','b'])
-ax.set_xlabel("Number of genes")
-ax.set_ylabel("Kegg pathway")
-ax.set_yticks(pos + (width / 2))
-ax.set_yticklabels(kegg_df['names'].tolist())
-
-pylab.savefig('%s/%s_low_pi_kegg_histogram.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
-
-
 
 # plot for all prevalences:
 label_size = 8
@@ -165,22 +151,6 @@ pylab.savefig('%s/%s_low_pi_kegg_histogram_all_prevalences.png' % (parse_midas_d
 
 # high pi
 
-label_size = 8
-matplotlib.rcParams['ytick.labelsize'] = label_size 
-pos = numpy.arange(len(high_pi_pathway_description_list))
-width = 1.0 
-
-kegg_df=pandas.DataFrame.sort(high_pi_kegg_df, columns='total')
-ax =kegg_df[[0.9,0.5,0.1,0.0]].plot(kind='barh', stacked=True, figsize=(10,18), title=species_name, color=['r','b','b','b'])
-ax.set_xlabel("Number of genes")
-ax.set_ylabel("Kegg pathway")
-ax.set_yticks(pos + (width / 2))
-ax.set_yticklabels(kegg_df['names'].tolist())
-
-pylab.savefig('%s/%s_high_pi_kegg_histogram.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
-
-
-
 # plot for all prevalences:
 label_size = 8
 matplotlib.rcParams['ytick.labelsize'] = label_size 
@@ -198,9 +168,9 @@ pylab.savefig('%s/%s_high_pi_kegg_histogram_all_prevalences.png' % (parse_midas_
 
 
 
-##################################################################
+##########################################################################
 # plot side by side plot of number of genes in pathways for high vs low pis
-##################################################################
+#########################################################################
 
 # create a new df with the low and high pi values for prevalence between 0.9 and 1
 low_high_pi_kegg_df={'low_pis':low_pi_kegg_df[0.9], 'high_pis':high_pi_kegg_df[0.9], 'names':low_pi_kegg_df['names'], 'total':low_pi_kegg_df['total']}
@@ -219,7 +189,7 @@ ax.set_ylabel("Kegg pathway")
 ax.set_yticks(pos + (width / 2))
 ax.set_yticklabels(kegg_df['names'].tolist())
 
-pylab.savefig('%s/%s_high_pi_kegg_histogram_high_vs_low_pis.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
+pylab.savefig('%s/%s_kegg_histogram_high_vs_low_pis_prevalence_0.9.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
 
 
 #######################################
@@ -241,7 +211,7 @@ ax.set_ylabel("Kegg pathway")
 ax.set_yticks(pos + (width / 2))
 ax.set_yticklabels(kegg_df['names'].tolist())
 
-pylab.savefig('%s/%s_high_pi_kegg_histogram_high_vs_low_pis_0.5.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
+pylab.savefig('%s/%s_pi_kegg_histogram_high_vs_low_pis_prevalence_0.5.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
 
 
 
@@ -264,7 +234,7 @@ ax.set_ylabel("Kegg pathway")
 ax.set_yticks(pos + (width / 2))
 ax.set_yticklabels(kegg_df['names'].tolist())
 
-pylab.savefig('%s/%s_high_pi_kegg_histogram_high_vs_low_pis_0.1.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
+pylab.savefig('%s/%s_pi_kegg_histogram_high_vs_low_pis_prevalence_0.1.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight') 
 
 
 
