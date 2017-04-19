@@ -1097,7 +1097,7 @@ def load_pangenome_genes(species_name):
     for gene_name in gene_names:
         new_species_names.append(centroid_gene_map[gene_name])
         
-    return set(new_gene_names)
+    return set(gene_names), set(new_species_names)
 
 
     
