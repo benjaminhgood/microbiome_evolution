@@ -792,7 +792,7 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
  
 
 
-def calculate_pi_per_gene(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None):
+def calculate_pi_matrix_per_gene(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=None):
 
     if allowed_genes == None:
         allowed_genes = set(passed_sites_map.keys())
@@ -803,6 +803,7 @@ def calculate_pi_per_gene(allele_counts_map, passed_sites_map, variant_type='4D'
     
     avg_pi_per_gene={}
     pi_per_gene={}
+    passed_sites_per_gene={}
 
     for gene_name in allowed_genes:
         
@@ -824,20 +825,21 @@ def calculate_pi_per_gene(allele_counts_map, passed_sites_map, variant_type='4D'
             I,J = depths.shape
     
             # pi between sample j and sample l
+            # this is same as computing 2pq
             gene_pi_matrix = numpy.einsum('ij,il',(depths>0)*1.0,(depths>0)*1.0)-numpy.einsum('ijk,ilk',freqs,freqs)
     
             # average of pi within sample j and within sample i
+            # this is schloissnig's formula computed for each sample, and then averaged. On the diagonal, we have the exact pi. 
             gene_avg_pi_matrix = (numpy.einsum('ij,il',self_pis,(depths>0)*1.0)+numpy.einsum('ij,il',(depths>0)*1.0,self_pis))/2
     
             diagonal_idxs = numpy.diag_indices(J)
             # We want this!
-            gene_pi_matrix[diagonal_idxs] = gene_avg_pi_matrix[diagonal_idxs]
+            gene_pi_matrix[diagonal_idxs] = gene_avg_pi_matrix[diagonal_idxs] # we are replacing the diagonals with the exact pi computed with Schloissnig's formula. 
     
-            gene_pi_matrix = gene_pi_matrix/(passed_sites+(passed_sites==0)) 
-            gene_avg_pi_matrix = gene_avg_pi_matrix/(passed_sites+(passed_sites==0))
-
             pi_per_gene[gene_name] = gene_pi_matrix
             avg_pi_per_gene[gene_name] = gene_avg_pi_matrix
+            passed_sites_per_gene[gene_name]=passed_sites
+
             #pi_matrix += gene_pi_matrix
             #avg_pi_matrix += gene_avg_pi_matrix
      
@@ -846,6 +848,105 @@ def calculate_pi_per_gene(allele_counts_map, passed_sites_map, variant_type='4D'
     #avg_pi_matrix = avg_pi_matrix/(passed_sites+(passed_sites==0))
     # Now we return passed sites
     
-    return pi_per_gene, avg_pi_per_gene
+    return pi_per_gene, avg_pi_per_gene, passed_sites_per_gene
+
+
+def calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene, kegg_ids):
+    
+    pi_per_pathway={}
+    avg_pi_per_pathway={}
+    passed_sites_per_pathway={}
+    num_genes_per_pathway={}
+    for gene_name in avg_pi_per_gene.keys():
+        pathway=kegg_ids[gene_name][0][1]
+        if pathway not in avg_pi_per_pathway.keys():
+            pi_per_pathway[pathway]=pi_per_gene[gene_name]
+            avg_pi_per_pathway[pathway]=avg_pi_per_gene[gene_name]
+            passed_sites_per_pathway[pathway]=passed_sites_per_gene[gene_name]
+            num_genes_per_pathway[pathway]=1
+        else:
+            pi_per_pathway[pathway]+=pi_per_gene[gene_name]
+            avg_pi_per_pathway[pathway]+=avg_pi_per_gene[gene_name]
+            passed_sites_per_pathway[pathway]+=passed_sites_per_gene[gene_name]  
+            num_genes_per_pathway[pathway]+=1
+            
+    for pathway_name in avg_pi_per_pathway.keys():
+        avg_pi_per_pathway[pathway_name] = avg_pi_per_pathway[pathway_name]/(passed_sites_per_pathway[pathway_name]+(passed_sites_per_pathway[pathway_name]==0))     
+        pi_per_pathway[pathway_name] = pi_per_pathway[pathway_name]/(passed_sites_per_pathway[pathway_name]+(passed_sites_per_pathway[pathway_name]==0))     
+
+    return pi_per_pathway,avg_pi_per_pathway,num_genes_per_pathway
+
+
+##
+def calculate_fixation_matrix_per_gene(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8):
+
+    total_genes = set(passed_sites_map.keys())
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+    
+    allowed_genes = (allowed_genes & total_genes)     
+    
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+                    
+    fixation_matrix = numpy.zeros_like(passed_sites_map.values()[0].values()[0]['sites'])*1.0  
+    passed_sites = numpy.zeros_like(fixation_matrix)*1.0
+
+    fixation_matrix_per_gene={}
+    passed_sites_per_gene={}
+
+    
+    for gene_name in allowed_genes:
+        
+        for variant_type in passed_sites_map[gene_name].keys():
+             
+            if variant_type not in allowed_variant_types:
+                continue
+        
+            passed_sites = passed_sites_map[gene_name][variant_type]['sites']
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
+            if len(allele_counts)==0:
+                continue
+            
+
+            depths = allele_counts.sum(axis=2)
+            alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
+            alt_freqs[alt_freqs<min_freq] = 0.0
+            alt_freqs[alt_freqs>=(1-min_freq)] = 1.0
+            passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
+    
+            delta_freq = numpy.fabs(alt_freqs[:,:,None]-alt_freqs[:,None,:])
+            delta_freq[passed_depths==0] = 0
+            delta_freq[delta_freq<min_change] = 0
+        
+            passed_sites_per_gene[gene_name]=passed_sites 
+            fixation_matrix_per_gene[gene_name]=delta_freq.sum(axis=0)
+        
+    return fixation_matrix_per_gene, passed_sites_per_gene  
+
+
+
+
+def calculate_mean_fixation_matrix_per_pathway(fixation_per_gene, passed_sites_per_gene, kegg_ids):
+    
+    fixation_per_pathway={}
+    passed_sites_per_pathway={}
+    num_genes_per_pathway={}
+    for gene_name in fixation_per_gene.keys():
+        pathway=kegg_ids[gene_name][0][1]
+        if pathway not in fixation_per_pathway.keys():
+            fixation_per_pathway[pathway]=fixation_per_gene[gene_name]
+            passed_sites_per_pathway[pathway]=passed_sites_per_gene[gene_name]
+            num_genes_per_pathway[pathway]=1
+        else:
+            fixation_per_pathway[pathway]+=fixation_per_gene[gene_name]
+            passed_sites_per_pathway[pathway]+=passed_sites_per_gene[gene_name]  
+            num_genes_per_pathway[pathway]+=1
+            
+    for pathway_name in fixation_per_pathway.keys():
+        fixation_per_pathway[pathway_name] = fixation_per_pathway[pathway_name]/(passed_sites_per_pathway[pathway_name]+(passed_sites_per_pathway[pathway_name]==0))     
+        
+    return fixation_per_pathway, num_genes_per_pathway
 
 
