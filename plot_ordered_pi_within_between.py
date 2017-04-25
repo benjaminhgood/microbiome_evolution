@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from numpy.random import randint
 
-mpl.rcParams['font.size'] = 10
+mpl.rcParams['font.size'] = 6
 mpl.rcParams['lines.linewidth'] = 0.5
 mpl.rcParams['legend.frameon']  = False
 mpl.rcParams['legend.fontsize']  = 'small'
@@ -85,9 +85,12 @@ same_sample_pi_plowers = numpy.clip(same_sample_pi_plowers,1e-09,1e09)
 # Sort both lists by ascending lower bound on SNP changes
 same_sample_pi_plowers, same_sample_pi_puppers = (numpy.array(x) for x in zip(*sorted(zip(same_sample_pi_plowers, same_sample_pi_puppers))))
 
+num_high_coverage_samples = len(same_sample_pi_plowers)
 
 # Only plot samples above a certain depth threshold that are "haploids"
 snp_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
+
+num_haploids = len(snp_samples)
 
 # Analyze SNPs, looping over chunk sizes. 
 # Clunky, but necessary to limit memory usage on cluster
@@ -245,10 +248,11 @@ diff_subject_snp_plowers, diff_subject_gene_plowers, diff_subject_snp_puppers,  
 # Done calculating... now plot figure!
 
 # Set up figure
-fig = plt.figure(figsize=(12, 3))
+fig = plt.figure(figsize=(7, 1.5))
 
 # Set up grids to hold figure panels
-outer_grid = gridspec.GridSpec(1, 2, width_ratios=[1.25,4], wspace=0.18)
+outer_grid = gridspec.GridSpec(1, 2, width_ratios=[1.25, 4], wspace=0.22)
+
 
 ###################
 #
@@ -259,8 +263,8 @@ outer_grid = gridspec.GridSpec(1, 2, width_ratios=[1.25,4], wspace=0.18)
 pi_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(pi_axis)
 
-pi_axis.set_ylabel('Within-sample diversity')
-pi_axis.set_xlabel('Samples')
+pi_axis.set_ylabel('Within-sample $\\pi_s$',fontsize=7)
+pi_axis.set_xlabel('Samples ($n=%d$)' % num_high_coverage_samples,fontsize=7)
 pi_axis.set_ylim([1e-07,1e-01])
 pi_axis.set_xticks([])
 
@@ -272,11 +276,13 @@ pi_axis.set_xticks([])
 
 snp_axis = plt.Subplot(fig, outer_grid[1])
 fig.add_subplot(snp_axis)
-fig.suptitle(species_name)
+fig.suptitle(species_name,fontsize=7)
 
-snp_axis.set_xlabel('Sample pairs')
-snp_axis.set_ylabel('Between-sample divergence')
+snp_axis.set_xlabel('Sample pairs ($n=%d$)' % num_haploids,fontsize=7)
+snp_axis.set_ylabel('Between-sample $d_s$',fontsize=7)
 snp_axis.set_ylim([1e-07,1e-01])
+
+
 
 snp_axis.semilogy([1,1],[1e-09,1e-09],'g-',label='Within host')
 snp_axis.semilogy([1,1],[1e-09,1e-09],'r-',label='Between host')
@@ -297,65 +303,48 @@ pi_axis.set_xticks([])
 y = 0
 for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(same_subject_snp_plowers, same_subject_snp_puppers, same_subject_gene_plowers, same_subject_gene_puppers):
 
+    y-=2
+    
+    snp_axis.semilogy( [y,y],[snp_plower,snp_pupper],'g-',linewidth=0.2,markersize=1.5)
+    snp_axis.semilogy([y],[snp_plower],'g.',linewidth=0.2,markersize=1.5)    
+y-=4
+snp_axis.semilogy([y,y,], [1e-09,1e09], '-',linewidth=0.25,color='0.7')
+y-=3
+for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(diff_subject_snp_plowers, diff_subject_snp_puppers, diff_subject_gene_plowers, diff_subject_gene_puppers)[0:100]:
+
     y-=1
     
-    snp_axis.semilogy([y,y],[snp_plower,snp_pupper],'g-',linewidth=0.2,markersize=1.5)
-    snp_axis.semilogy([y],[snp_plower],'g.',linewidth=0.2,markersize=1.5)    
-y-=1
+    snp_axis.semilogy([y,y],[snp_plower,snp_pupper],'r-',linewidth=0.35)
+
+y-=4
 snp_axis.semilogy([y,y,], [1e-09,1e09], '-',linewidth=0.25,color='0.7')
+y-=3
 
 
 if len(diff_subject_snp_plowers)<=500:
-    for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(diff_subject_snp_plowers, diff_subject_snp_puppers, diff_subject_gene_plowers, diff_subject_gene_puppers)[0:100]:
-
-        y-=1
-    
-        snp_axis.semilogy([y,y],[snp_plower,snp_pupper],'r-',linewidth=0.35)
-        
-# If more than 300, do three sets of 100
+    idxs = numpy.arange(0,len(diff_subject_snp_plowers))        
 else:
-
-    for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(diff_subject_snp_plowers, diff_subject_snp_puppers, diff_subject_gene_plowers, diff_subject_gene_puppers)[0:100]:
-
-        y-=1
-    
-        snp_axis.semilogy([y,y],[snp_plower,snp_pupper],'r-',linewidth=0.35)
-        
-
-    y-=1
-    snp_axis.semilogy([y,y,],[1e-09,1e09],'-',linewidth=0.25,color='0.7')
-    
-    idxs = randint(0,len(diff_subject_snp_plowers),300)
+    idxs = randint(0,len(diff_subject_snp_plowers),500)
     idxs.sort()
 
-    for idx in idxs:
+for idx in idxs:
     
-        snp_plower = diff_subject_snp_plowers[idx]
-        snp_pupper = diff_subject_snp_puppers[idx]
-        gene_plower = diff_subject_gene_plowers[idx]
-        gene_pupper = diff_subject_gene_puppers[idx]
+    snp_plower = diff_subject_snp_plowers[idx]
+    snp_pupper = diff_subject_snp_puppers[idx]
+    gene_plower = diff_subject_gene_plowers[idx]
+    gene_pupper = diff_subject_gene_puppers[idx]
         
-        y-=1
-    
-        snp_axis.semilogy([y,y],[snp_plower,snp_pupper],'r-',linewidth=0.35)
-        
-    # Now do last hundred
     y-=1
-    snp_axis.semilogy([y,y,],[1e-09,1e09],'-',linewidth=0.25, color='0.7')
     
-    for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(diff_subject_snp_plowers, diff_subject_snp_puppers, diff_subject_gene_plowers, diff_subject_gene_puppers)[-100:]:
-
-        y-=1
-    
-        snp_axis.semilogy([y,y],[snp_plower,snp_pupper],'r-',linewidth=0.35)
+    snp_axis.semilogy([y,y],[snp_plower,snp_pupper],'r-',linewidth=0.35)
         
-
 snp_axis.set_xlim([y-1,0])
 
 snp_axis.set_xticks([])
 
-snp_axis.legend(loc='lower left',frameon=False)
 
+
+#snp_axis.legend(loc='upper right',frameon=False)
 fig.savefig('%s/%s_within_between_diversity.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
 
-    
+

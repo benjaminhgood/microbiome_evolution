@@ -85,13 +85,98 @@ def parse_subject_sample_map():
             subject_sample_map[subject_id][sample_id] = set()
             
         subject_sample_map[subject_id][sample_id].add(accession_id)
-    file.close()  
+    file.close()
+    
+    # Then load Qin data
+    file = open(scripts_directory+"qin_ids.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.split("\t")
+        subject_id = items[0].strip()
+        sample_id = items[1].strip()
+        accession_id = items[2].strip()
+        sample_id = accession_id # Nandita used accession id as MIDAS header for this dataset
+        country = items[3].strip()
+        continent = items[4].strip()
+        
+        if subject_id not in subject_sample_map:
+            subject_sample_map[subject_id] = {}
+            
+        if sample_id not in subject_sample_map[subject_id]:
+            subject_sample_map[subject_id][sample_id] = set()
+            
+        subject_sample_map[subject_id][sample_id].add(accession_id)
+    file.close()
+      
     
     # Repeat for other data
     # Nothing else so far
      
     return subject_sample_map 
 
+#####
+#
+# Loads country metadata for samples
+#
+#####
+def parse_sample_country_map(): 
+
+    sample_country_map = {}
+    
+    # First load HMP metadata
+    file = open(scripts_directory+"HMP_ids.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.split("\t")
+        subject_id = items[0].strip()
+        sample_id = items[1].strip()
+        accession_id = items[2].strip()
+        country = items[3].strip()
+        continent = items[4].strip()
+            
+        if sample_id not in sample_country_map:
+            sample_country_map[sample_id] = country
+            
+    file.close()
+    
+    # Then load Kuleshov data 
+    file = open(scripts_directory+"kuleshov_ids.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.split("\t")
+        subject_id = items[0].strip()
+        sample_id = items[1].strip()
+        accession_id = items[2].strip()
+        country = items[3].strip()
+        continent = items[4].strip()
+        
+        if sample_id not in sample_country_map:
+            sample_country_map[sample_id] = country
+    
+    file.close()
+    
+    # Then load Qin data
+    file = open(scripts_directory+"qin_ids.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.split("\t")
+        subject_id = items[0].strip()
+        sample_id = items[1].strip()
+        accession_id = items[2].strip()
+        sample_id = accession_id # Nandita used accession id as MIDAS header for this dataset
+        country = items[3].strip()
+        continent = items[4].strip()
+        
+        if sample_id not in sample_country_map:
+            sample_country_map[sample_id] = country
+    
+    file.close()
+      
+    
+    # Repeat for other data
+    # Nothing else so far
+     
+    return sample_country_map
 
 ###############################################################################
 #
@@ -154,6 +239,29 @@ def calculate_unique_samples(subject_sample_map, sample_list=[]):
         unique_idxs[i]=True
     
     return unique_idxs
+    
+    
+###############################################################################
+#
+# Prunes sample list to only include samples from allowed countries
+# Returns len(sampe_list) boolean array with element=False if sample was pruned  
+#
+###############################################################################
+def calculate_unique_samples(sample_country_map, sample_list=[], allowed_countries=set([])):
+
+    if len(sample_list)==0:
+        sample_list = list(sorted(sample_country_map.keys()))
+        
+    allowed_idxs = []
+    for sample in sample_list:
+        if (len(allowed_countries))==0 or (sample_country_map[sample] in allowed_countries):
+            allowed_idxs.append(True)
+        else:
+            allowed_idxs.append(False)
+            
+    allowed_idxs = numpy.array(allowed_idxs)
+    return allowed_idxs
+    
 
 ###############################################################################
 #
@@ -851,7 +959,7 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
 # returns vector of samples, vector of pi_s (raw counts), vector of opportunities
 #
 ###############################################################################
-def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_types=set(['1D','2D','3D','4D']), debug=False):
+def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_types=set(['4D']), debug=False):
     
     # Open post-processed MIDAS output
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")

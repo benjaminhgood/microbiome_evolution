@@ -54,7 +54,7 @@ sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(sam
 
 # Load pi information for species_name
 sys.stderr.write("Loading within-sample diversity for %s...\n" % species_name)
-samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, debug)
+samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, allowed_genes=core_genes, debug=debug)
 sys.stderr.write("Done!\n")
 pis = total_pis/total_pi_opportunities
 clipped_pis = (total_pis+1)/(total_pi_opportunities+1)
@@ -115,7 +115,7 @@ same_sample_pi_plowers, same_sample_lower_gene_numbers, same_sample_pi_puppers, 
 # Done calculating... now plot figure!
 
 # Set up figure
-fig = plt.figure(figsize=(5, 5))
+fig = plt.figure(figsize=(7, 5))
 
 # Set up grids to hold figure panels
 outer_grid = gridspec.GridSpec(1, 2, width_ratios=[1,1], wspace=0.1)
