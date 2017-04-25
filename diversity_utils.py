@@ -3,30 +3,39 @@ from scipy.linalg import eigh
 from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.cluster.hierarchy import cophenet
 from scipy.cluster.hierarchy import fcluster
- 
+from numpy.random import shuffle
 
 # Calls consensus genotypes from matrix of allele counts
 #
 # Returns: genotype matrix, passed_sitse matrix for polymorphic sites
 #
-def calculate_consensus_genotypes(allele_counts_matrix):
+def calculate_consensus_genotypes(allele_counts_matrix,lower_threshold=0.2,upper_threshold=0.8):
     
     num_sites, num_samples, num_alleles = allele_counts_matrix.shape
     
     depths = allele_counts_matrix.sum(axis=2)
     freqs = allele_counts_matrix[:,:,0]*1.0/(depths+(depths==0))
-    passed_sites_matrix = (depths>0)
+    passed_sites_matrix = (depths>0)*numpy.logical_or(freqs<=0.2,freqs>=0.8)
     # consensus approximation
+    freqs *= passed_sites_matrix
     genotype_matrix = numpy.around(freqs)
     
-    prevalences = genotype_matrix.sum(axis=1)
+    
+    return genotype_matrix, passed_sites_matrix
+    
+    
+def calculate_consensus_polymorphic_genotypes(allele_counts_matrix,lower_threshold=0.2,upper_threshold=0.8):
+    
+    genotype_matrix, passed_sites_matrix =  calculate_consensus_genotypes(allele_counts_matrix,lower_threshold,upper_threshold) 
+    
+    prevalences = (genotype_matrix*passed_sites_matrix).sum(axis=1)
     min_prevalences = 0.5
     max_prevalences = (passed_sites_matrix).sum(axis=1)-0.5
     
     polymorphic_sites = (prevalences>min_prevalences)*(prevalences<max_prevalences)
     
     return genotype_matrix[polymorphic_sites,:], passed_sites_matrix[polymorphic_sites,:]
-    
+
 
 # Calculates first two PCA coordinates for samples in allele_counts
 # using the normalization scheme outlined in McVean (PLoS Genet, 2009).
@@ -130,28 +139,23 @@ def calculate_rsquared_condition_freq(allele_counts_1, allele_counts_2, low_freq
 
 #####################################################################
 
-def calculate_unbiased_sigmasquared(allele_counts_1, allele_counts_2):
-    
-    # Note: should actually be sigma_squared! 
+
+#####################################################################
+def calculate_sigmasquared(allele_counts_1, allele_counts_2):
+    # A standard measure of linkage disequilibrium:
+    #
     # sigma_squared= E[X]/E[Y], where X=(p_ab-pa*pb)^2 and Y=(pa*(1-pa)*pb*(1-pb))
     # rsquared=E[X/Y]
     # see McVean 2002 for more notes on the difference. 
 
     # allele counts = 1 x samples x alleles vector
     
-    depths_1 = allele_counts_1.sum(axis=2)
-    freqs_1 = allele_counts_1[:,:,0]*1.0/(depths_1+(depths_1==0))
-    depths_2 = allele_counts_2.sum(axis=2)
-    freqs_2 = allele_counts_2[:,:,0]*1.0/(depths_2+(depths_2==0))
+    freqs_1, passed_sites_1 = calculate_consensus_genotypes(allele_counts_1)
+    freqs_2, passed_sites_2 = calculate_consensus_genotypes(allele_counts_2)
     
-    # consensus approximation
-    freqs_1 = numpy.around(freqs_1)
-    freqs_2 = numpy.around(freqs_2)
-    
-
     # this asks which pairs of sites have depths >0 at BOTH sites
     # None here takes the product of the elements in the two vectors and returns a matrix. 
-    joint_passed_sites = (depths_1>0)[None,:,:]*(depths_2>0)[:,None,:]
+    joint_passed_sites = (passed_sites_1)[None,:,:]*(passed_sites_2)[:,None,:]
     # sites x sites x samples matrix
     
     joint_freqs = freqs_1[None,:,:]*freqs_2[:,None,:]
@@ -188,61 +192,95 @@ def calculate_unbiased_sigmasquared(allele_counts_1, allele_counts_2):
 
 #####################################################################
 
-def calculate_rsquared(allele_counts_1, allele_counts_2):
-    # Note: should actually be sigma_squared! 
+
+#####################################################################
+def calculate_unbiased_sigmasquared(allele_counts_1, allele_counts_2):
+    # An alternate version of a standard measure of linkage disequilibrium:
+    #
     # sigma_squared= E[X]/E[Y], where X=(p_ab-pa*pb)^2 and Y=(pa*(1-pa)*pb*(1-pb))
     # rsquared=E[X/Y]
     # see McVean 2002 for more notes on the difference. 
+    #
+    # where we have corrected for finite sample effects
 
-    # allele counts = 1 x samples x alleles vector
+    genotypes_1, passed_sites_1 = calculate_consensus_genotypes(allele_counts_1)
+    genotypes_2, passed_sites_2 = calculate_consensus_genotypes(allele_counts_2)
     
-    depths_1 = allele_counts_1.sum(axis=2)
-    freqs_1 = allele_counts_1[:,:,0]*1.0/(depths_1+(depths_1==0))
-    depths_2 = allele_counts_2.sum(axis=2)
-    freqs_2 = allele_counts_2[:,:,0]*1.0/(depths_2+(depths_2==0))
-
     
-    # consensus approximation
-    freqs_1 = numpy.around(freqs_1)
-    freqs_2 = numpy.around(freqs_2)
-    
-
     # this asks which pairs of sites have depths >0 at BOTH sites
     # None here takes the product of the elements in the two vectors and returns a matrix. 
-    joint_passed_sites = (depths_1>0)[None,:,:]*(depths_2>0)[:,None,:]
+    joint_passed_sites = (passed_sites_1)[None,:,:]*(passed_sites_2)[:,None,:]
     # sites x sites x samples matrix
     
-    joint_freqs = freqs_1[None,:,:]*freqs_2[:,None,:]
-    # sites x sites x samples_matrix
+    # allele counts
+    ns = joint_passed_sites.sum(axis=2)
     
-    # this tells us what the denominator is for the computation below for joint_pooled_freqs
-    total_joint_passed_sites = joint_passed_sites.sum(axis=2)
-    # add 1 to denominator if some pair is 0. 
-    total_joint_passed_sites = total_joint_passed_sites+(total_joint_passed_sites==0)
+    n11s = ((genotypes_1[None,:,:])*(genotypes_2[:,None,:])*joint_passed_sites).sum(axis=2)
+    n10s = (genotypes_1[None,:,:]*(1-genotypes_2[:,None,:])*joint_passed_sites).sum(axis=2)
+    n01s = ((1-genotypes_1[None,:,:])*(genotypes_2[:,None,:])*joint_passed_sites).sum(axis=2)
+    n00s = ((1-genotypes_1[None,:,:])*(1-genotypes_2[:,None,:])*joint_passed_sites).sum(axis=2)
     
-    # compute p_ab
-    joint_pooled_freqs = (joint_freqs*joint_passed_sites).sum(axis=2)/total_joint_passed_sites   
-    # floting point issue
-    joint_pooled_freqs *= (joint_pooled_freqs>1e-10)
-    
-    # compute p_a
-    marginal_pooled_freqs_1 = (freqs_1[None,:,:]*joint_passed_sites).sum(axis=2)/total_joint_passed_sites
-    marginal_pooled_freqs_1 *= (marginal_pooled_freqs_1>1e-10)
+    #print "Gene:" 
+    #print n11s
+    #print n10s
+    #print n01s
+    #print n00s
+    #print "--"
 
-    # compute p_b
-    marginal_pooled_freqs_2 = (freqs_2[:,None,:]*joint_passed_sites).sum(axis=2)/total_joint_passed_sites 
-    marginal_pooled_freqs_2 *= (marginal_pooled_freqs_2>1e-10)
-       
-    # (p_ab-p_a*p_b)^2
-    rsquared_numerators = numpy.square(joint_pooled_freqs-marginal_pooled_freqs_1*marginal_pooled_freqs_2)
     
-    # (p_a*(1-p_a)*pb*(1-p_b))
-    rsquared_denominators = marginal_pooled_freqs_1*(1-marginal_pooled_freqs_1)*marginal_pooled_freqs_2*(1-marginal_pooled_freqs_2)
+    # First calculate numerator
+    rsquared_numerators = n11s*(n11s-1)*n00s*(n00s-1)
+    rsquared_numerators -= 2*n10s*n01s*n11s*n00s
+    rsquared_numerators += n10s*(n10s-1)*n01s*(n01s-1)
     
-    rsquareds = rsquared_numerators/(rsquared_denominators+(rsquared_denominators==0))
+    #print "Before divide:"
+    #print rsquared_numerators
+    
+    rsquared_numerators = rsquared_numerators*(ns>3.5)*1.0/(ns*(ns-1)*(ns-2)*(ns-3)+10*(ns<3.5))
+    
+    #print "After divide:"
+    #print rsquared_numerators
+    #print "---"
+    # Now calculate denominator 
+    # (more annoying... there are 16 terms rather than 4, so we will write them separately)
+    
+    #1
+    rsquared_denominators = n10s*(n10s-1)*n01s*(n01s-1)    
+    #2
+    rsquared_denominators += n10s*n01s*(n01s-1)*n00s        
+    #3
+    rsquared_denominators += n10s*(n10s-1)*n01s*n11s         
+    #4
+    rsquared_denominators += n10s*n01s*n11s*n00s           
+    #5
+    rsquared_denominators += n10s*(n10s-1)*n01s*n00s       
+    #6
+    rsquared_denominators += n10s*n01s*n00s*(n00s-1)
+    #7
+    rsquared_denominators += n10s*(n10s-1)*n11s*n00s
+    #8
+    rsquared_denominators += n10s*n11s*n00s*(n00s-1)
+    #9
+    rsquared_denominators += n10s*n01s*(n01s-1)*n11s
+    #10
+    rsquared_denominators += n01s*(n01s-1)*n11s*n00s
+    #11
+    rsquared_denominators += n10s*n01s*n11s*(n11s-1)
+    #12
+    rsquared_denominators += n01s*n11s*(n11s-1)*n00s
+    #13
+    rsquared_denominators += n10s*n01s*n11s*n00s
+    #14
+    rsquared_denominators += n01s*n11s*n00s*(n00s-1)
+    #15
+    rsquared_denominators += n10s*n11s*(n11s-1)*n00s
+    #16
+    rsquared_denominators += n11s*(n11s-1)*n00s*(n00s-1)
+    
+    # divide by sample size
+    rsquared_denominators = rsquared_denominators*(ns>3.5)*1.0/(ns*(ns-1)*(ns-2)*(ns-3)+10*(ns<3.5))
     
     return rsquared_numerators, rsquared_denominators
-
 
 
 
@@ -379,24 +417,46 @@ def calculate_sample_freqs_2D(allele_counts_map, passed_sites_map, desired_sampl
 
 ####################
         
-def calculate_pooled_freqs(allele_counts_map, passed_sites_map,  variant_type='4D', allowed_genes=None):
+def calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_sample_idxs=[], allowed_variant_types = set(['1D','2D','3D','4D']), allowed_genes=set([]), lower_threshold=0.2,upper_threshold=0.8):
 
-    if allowed_genes == None:
+    if len(allowed_sample_idxs)==0:
+        # all samples are allowed
+        allowed_sample_idxs = numpy.array([True for i in xrange(0,allele_counts.values()[0].values()[0]['alleles'].shape[1])])
+
+    if len(allowed_genes)==0:
         allowed_genes = set(passed_sites_map.keys())
+    allowed_genes = allowed_genes & set(passed_sites_map.keys())
      
     pooled_freqs = []
     
     for gene_name in allowed_genes:
         
-        allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
-        
-        if len(allele_counts)==0:
-            continue
+        for variant_type in allele_counts_map[gene_name].keys():
             
-        depths = allele_counts.sum(axis=2)
-        freqs = allele_counts/(depths+(depths==0))[:,:,None]
-        gene_pooled_freqs = freqs[:,:,0].sum(axis=1)/(depths>0).sum(axis=1)
-        pooled_freqs.extend(gene_pooled_freqs)
+            if variant_type not in allowed_variant_types:
+                continue
+            
+                
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+        
+            if len(allele_counts)==0:
+                continue
+            
+            #print allele_counts_map[gene_name][variant_type]['alleles'].shape, allowed_sample_idxs.shape
+                
+            allele_counts = allele_counts[:,allowed_sample_idxs,:]
+            
+            genotype_matrix, passed_sites_matrix = calculate_consensus_genotypes(allele_counts,lower_threshold,upper_threshold)
+            prevalences = (genotype_matrix*passed_sites_matrix).sum(axis=1)
+            min_prevalences = 0.5
+            max_prevalences = (passed_sites_matrix).sum(axis=1)-0.5
+    
+            polymorphic_sites = (prevalences>min_prevalences)*(prevalences<max_prevalences)
+    
+            gene_pooled_freqs = prevalences*1.0/(passed_sites_matrix).sum(axis=1)
+            gene_pooled_freqs = gene_pooled_freqs[polymorphic_sites]
+            gene_pooled_freqs = numpy.fmin(gene_pooled_freqs,1-gene_pooled_freqs)
+            pooled_freqs.extend(gene_pooled_freqs)
 
     pooled_freqs = numpy.array(pooled_freqs)
     return pooled_freqs
@@ -669,7 +729,7 @@ def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, a
 
 # min_d = pick only a single sample per cluster with distance below this value
 # max_d = cut tree at this distance
-def cluster_samples(distance_matrix, min_d=0, max_d=1e09):
+def cluster_samples(distance_matrix, min_d=0, max_ds=[1e09]):
  
     # calculate compressed distance matrix suitable for agglomerative clustering
     Y = []
@@ -679,53 +739,76 @@ def cluster_samples(distance_matrix, min_d=0, max_d=1e09):
     Y = numpy.array(Y) 
      
     Z = linkage(Y, method='average')        
-     
-    c, coph_dists = cophenet(Z, Y)
-     
-    cluster_assignments = fcluster(Z, max_d, criterion='distance')
+    
+    # First coarse-grain things less than min_d apart:
     subcluster_assignments = fcluster(Z, min_d, criterion='distance')
-     
-    cluster_labels = list(set(cluster_assignments))
-     
-    cluster_idx_map = {cluster_label: [] for cluster_label in cluster_labels}
-    subcluster_map = {cluster_label: set([]) for cluster_label in cluster_labels}
-    for i in xrange(0,len(cluster_assignments)):
-        if subcluster_assignments[i] not in subcluster_map[cluster_assignments[i]]:
+    
+    coarse_grained_idxs = []
+    subcluster_idx_map = {}
+    for i in xrange(0,len(subcluster_assignments)):
+        if subcluster_assignments[i] not in subcluster_idx_map:
+            subcluster_idx_map[subcluster_assignments[i]] = i
+            coarse_grained_idxs.append(True)
+        else:
+            coarse_grained_idxs.append(False)
+            
+    coarse_grained_idxs = numpy.array(coarse_grained_idxs)
+    
+        
+    sorted_final_clusterss = []
+    for max_d in max_ds:
+        
+        cluster_assignments = fcluster(Z, max_d, criterion='distance')
+        
+        cluster_idx_map = {}
+    
+        for i in xrange(0,len(cluster_assignments)):
+        
+            if not coarse_grained_idxs[i]:
+                continue
+                
+            if cluster_assignments[i] not in cluster_idx_map:
+                cluster_idx_map[cluster_assignments[i]] = []
             cluster_idx_map[cluster_assignments[i]].append(i)
-            subcluster_map[cluster_assignments[i]].add(subcluster_assignments[i])
-         
-    cluster_idxss = [set(cluster_idx_map[cluster_label]) for cluster_label in cluster_labels]
-    cluster_sizes = [len(cluster_idxs) for cluster_idxs in cluster_idxss]
+                
+        cluster_labels = set(cluster_idx_map.keys())
+        cluster_idxss = [set(cluster_idx_map[cluster_label]) for cluster_label in cluster_labels]
+        cluster_sizes = [len(cluster_idxs) for cluster_idxs in cluster_idxss]
      
-    # only return ones with more than one individual
-    final_clusters = []
-    final_cluster_sizes = []
-     
-    all_unique_idxs = set([])
-    for cluster_idxs in cluster_idxss:
-        all_unique_idxs.update(cluster_idxs)
-     
-    for cluster_idx_set in cluster_idxss:
+        # only return ones with more than one individual
+        final_clusters = []
+        final_cluster_sizes = []
+      
+        for cluster_idx_set in cluster_idxss:
          
-        if len(cluster_idx_set)>1:
+            if len(cluster_idx_set)>1:
          
-            cluster_idxs = numpy.array([(i in cluster_idx_set) for i in xrange(0,len(cluster_assignments))])
-            anticluster_idxs = numpy.array([((i not in cluster_idx_set) and (i in all_unique_idxs)) for i in xrange(0,len(cluster_assignments))])  
-         
-            final_clusters.append((cluster_idxs, anticluster_idxs))
-            final_cluster_sizes.append((cluster_idxs*1.0).sum())
+                cluster_idxs = numpy.array([(i in cluster_idx_set) for i in xrange(0,len(cluster_assignments))])
+            
+                final_clusters.append(cluster_idxs)
+                final_cluster_sizes.append((cluster_idxs*1.0).sum())
+        
+        if len(final_cluster_sizes) > 0:
              
-     
-    final_cluster_idxs = [i for i in xrange(0,len(final_cluster_sizes))]
+            final_cluster_idxs = [i for i in xrange(0,len(final_cluster_sizes))]
          
-    final_cluster_sizes, final_cluster_idxs = zip(*sorted(zip(final_cluster_sizes, final_cluster_idxs),reverse=True))
-     
-    sorted_final_clusters = [final_clusters[idx] for idx in final_cluster_idxs]
+            final_cluster_sizes, final_cluster_idxs = zip(*sorted(zip(final_cluster_sizes, final_cluster_idxs),reverse=True))
+    
+        
+            sorted_final_clusters = [final_clusters[idx] for idx in final_cluster_idxs]
+            sorted_final_clusterss.append(sorted_final_clusters)
+        else:
+            sorted_final_clusterss.append([])
+        
+    return coarse_grained_idxs, sorted_final_clusterss
          
-    return sorted_final_clusters
-     
+
  
-def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clusters, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8):
+def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clusters, allowed_variant_types=set(['1D','2D','3D','4D']), allowed_genes=set([]), min_freq=0, min_change=0.8):
+ 
+    anticlusters = []
+    for cluster_idxs in clusters:
+        anticlusters.append( numpy.logical_not(cluster_idxs) )
  
     total_genes = set(passed_sites_map.keys())
  
@@ -733,12 +816,10 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
         allowed_genes = set(passed_sites_map.keys())
      
     allowed_genes = (allowed_genes & total_genes)     
-     
-    if len(allowed_variant_types)==0:
-        allowed_variant_types = set(['1D','2D','3D','4D'])    
-                     
-    total_polymorphic_sites = 0
-    total_inconsistent_sites = 0
+                      
+    polymorphic_freqs = []
+    inconsistent_freqs = []
+    null_inconsistent_freqs = []
      
     for gene_name in allowed_genes:
          
@@ -754,17 +835,26 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
             # good to go, let's get calculating!
             depths = allele_counts.sum(axis=2)
             freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
-            passed_sites_matrix = (depths>0)
+            passed_sites_matrix = (depths>0)*numpy.logical_or(freqs<=0.2,freqs>=0.8)
             # consensus approximation
             genotype_matrix = numpy.around(freqs)
      
-            for cluster_idxs, anticluster_idxs in clusters:
+            population_max_prevalence = (passed_sites_matrix).sum(axis=1)-0.5
+            population_freqs = (genotype_matrix*passed_sites_matrix).sum(axis=1)*1.0/(population_max_prevalence+10*(population_max_prevalence<0.5))
+            population_freqs = numpy.fmin(population_freqs, 1-population_freqs)
+     
+            is_polymorphic = numpy.zeros(genotype_matrix.shape[0])
+            is_inconsistent = numpy.zeros(genotype_matrix.shape[0])
+     
+            for cluster_idxs,anticluster_idxs in zip(clusters,anticlusters):
              
-                #print cluster_idxs.shape, anticluster_idxs.shape, genotype_matrix.shape, passed_sites_matrix.shape
-             
+                
                 cluster_prevalence = (genotype_matrix[:,cluster_idxs]*passed_sites_matrix[:,cluster_idxs]).sum(axis=1)
                 cluster_min_prevalence = 0.5
                 cluster_max_prevalence = (passed_sites_matrix[:,cluster_idxs]).sum(axis=1)-0.5
+                
+                cluster_freqs = cluster_prevalence*1.0/(cluster_max_prevalence+10*(cluster_max_prevalence<0.5))
+                cluster_freqs = numpy.fmin(cluster_freqs, 1-cluster_freqs)
              
                 anticluster_prevalence = (genotype_matrix[:,anticluster_idxs]*passed_sites_matrix[:,anticluster_idxs]).sum(axis=1)
                 anticluster_min_prevalence = 0.5
@@ -776,17 +866,62 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
                 # Those that are also polymorphic in the remaining population!
                 inconsistent_sites = polymorphic_sites*(anticluster_prevalence>anticluster_min_prevalence)*(anticluster_prevalence<anticluster_max_prevalence)
              
-                num_polymorphic_sites = polymorphic_sites.sum()
-                num_inconsistent_sites = inconsistent_sites.sum()
+                is_polymorphic = numpy.logical_or(is_polymorphic, polymorphic_sites)
+                is_inconsistent = numpy.logical_or(is_inconsistent, inconsistent_sites)
+            
+            if is_polymorphic.sum() > 0:
+            
+                polymorphic_freqs.extend( population_freqs[is_polymorphic] )
+                if is_inconsistent.sum() > 0:
+                    inconsistent_freqs.extend( cluster_freqs[is_inconsistent] )
+    
+                # now try to compute a null expectation for a completely unlinked genome
+                polymorphic_idxs = numpy.arange(0,genotype_matrix.shape[0])[is_polymorphic]
+                for site_idx in polymorphic_idxs:
+                    
+                    genotypes = genotype_matrix[site_idx,:]
+                    passed_sites = passed_sites_matrix[site_idx,:]
+                    population_freq = population_freqs[site_idx]
+                    
+                    permuted_idxs = numpy.arange(0,len(genotypes))
+                    
+                
+                    is_polymorphic = False
+                    is_inconsistent = False
+                    # loop until we find a polymorphic site
+                    while not is_polymorphic:
+                    
+                        # permute indexes 
+                        shuffle(permuted_idxs)
+                        
+                        permuted_genotypes = genotypes[permuted_idxs]
+                        permuted_passed_sites = passed_sites[permuted_idxs]
+                        
+                        # loop through clusters
+                        for cluster_idxs,anticluster_idxs in zip(clusters,anticlusters):
              
-                total_polymorphic_sites += num_polymorphic_sites
-                total_inconsistent_sites += num_inconsistent_sites
+                            
+                            cluster_prevalence = (permuted_genotypes[cluster_idxs]*permuted_passed_sites[cluster_idxs]).sum()
+                            cluster_min_prevalence = 0.5
+                            cluster_max_prevalence = (permuted_passed_sites[cluster_idxs]).sum()-0.5
+                
+                    
+                            anticluster_prevalence = (permuted_genotypes[anticluster_idxs]*permuted_passed_sites[anticluster_idxs]).sum()
+                            anticluster_min_prevalence = 0.5
+                            anticluster_max_prevalence = (permuted_passed_sites[anticluster_idxs]).sum() - 0.5
              
-                if num_inconsistent_sites > 0:
-                    print cluster_prevalence[inconsistent_sites], cluster_max_prevalence[inconsistent_sites]
-                    print anticluster_prevalence[inconsistent_sites], anticluster_max_prevalence[inconsistent_sites]
-                    print (cluster_idxs*anticluster_idxs).sum()
-             
+                            polymorphic_in_cluster = ((cluster_prevalence>cluster_min_prevalence)*(cluster_prevalence<cluster_max_prevalence))
+                            inconsistent_in_cluster = (polymorphic_in_cluster*(anticluster_prevalence>anticluster_min_prevalence)*(anticluster_prevalence<anticluster_max_prevalence))
+                            
+                            is_polymorphic = is_polymorphic or polymorphic_in_cluster
+                            is_inconsistent = is_inconsistent or inconsistent_in_cluster
+                    
+                    if is_inconsistent:
+                        null_inconsistent_freqs.append(population_freq)
+                        
+                
+    polymorphic_freqs = numpy.array(polymorphic_freqs)
+    inconsistent_freqs = numpy.array(inconsistent_freqs)
+    null_inconsistent_freqs = numpy.array(null_inconsistent_freqs)
          
-    return total_inconsistent_sites, total_polymorphic_sites
- 
+    return polymorphic_freqs, inconsistent_freqs, null_inconsistent_freqs

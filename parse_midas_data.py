@@ -851,7 +851,7 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
 # returns vector of samples, vector of pi_s (raw counts), vector of opportunities
 #
 ###############################################################################
-def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_types=set(['1D','2D','3D','4D']), debug=False):
+def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_types=set(['4D']), debug=False):
     
     # Open post-processed MIDAS output
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")

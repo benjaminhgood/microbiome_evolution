@@ -57,7 +57,11 @@ inline bool filter_sample(Sample const & sample){
 
 /* Filters out trajectories that do not have at least minimum fraction
    of covered samples */
-inline bool passes_filter(Trajectory const & trajectory){
+inline bool passes_filter(Trajectory const & trajectory){  
+
+    // we assume that sites have been pre-filtered by the pipe_snps() function
+    // that feeds data to this program.
+    return true;
 
     int num_covered_samples = 0;
     int num_total_samples = 0;
@@ -68,11 +72,11 @@ inline bool passes_filter(Trajectory const & trajectory){
         }    
     }
     
-    if(num_covered_samples > prevalence_threshold*num_total_samples){
-        return true;
+    if(num_covered_samples < prevalence_threshold*num_total_samples){
+        return false;
     }
     else{
-        return false;
+        return true;
     }
 }
 
