@@ -105,7 +105,7 @@ gene_names=list(gene_names)
 # Variable genes: find the difference between gene_names and core_genes
 gene_names_tmp=numpy.asarray(gene_names)
 core_genes_tmp=numpy.asarray(list(core_genes))
-variable_genes=numpy.asarray(list(numpy.setdiff1d(gene_names_tmp,core_genes_tmp)))
+variable_genes=set(numpy.asarray(list(numpy.setdiff1d(gene_names_tmp,core_genes_tmp))))
 
 
 ###############################################
@@ -146,55 +146,55 @@ samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_da
 sys.stderr.write("Done!\n")
 
 
-############################################################
-# compute pi/pathway
-############################################################
-pi_per_gene, avg_pi_per_gene, passed_sites_per_gene =  diversity_utils.calculate_pi_matrix_per_gene(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=core_genes)
-
-# aggregate pi/gene by pathway. 
-pi_per_pathway, avg_pi_per_pathway, num_genes_per_pathway = diversity_utils.calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene,kegg_ids)
-
 ###########################################################
-# compute total pi genome-wide
+# compute total pi genome-wide core genes
 ###########################################################
 pi_matrix, avg_pi_matrix, passed_sites=diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=core_genes)
-pi_matrix = pi_matrix /(passed_sites+(passed_sites==0))
-avg_pi_matrix = avg_pi_matrix/(passed_sites+(passed_sites==0)) 
+pi_matrix_core = pi_matrix /(passed_sites+(passed_sites==0))
+avg_pi_matrix_core = avg_pi_matrix/(passed_sites+(passed_sites==0)) 
 
 ###########################################################
-# Compute fixations/pathway
-########################################################### 
+# compute total pi variable genes
+###########################################################
+pi_matrix, avg_pi_matrix, passed_sites=diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=variable_genes)
+pi_matrix_variable = pi_matrix /(passed_sites+(passed_sites==0))
+avg_pi_matrix_variable = avg_pi_matrix/(passed_sites+(passed_sites==0)) 
+
+
+############################################################
+# compute pi/pathway -- core genes
+############################################################
+
+pi_per_gene, avg_pi_per_gene, passed_sites_per_gene, num_people_with_data =  diversity_utils.calculate_pi_matrix_per_gene(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=core_genes)
+
+# aggregate pi/gene by pathway. 
+pi_per_pathway_core, avg_pi_per_pathway_core, passed_sites_per_pathway_core, num_genes_per_pathway_core, num_people_with_data_per_pathway_core = diversity_utils.calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene,num_people_with_data,kegg_ids)
+
+for pathway_name in avg_pi_per_pathway_core.keys():
+    avg_pi_per_pathway_core[pathway_name] = avg_pi_per_pathway_core[pathway_name]/(passed_sites_per_pathway_core[pathway_name]+(passed_sites_per_pathway_core[pathway_name]==0)) 
+    pi_per_pathway_core[pathway_name] = pi_per_pathway_core[pathway_name]/(passed_sites_per_pathway_core[pathway_name]+(passed_sites_per_pathway_core[pathway_name]==0))     
+
+############################################################
+# compute pi/pathway -- variable genes
+############################################################
+
+pi_per_gene, avg_pi_per_gene, passed_sites_per_gene, num_people_with_data =  diversity_utils.calculate_pi_matrix_per_gene(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=variable_genes)
+
+# aggregate pi/gene by pathway. 
+pi_per_pathway_variable, avg_pi_per_pathway_variable, passed_sites_per_pathway_variable, num_genes_per_pathway_variable, num_people_with_data_per_pathway_variable = diversity_utils.calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene,num_people_with_data,kegg_ids)
+
+for pathway_name in avg_pi_per_pathway_variable.keys():
+    avg_pi_per_pathway_variable[pathway_name] = avg_pi_per_pathway_variable[pathway_name]/(passed_sites_per_pathway_variable[pathway_name]+(passed_sites_per_pathway_variable[pathway_name]==0))     
+#debug:
+#    pi_per_pathway_variable[pathway_name] = pi_per_pathway_variable[pathway_name]/(passed_sites_per_pathway_variable[pathway_name]+(passed_sites_per_pathway_variable[pathway_name]==0))     
+
+
+
+##########################################################
+# compute total fixations, genome-wide core genes
+##########################################################
 # Calculate fixation matrices
 min_change=0.8
-sys.stderr.write("Calculating 4D fixation matrix...\n")
-fixation_matrix_syn, fixation_opportunities_syn = diversity_utils.calculate_fixation_matrix_per_gene(allele_counts_map, passed_sites_map, allowed_variant_types=set(['4D']), allowed_genes=core_genes,min_change=min_change)
-sys.stderr.write("Calculating 1D fixation matrix...\n")
-fixation_matrix_non, fixation_opportunities_non = diversity_utils.calculate_fixation_matrix_per_gene(allele_counts_map, passed_sites_map, allowed_variant_types=set(['1D']), allowed_genes=core_genes,min_change=min_change)
-sys.stderr.write("Calculating total fixation matrix...\n")
-fixation_matrix_all, fixation_opportunities_all = diversity_utils.calculate_fixation_matrix_per_gene(allele_counts_map, passed_sites_map,allowed_genes=core_genes, min_change=min_change)
-
-sys.stderr.write("Done!\n")
-
-
-
-# Aggregate by pathway
-dS_per_pathway, num_genes_per_pathway_syn=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_syn,fixation_opportunities_syn, kegg_ids)
-dN_per_pathway, num_genes_per_pathway_non=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_non,fixation_opportunities_non, kegg_ids)
-dtot_per_pathway, num_genes_per_pathway_tot=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_all,fixation_opportunities_all, kegg_ids)
-
-#calculate fraction nonsynonymous
-fraction_nonsynonymous_per_pathway={}
-num_genes_per_pathway_syn_non={}
-for pathway in dS_per_pathway.keys():
-    if pathway in dN_per_pathway.keys():
-        dNplusdS=dS_per_pathway[pathway] + dN_per_pathway[pathway]
-        fraction_nonsynonymous_per_pathway[pathway]=dN_per_pathway[pathway]/(dNplusdS+(dNplusdS==0))
-        num_genes_per_pathway_syn_non[pathway]=(num_genes_per_pathway_syn[pathway] + num_genes_per_pathway_non[pathway])/2.0
-
-##########################################################
-# compute total fixations, genome-wide
-##########################################################
-# Calculate fixation matrices
 sys.stderr.write("Calculating 4D fixation matrix...\n")
 fixation_matrix_syn, fixation_opportunities_syn = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set(['4D']),allowed_genes=core_genes, min_change=min_change)
 sys.stderr.write("Calculating 1D fixation matrix...\n")
@@ -208,15 +208,147 @@ sys.stderr.write("Done!\n")
 dN = fixation_matrix_non/fixation_opportunities_non
 dS = fixation_matrix_syn/fixation_opportunities_syn
 dNplusdS = (dN+dS)
-fraction_nonsynonymous = dN/(dNplusdS+(dNplusdS==0))
+fraction_nonsynonymous_core = dN/(dNplusdS+(dNplusdS==0))
 
 # Calculate total divergence
-dtot = fixation_matrix_all/fixation_opportunities_all
+dtot_core = fixation_matrix_all/fixation_opportunities_all
+
+
+
+##########################################################
+# compute total fixations, genome-wide variable genes
+##########################################################
+# Calculate fixation matrices
+min_change=0.8
+sys.stderr.write("Calculating 4D fixation matrix...\n")
+fixation_matrix_syn, fixation_opportunities_syn= diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set(['4D']),allowed_genes=variable_genes, min_change=min_change)
+sys.stderr.write("Calculating 1D fixation matrix...\n")
+fixation_matrix_non, fixation_opportunities_non = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set(['1D']),allowed_genes=variable_genes, min_change=min_change)
+sys.stderr.write("Calculating total fixation matrix...\n")
+fixation_matrix_all, fixation_opportunities_all = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map,allowed_genes=variable_genes, min_change=min_change)
+
+sys.stderr.write("Done!\n")
+
+# Calculate fraction nonsynonymous  
+dN = fixation_matrix_non/fixation_opportunities_non
+dS = fixation_matrix_syn/fixation_opportunities_syn
+dNplusdS = (dN+dS)
+fraction_nonsynonymous_variable = dN/(dNplusdS+(dNplusdS==0))
+
+# Calculate total divergence
+dtot_variable = fixation_matrix_all/fixation_opportunities_all
+
+
+
+
+###########################################################
+# Compute fixations/pathway
+########################################################### 
+sys.stderr.write("Calculating 4D fixation matrix...\n")
+fixation_matrix_syn, fixation_opportunities_syn, num_people_with_data_syn = diversity_utils.calculate_fixation_matrix_per_gene(allele_counts_map, passed_sites_map, allowed_variant_types=set(['4D']), allowed_genes=core_genes,min_change=min_change)
+sys.stderr.write("Calculating 1D fixation matrix...\n")
+fixation_matrix_non, fixation_opportunities_non, num_people_with_data_non = diversity_utils.calculate_fixation_matrix_per_gene(allele_counts_map, passed_sites_map, allowed_variant_types=set(['1D']), allowed_genes=core_genes,min_change=min_change)
+sys.stderr.write("Calculating total fixation matrix...\n")
+fixation_matrix_all, fixation_opportunities_all, num_people_with_data_all = diversity_utils.calculate_fixation_matrix_per_gene(allele_counts_map, passed_sites_map,allowed_genes=core_genes, min_change=min_change)
+
+sys.stderr.write("Done!\n")
+
+
+
+# Aggregate by pathway
+dS_per_pathway, num_genes_per_pathway_syn, num_people_with_data_per_pathway_syn=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_syn,fixation_opportunities_syn, num_people_with_data_syn,kegg_ids)
+dN_per_pathway, num_genes_per_pathway_non, num_people_with_data_per_pathway_non=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_non,fixation_opportunities_non,num_people_with_data_non, kegg_ids)
+dtot_per_pathway, num_genes_per_pathway_tot, num_people_with_data_per_pathway_tot=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_all,fixation_opportunities_all,num_people_with_data_all, kegg_ids)
+
+#calculate fraction nonsynonymous
+fraction_nonsynonymous_per_pathway={}
+num_genes_per_pathway_syn_non={}
+for pathway in dS_per_pathway.keys():
+    if pathway in dN_per_pathway.keys():
+        dNplusdS=dS_per_pathway[pathway] + dN_per_pathway[pathway]
+        fraction_nonsynonymous_per_pathway[pathway]=dN_per_pathway[pathway]/(dNplusdS+(dNplusdS==0))
+        num_genes_per_pathway_syn_non[pathway]=(num_genes_per_pathway_syn[pathway] + num_genes_per_pathway_non[pathway])/2.0
 
 
 ############################################################
 # Plot
 ############################################################
+######################################
+# compare all core vs variable genes
+######################################
+
+# plot total divergence for core vs variable genes
+
+pylab.figure(figsize=(6,2))
+pylab.xlabel('Fixations/bp')
+pylab.title(species_name+', ' + str(len(same_sample_idxs[0])) + ' subjects')
+pylab.xlim(1e-7,1)
+
+data=[]
+labels=[]
+# first add all data from entire genome
+data.append(dtot_core[diff_subject_idxs])
+labels.append('All core genes')
+data.append(dtot_variable[diff_subject_idxs]) 
+labels.append('All variable genes')
+ 
+pylab.boxplot(data,0,'.',0, widths=0.75)
+pylab.xscale('log')
+locs, dummy_labels = pylab.yticks()
+pylab.yticks(locs, labels, fontsize=9)
+
+pylab.savefig('%s/%s_core_vs_variable_genes_fixations.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+
+
+# plot fraction nonsynonymous differences for core vs variable genes
+
+pylab.figure(figsize=(6,2))
+pylab.xlabel('Fraction nonsynonymous fixations')
+pylab.title(species_name+', ' + str(len(same_sample_idxs[0])) + ' subjects')
+pylab.xlim(0,1)
+
+data=[]
+labels=[]
+# first add all data from entire genome
+data.append(fraction_nonsynonymous_core[diff_subject_idxs])
+labels.append('All core genes')
+data.append(fraction_nonsynonymous_variable[diff_subject_idxs]) 
+labels.append('All variable genes')
+ 
+pylab.boxplot(data,0,'.',0, widths=0.75)
+locs, dummy_labels = pylab.yticks()
+pylab.yticks(locs, labels, fontsize=9)
+
+pylab.savefig('%s/%s_core_vs_variable_genes_fraction_nonsynonymous_fixations.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+
+
+# plot distribution of pi within patients for core vs var
+pylab.figure(figsize=(6,2))
+pylab.xlabel('Pi/bp')
+pylab.title(species_name+', ' + str(len(same_sample_idxs[0])) + ' subjects')
+pylab.xlim(1e-7,1)
+
+data=[]
+labels=[]
+# first add all data from entire genome
+data.append(avg_pi_matrix_core[same_sample_idxs])
+labels.append('All core genes')
+data.append(avg_pi_matrix_variable[same_sample_idxs])
+labels.append('All variable genes')
+
+pylab.boxplot(data,0,'.',0, widths=0.75)
+pylab.xscale('log')
+locs, dummy_labels = pylab.yticks()
+pylab.yticks(locs, labels, fontsize=9)
+pylab.axvline(x=0.001, ymin=0, ymax=1, hold=None)
+
+pylab.savefig('%s/%s_core_vs_variable_genes_pi_within.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+
+
+##########################################
+# Return to this part of the code later  #
+##########################################
+'''
 
 # plot distribution of pi within patients per pathway
 
@@ -226,8 +358,6 @@ for pathway in sorted(num_genes_per_pathway, key=num_genes_per_pathway.get, reve
     sorted_pathways.append(pathway)
 
 pylab.figure(figsize=(4,15))
-#pylab.xlabel('Pathway')
-#pylab.ylabel('pi/bp')
 pylab.xlabel('$\\pi_s$')
 pylab.title(species_name +', ' + str(len(same_sample_idxs[0])) + ' subjects')
 pylab.xlim(1e-7,1)
@@ -236,7 +366,8 @@ data=[]
 labels=[]
 # first add all data from entire genome
 data.append(avg_pi_matrix[same_sample_idxs])
-labels.append('All core genes, n=' +str(sum(num_genes_per_pathway.values())))
+#labels.append('All core genes, n=' +str(sum(num_genes_per_pathway.values())))
+labels.append('All variable genes, n=' +str('x'))
 for pathway in sorted_pathways:
     data.append(avg_pi_per_pathway[pathway][same_sample_idxs])
     #data.append(numpy.clip(avg_pi_per_pathway[pathway][same_sample_idxs],1e-10,1))
@@ -272,7 +403,9 @@ data=[]
 labels=[]
 # first add all data from entire genome
 data.append(fraction_nonsynonymous[diff_subject_idxs])
-labels.append('All core genes, n=' +str(int(num_genes_per_pathway_syn_non['']+num_genes_per_pathway_syn_non['Annotated_pathways'])))
+#labels.append('All core genes, n=' +str(int(num_genes_per_pathway_syn_non['']+num_genes_per_pathway_syn_non['Annotated_pathways'])))
+labels.append('All variable genes, n=' +str('x'))
+
 for pathway in sorted_pathways:
     data.append(fraction_nonsynonymous_per_pathway[pathway][diff_subject_idxs])
     num_genes=num_genes_per_pathway_syn_non[pathway]
@@ -296,14 +429,15 @@ for pathway in sorted(num_genes_per_pathway_tot, key=num_genes_per_pathway_tot.g
 
 pylab.figure(figsize=(6,15))
 pylab.xlabel('Total divergence')
-pylab.title(species_name,+', ' + str(len(same_sample_idxs[0])) + ' subjects')
+pylab.title(species_name+', ' + str(len(same_sample_idxs[0])) + ' subjects')
 pylab.xlim(1e-7,1)
 
 data=[]
 labels=[]
 # first add all data from entire genome
 data.append(dtot[diff_subject_idxs])
-labels.append('All core genes, n=' +str(int(sum(num_genes_per_pathway_tot.values()))))
+#labels.append('All core genes, n=' +str(int(sum(num_genes_per_pathway_tot.values()))))
+labels.append('All variable genes, n=' +str('x'))
 for pathway in sorted_pathways:
     data.append(dtot_per_pathway[pathway][diff_subject_idxs])
     num_genes=num_genes_per_pathway_tot[pathway]
@@ -319,3 +453,4 @@ pylab.yticks(locs, labels, fontsize=9)
 
 pylab.savefig('%s/%s_fixations_per_pathway.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
 
+'''
