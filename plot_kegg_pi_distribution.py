@@ -270,6 +270,15 @@ for pathway in dS_per_pathway.keys():
         num_genes_per_pathway_syn_non[pathway]=(num_genes_per_pathway_syn[pathway] + num_genes_per_pathway_non[pathway])/2.0
 
 
+###############################################################
+# save variables so that I can plot cross-species comparisons #
+###############################################################
+
+numpy.savez(os.path.expanduser('~/tmp_intermediate_files/kegg_pi_%s.npz' % species_name),avg_pi_matrix_core=avg_pi_matrix_core, avg_pi_matrix_variable=avg_pi_matrix_variable, dtot_core=dtot_core, dtot_variable=dtot_variable, fraction_nonsynonymous_core=fraction_nonsynonymous_core, fraction_nonsynonymous_variable=fraction_nonsynonymous_variable, diff_subject_idxs=diff_subject_idxs, same_sample_idxs=same_sample_idxs)
+
+
+
+
 ############################################################
 # Plot
 ############################################################
@@ -323,6 +332,7 @@ pylab.savefig('%s/%s_core_vs_variable_genes_fraction_nonsynonymous_fixations.png
 
 
 # plot distribution of pi within patients for core vs var
+colors=['#a1d99b','#c994c7']
 pylab.figure(figsize=(6,2))
 pylab.xlabel('Pi/bp')
 pylab.title(species_name+', ' + str(len(same_sample_idxs[0])) + ' subjects')
@@ -336,7 +346,14 @@ labels.append('All core genes')
 data.append(avg_pi_matrix_variable[same_sample_idxs])
 labels.append('All variable genes')
 
-pylab.boxplot(data,0,'.',0, widths=0.75)
+bp=pylab.boxplot(data,0,'.',0, widths=0.75,patch_artist=True)
+k=0
+for patch in bp['boxes']:
+    patch.set_facecolor(colors[k%2])
+    k+=1
+#for box in bp['boxes']:
+#    box.set(facecolor='green')
+
 pylab.xscale('log')
 locs, dummy_labels = pylab.yticks()
 pylab.yticks(locs, labels, fontsize=9)
