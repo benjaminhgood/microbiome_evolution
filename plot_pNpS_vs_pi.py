@@ -42,7 +42,7 @@ sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(sam
     
 # Load SNP information for species_name
 sys.stderr.write("Loading %s...\n" % species_name)
-samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, debug)
+samples, allele_counts_map, passed_sites_map, last_line = parse_midas_data.parse_snps(species_name, debug)
 sys.stderr.write("Done!\n")
     
 median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
