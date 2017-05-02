@@ -247,7 +247,7 @@ def calculate_unique_samples(subject_sample_map, sample_list=[]):
 # Returns len(sampe_list) boolean array with element=False if sample was pruned  
 #
 ###############################################################################
-def calculate_unique_samples(sample_country_map, sample_list=[], allowed_countries=set([])):
+def calculate_unique_samples_country(sample_country_map, sample_list=[], allowed_countries=set([])):
 
     if len(sample_list)==0:
         sample_list = list(sorted(sample_country_map.keys()))
@@ -1598,7 +1598,7 @@ def load_spgenes_annotations(gene_names):
                     gene_name=items[2].strip().split('|')[1]
                     product=items[6]
                     property=items[7]
-                    spgenes_ids[gene_name]=[property,product]
+                    spgenes_ids[gene_name]=[[property,product]]
     return spgenes_ids
 
 

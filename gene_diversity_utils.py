@@ -166,7 +166,7 @@ def gene_prevalences_whole_pangenome(gene_names, gene_names_subset, prevalences)
 #                                          #  
 ############################################  
 
-def kegg_pathways_histogram(kegg_ids, gene_names, gene_samples,gene_prevalences=[]):
+def kegg_pathways_histogram(kegg_ids, gene_names, gene_samples,gene_prevalences=[], spgenes=False):
 
     import pandas
   
@@ -181,17 +181,21 @@ def kegg_pathways_histogram(kegg_ids, gene_names, gene_samples,gene_prevalences=
     pathway_description={}
     gene_idx=0
     for gene in gene_names:
-        prevalence=gene_prevalences[gene_idx]
-        pathways=kegg_ids[gene]
-        for i in range(0, len(pathways)):
-            pathway=pathways[i][0]
-            description=pathways[i][1]
-            if pathway not in pathway_histogram.keys():
-                pathway_histogram[pathway]=[prevalence]
-            else:
-                pathway_histogram[pathway].append(prevalence)
-            pathway_description[pathway]=description
-        gene_idx +=1
+        if gene in kegg_ids.keys():
+            prevalence=gene_prevalences[gene_idx]
+            pathways=kegg_ids[gene]
+            for i in range(0, len(pathways)):
+                pathway=pathways[i][0]
+                description=pathways[i][1]
+                if pathway not in pathway_histogram.keys():
+                    pathway_histogram[pathway]=[prevalence]
+                else:
+                    pathway_histogram[pathway].append(prevalence)
+                if spgenes==True:
+                    pathway_description[pathway]=pathway
+                else:
+                    pathway_description[pathway]=description
+            gene_idx +=1
 
     # create different prevalence bins for stacked histograms [100%, <0x<100, 0%]
     bins = numpy.asarray([0,0.1,0.5,0.9,1.0]) 
