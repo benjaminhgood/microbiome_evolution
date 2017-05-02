@@ -1583,14 +1583,14 @@ def load_kegg_annotations(gene_names):
 ########################################
 def load_spgenes_annotations(gene_names):
     
-    # dictionary to store the special gene ids (gene_id -> [product, property])
+    # dictionary to store the special gene ids (gene_id -> [property,product])
     spgenes_ids={}
     genomes_visited=[]
     for i in range(0, len(gene_names)):
         genome_id='.'.join(gene_names[i].split('.')[0:2])
         if genome_id not in genomes_visited:
             genomes_visited.append(genome_id)
-            file= gzip.open("%spatric_spgene/%s.spgene.tab.gz" % (data_directory, genome_id),"r")
+            file= gzip.open("%spatric_spgene/%s.PATRIC.spgene.tab.gz" % (data_directory, genome_id),"r")
             file.readline() #header  
             for line in file:
                 if line.strip() != "":
@@ -1598,7 +1598,7 @@ def load_spgenes_annotations(gene_names):
                     gene_name=items[2].strip().split('|')[1]
                     product=items[6]
                     property=items[7]
-                    spgenes_ids[product,property]
+                    spgenes_ids[gene_name]=[property,product]
     return spgenes_ids
 
 
