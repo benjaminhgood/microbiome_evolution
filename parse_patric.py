@@ -59,10 +59,41 @@ def load_spgenes_annotations(gene_names):
                     product=items[6]
                     property=items[7]
                     spgenes_ids[gene_name]=[[property,product]]
-    spgenes_set=set(spgenes_ids.keys())
+
     return spgenes_ids, spgenes_set
 
 
+def load_antibiotic_resistance_genes(species_name):
+    
+    # get pangenome genome for species_name
+    
+    pangenome_genes = parse_midas_data.load_pangenome_genes(species_name)
+    spgenes_ids = load_spgenes_annotations(gene_names)
+    
+    antibiotic_resistance_genes = set([])
+    
+    for gene_name in spgenes_ids.keys():
+    
+        if spgenes_ids[gene_name][0][0] == 'Antibiotic Resistance':
+            antibiotic_resistance_genes.add(gene_name)
+            
+    return antibiotic_resistance_genes
+
+def load_virulence_factors(species_name):
+    
+    # get pangenome genome for species_name
+    
+    pangenome_genes = parse_midas_data.load_pangenome_genes(species_name)
+    spgenes_ids = load_spgenes_annotations(gene_names)
+    
+    virulence_genes = set([])
+    
+    for gene_name in spgenes_ids.keys():
+    
+        if spgenes_ids[gene_name][0][0] == 'Virulence Factor':
+            virulence_genes.add(gene_name)
+            
+    return virulence_genes
 
 #######################    
 
