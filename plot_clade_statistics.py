@@ -36,12 +36,14 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("species_name", help="name of species to process")
 parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
+parser.add_argument("--include-china", help="Includes Chinese subjects from Qin et al (Nature, 2012)", action="store_true")
 parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
 args = parser.parse_args()
 
 species_name = args.species_name
 debug = args.debug
 chunk_size = args.chunk_size
+include_china = args.include_china
 ################################################################################
 
 min_change = 0.8
@@ -53,6 +55,7 @@ max_clade_d = 1e-02
 # Load subject and sample metadata
 sys.stderr.write("Loading HMP metadata...\n")
 subject_sample_map = parse_midas_data.parse_subject_sample_map()
+sample_country_map = parse_midas_data.parse_sample_country_map()
 sys.stderr.write("Done!\n")
 
 # Load core gene set
@@ -78,8 +81,8 @@ median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(
 snp_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
 # Restrict to single timepoint single timepoints per person
 unique_subject_idxs = parse_midas_data.calculate_unique_samples(subject_sample_map, snp_samples)
-snp_samples = snp_samples[unique_subject_idxs]
-
+hmp_subject_idxs = parse_midas_data.calculate_country_samples(sample_country_map, snp_samples, allowed_countries=set(['United States']))
+snp_samples = snp_samples[unique_subject_idxs*hmp_subject_idxs]
 
 
 # Analyze SNPs, looping over chunk sizes. 
@@ -178,6 +181,10 @@ if len(coarse_grained_samples)>2:
     total_control_rsquared_numerators = 0
     total_control_rsquared_denominators = 0
     
+    nonsynonymous_binned_rsquared_numerators = numpy.zeros_like(distance_bin_locations)
+    nonsynonymous_binned_rsquared_denominators = numpy.zeros_like(distance_bin_locations)   
+    nonsynonymous_total_control_rsquared_numerators = 0
+    nonsynonymous_total_control_rsquared_denominators = 0
     
     all_binned_rsquared_numerators = numpy.zeros_like(distance_bin_locations)
     all_binned_rsquared_denominators = numpy.zeros_like(distance_bin_locations)   
@@ -338,7 +345,70 @@ if len(coarse_grained_samples)>2:
             total_control_rsquared_numerators += (control_rsquared_numerators).sum()
             total_control_rsquared_denominators += (control_rsquared_denominators).sum()
             
+        # Now repeat for nonsynonymous ones
+        for gene_name in allele_counts_map.keys():
+            
+            locations = numpy.array([location for chromosome, location in allele_counts_map[gene_name]['1D']['locations']])*1.0
+            allele_counts = allele_counts_map[gene_name]['1D']['alleles']
+        
+            if len(allele_counts)==0:
+                # no diversity to look at!
+                continue
+            
+            # pick a random gene somewhere else as a control
+            control_gene_name = gene_name
+            control_allele_counts = []
+            while gene_name==control_gene_name or len(control_allele_counts)==0:
+                control_gene_name = choice(allele_counts_map.keys())
+                control_allele_counts = allele_counts_map[control_gene_name]['1D']['alleles']
+         
+        
+            # Now restrict to largest clade
+            allele_counts = allele_counts[:,largest_clade_idxs,:]
+            control_allele_counts = control_allele_counts[:,largest_clade_idxs,:]
     
+            #compute the distances between all pairs of sites 
+            # None in the two index positions results in a transpose of the vector relative to each other
+            # Subtraction between the two vectors results in pairwise subtraction of each element in each vector.
+            distances = numpy.fabs(locations[:,None]-locations[None,:])
+    
+            rsquared_numerators, rsquared_denominators = diversity_utils.calculate_unbiased_sigmasquared(allele_counts, allele_counts)
+            control_rsquared_numerators, control_rsquared_denominators = diversity_utils.calculate_unbiased_sigmasquared(allele_counts, control_allele_counts)
+        
+            # get the indices of the upper diagonal of the distance matrix
+            # numpy triu_indices returns upper diagnonal including diagonal
+            # the 1 inside the function excludes diagonal. Diagnonal has distance of zero.
+            desired_idxs = numpy.triu_indices(distances.shape[0],1)
+        
+            #print distances.shape, rsquared_numerators.shape
+        
+            # fetch the distances and rsquared vals corresponding to the upper diagonal. 
+            distances = distances[desired_idxs]
+            rsquared_numerators = rsquared_numerators[desired_idxs]
+            rsquared_denominators = rsquared_denominators[desired_idxs]
+        
+            # fetch entries where denominator != 0 (remember, denominator=pa*(1-pa)*pb*(1-pb). If zero, then at least one site is invariant)
+            distances = distances[rsquared_denominators>0]
+            rsquared_numerators = rsquared_numerators[rsquared_denominators>0] 
+            rsquared_denominators = rsquared_denominators[rsquared_denominators>0]
+        
+            if len(distances) == 0:
+                continue
+
+            # numpy.digitize: For each distance value, return the bin index it belongs to in distances_bins. 
+            bin_idxs = numpy.digitize(distances,bins=distance_bins)-1
+            
+            for i in xrange(0,len(bin_idxs)):
+        
+                nonsynonymous_binned_rsquared_numerators[bin_idxs[i]] += rsquared_numerators[i]
+            
+                nonsynonymous_binned_rsquared_denominators[bin_idxs[i]] += rsquared_denominators[i]
+        
+            control_rsquared_numerators = control_rsquared_numerators[control_rsquared_denominators>0]
+            control_rsquared_denominators = control_rsquared_denominators[control_rsquared_denominators>0]
+        
+            nonsynonymous_total_control_rsquared_numerators += (control_rsquared_numerators).sum()
+            nonsynonymous_total_control_rsquared_denominators += (control_rsquared_denominators).sum()    
         #sys.stderr.write("Calculating something else?...\n")
         
         
@@ -352,11 +422,11 @@ if len(coarse_grained_samples)>2:
     all_binned_rsquareds = all_binned_rsquared_numerators/(all_binned_rsquared_denominators+(all_binned_rsquared_denominators==0))    
     all_control_rsquareds = all_total_control_rsquared_numerators/(all_total_control_rsquared_denominators+(all_total_control_rsquared_denominators==0))
     
-    print binned_rsquared_numerators
-    print binned_rsquared_denominators
-    
     binned_rsquareds = binned_rsquared_numerators/(binned_rsquared_denominators+(binned_rsquared_denominators==0))    
     control_rsquareds = total_control_rsquared_numerators/(total_control_rsquared_denominators+(total_control_rsquared_denominators==0))
+
+    nonsynonymous_binned_rsquareds = nonsynonymous_binned_rsquared_numerators/(nonsynonymous_binned_rsquared_denominators+(nonsynonymous_binned_rsquared_denominators==0))    
+    nonsynonymous_control_rsquareds = nonsynonymous_total_control_rsquared_numerators/(nonsynonymous_total_control_rsquared_denominators+(nonsynonymous_total_control_rsquared_denominators==0))
 
     pylab.figure(1,figsize=(3.42,2))
     pylab.suptitle(species_name)
@@ -399,14 +469,33 @@ if len(coarse_grained_samples)>2:
     pylab.figure(3,figsize=(3.42,2))
     pylab.suptitle(species_name)
     pylab.xlabel('Distance between SNPs')
-    pylab.ylabel("Ohta and Kimura's $\\sigma^2_d$")
+    pylab.ylabel("Linkage disequilibrium, $\\sigma^2_d$")
 
-    pylab.xlim([1,1e04])
+    pylab.gca().spines['top'].set_visible(False)
+    pylab.gca().spines['right'].set_visible(False)
+    pylab.gca().get_xaxis().tick_bottom()
+    pylab.gca().get_yaxis().tick_left()
+
+
+    control_x = 2e04
+
+    pylab.xlim([1,3e04])
     pylab.ylim([1e-02,1])
-    pylab.loglog(distance_bin_locations[all_binned_rsquared_denominators>0], all_binned_rsquareds[all_binned_rsquared_denominators>0],'.-',color='0.7',label='All')
-    pylab.loglog(distance_bin_locations[binned_rsquared_denominators>0], binned_rsquareds[binned_rsquared_denominators>0],'b.-',label='Largest clade')
-    pylab.loglog(distance_bin_locations, numpy.ones_like(distance_bin_locations)*control_rsquareds,'b:')
-    pylab.legend(loc='upper right',frameon=False,fontsize=6)
+    pylab.loglog(distance_bin_locations[all_binned_rsquared_denominators>0], all_binned_rsquareds[all_binned_rsquared_denominators>0],'b.-',alpha=0.5,label='All (4D)')
+    pylab.loglog([distance_bin_locations[all_binned_rsquared_denominators>0][-1], control_x], [all_binned_rsquareds[all_binned_rsquared_denominators>0][-1], all_control_rsquareds], 'b:',alpha=0.5)
+    pylab.loglog([control_x], [all_control_rsquareds], 'b.',alpha=0.5)
+    
+    
+    pylab.loglog(distance_bin_locations[binned_rsquared_denominators>0], binned_rsquareds[binned_rsquared_denominators>0],'b.-',label='Largest clade (4D)')
+    pylab.loglog([distance_bin_locations[binned_rsquared_denominators>0][-1], control_x], [binned_rsquareds[binned_rsquared_denominators>0][-1], control_rsquareds], 'b:')
+    pylab.loglog([control_x], [control_rsquareds], 'b.')
+    
+    pylab.loglog(distance_bin_locations[nonsynonymous_binned_rsquared_denominators>0], nonsynonymous_binned_rsquareds[nonsynonymous_binned_rsquared_denominators>0],'r.-',label='Nonsynonymous (1D)')
+    pylab.loglog([distance_bin_locations[nonsynonymous_binned_rsquared_denominators>0][-1], control_x], [nonsynonymous_binned_rsquareds[nonsynonymous_binned_rsquared_denominators>0][-1], nonsynonymous_control_rsquareds], 'r:')
+    pylab.loglog([control_x], [nonsynonymous_control_rsquareds], 'r.')
+    
+    
+    pylab.legend(loc='lower left',frameon=False,fontsize=6)
     pylab.savefig('%s/%s_intragene_ld.pdf' % (parse_midas_data.analysis_directory, species_name), bbox_inches='tight')
     pylab.savefig('%s/%s_intragene_ld.png' % (parse_midas_data.analysis_directory, species_name), bbox_inches='tight', dpi=300)
 

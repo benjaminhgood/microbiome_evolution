@@ -52,6 +52,7 @@ allowed_variant_types = set(['1D','2D','3D','4D'])
 # Load subject and sample metadata
 sys.stderr.write("Loading HMP metadata...\n")
 subject_sample_map = parse_midas_data.parse_subject_sample_map()
+sample_country_map = parse_midas_data.parse_sample_country_map()
 sys.stderr.write("Done!\n")
 
 # Load core gene set
@@ -73,13 +74,20 @@ pis = total_pis/total_pi_opportunities
 
 median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
 
+print "All samples:", len(samples)
+
 # Only plot samples above a certain depth threshold that are "haploids"
 snp_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
 # Restrict to single timepoint single timepoints per person
+
+print "Haploid samples:", len(snp_samples)
+
 unique_subject_idxs = parse_midas_data.calculate_unique_samples(subject_sample_map, snp_samples)
 snp_samples = snp_samples[unique_subject_idxs]
 
+print "Uniqued num samples:", len(snp_samples)
 
+united_states_idxs = parse_midas_data.calculate_country_samples(sample_country_map, snp_samples, allowed_countries=set(['United States']))
 
 # Analyze SNPs, looping over chunk sizes. 
 # Clunky, but necessary to limit memory usage on cluster
@@ -111,6 +119,8 @@ while final_line_number >= 0:
     
      
 substitution_rate = snp_difference_matrix*1.0/snp_opportunity_matrix 
+
+substitution_rate = numpy.clip(substitution_rate,1e-09,10)
 
 # calculate compressed distance matrix suitable for agglomerative clustering
 Y = []
@@ -157,23 +167,34 @@ else:
 
 y_penultimax = ys[-1]
 
-ymin=1e-06
+ymin=2e-10
 ymax=1e-01
+
+yplotmin = 1e-06
+yplotmax = 1e-01
 
 
 #print ymin
+
+leaf_xs = []
 
 for icoord, dcoord in zip(ddata['icoord'], ddata['dcoord']):
     for idx in xrange(0,len(icoord)-1):
         x0 = icoord[idx]
         y0 = dcoord[idx]
-        if y0<1e-09:
+        if y0<1e-10:
             y0 = ymin
         x1 = icoord[idx+1]
         y1 = dcoord[idx+1]
-        if y1<1e-09:
+        if y1<1e-10:
             y1 = ymin
-    
+        
+        if (y0==ymin):
+            leaf_xs.append(x0)
+        
+        if (y1==ymin):
+            leaf_xs.append(x1)
+        
         #print x0, '->', x1, '\t',y0, '->', y1       
         pylab.semilogy([x0,x1],[y0,y1],'b-')
         
@@ -184,9 +205,32 @@ for icoord, dcoord in zip(ddata['icoord'], ddata['dcoord']):
             
             pylab.semilogy([xavg,xavg],[y_penultimax, ymax],'b-')
 
+leaf_xs = list(sorted(set(leaf_xs)))
+
+print len(leaf_xs)
+print len(ddata['ivl'])
+
+print ddata['leaves']
+
+
+for i in xrange(0,len(ddata['ivl'])):
+    
+    idx = long(ddata['ivl'][i])
+    x = leaf_xs[i]
+    y = yplotmin
+    sample = snp_samples[idx]
+    
+    
+    if united_states_idxs[idx]:
+        color = 'b'
+    else:
+        color = 'r'
+        
+    pylab.plot([x],[y],'o',color=color,markeredgewidth=0)
+    
 pylab.xticks([])
 pylab.xlim([xmin,xmax])
-pylab.ylim([ymin,ymax])
+pylab.ylim([yplotmin,yplotmax])
 pylab.xlabel('Samples')
 pylab.ylabel('SNP divergence')
 

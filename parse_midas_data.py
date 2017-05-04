@@ -7,18 +7,22 @@ import stats_utils
 from math import floor, ceil
 import gene_diversity_utils
 
+import config
+
 ###############################################################################
 #
 # Set up default source and output directories
 #
 ###############################################################################
 
-data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
-analysis_directory = os.path.expanduser("~/ben_nandita_hmp_analysis/")
-scripts_directory = os.path.expanduser("~/ben_nandita_hmp_scripts/")
+data_directory = config.data_directory
+analysis_directory = config.analysis_directory
+scripts_directory = config.scripts_directory
+patric_directory = config.patric_directory
+midas_directory = config.midas_directory
 
 # We use this one to debug because it was the first one we looked at
-debug_species_name = 'Bacteroides_uniformis_57318'
+debug_species_name = config.debug_species_name
 
 ###############################################################################
 #
@@ -247,14 +251,20 @@ def calculate_unique_samples(subject_sample_map, sample_list=[]):
 # Returns len(sampe_list) boolean array with element=False if sample was pruned  
 #
 ###############################################################################
-def calculate_unique_samples_country(sample_country_map, sample_list=[], allowed_countries=set([])):
+def calculate_country_samples(sample_country_map, sample_list=[], allowed_countries=set([])):
 
     if len(sample_list)==0:
         sample_list = list(sorted(sample_country_map.keys()))
         
     allowed_idxs = []
     for sample in sample_list:
-        if (len(allowed_countries))==0 or (sample_country_map[sample] in allowed_countries):
+        
+        if sample.endswith('c'):
+            desired_sample = sample[:-1]
+        else:
+            desired_sample = sample
+            
+        if (len(allowed_countries))==0 or (sample_country_map[desired_sample] in allowed_countries):
             allowed_idxs.append(True)
         else:
             allowed_idxs.append(False)
@@ -420,7 +430,7 @@ def parse_depth_sorted_species_list():
 # again sorted in order of decreasing total sequencing depth
 #
 #############
-def parse_good_species_list(min_marker_coverage=5, min_prevalence=10):
+def parse_good_species_list(min_marker_coverage=config.good_species_min_coverage, min_prevalence=config.good_species_min_prevalence):
     good_species_list = []
     
     species_coverage_matrix, samples, species = parse_global_marker_gene_coverages()
@@ -1152,7 +1162,7 @@ def load_centroid_gene_map(desired_species_name):
     # First load reference genes
     reference_genes = load_reference_genes(desired_species_name)
     
-    gene_info_file = gzip.open("%smidas_db_v1.2/pan_genomes/%s/gene_info.txt.gz" % (data_directory, desired_species_name), 'r')
+    gene_info_file = gzip.open("%span_genomes/%s/gene_info.txt.gz" % (midas_directory, desired_species_name), 'r')
     
     gene_info_file.readline() # header
     
@@ -1217,7 +1227,7 @@ def load_pangenome_genes(species_name):
 def load_reference_genes(desired_species_name):
 
     
-    features_file = gzip.open("%smidas_db_v1.2/rep_genomes/%s/genome.features.gz" % (data_directory, desired_species_name), 'r')
+    features_file = gzip.open("%srep_genomes/%s/genome.features.gz" % (midas_directory, desired_species_name), 'r')
     
     features_file.readline() # header
     reference_genes = []
@@ -1269,7 +1279,7 @@ def load_marker_genes(desired_species_name, require_in_reference_genome=True):
 
     reference_genes = set(load_reference_genes(desired_species_name))
     
-    marker_gene_file = open("%smidas_db_v1.2/marker_genes/phyeco.map" % (data_directory), 'r')
+    marker_gene_file = open("%smarker_genes/phyeco.map" % (midas_directory), 'r')
     
     marker_gene_file.readline() # header
     
@@ -1534,7 +1544,7 @@ def calculate_unique_time_pairs(subject_sample_time_map, samples):
 #########################################################################################
 
 def representative_genome_id(desired_species_name):
-    species_info = open("%smidas_db_v1.2/species_info.txt" % data_directory)
+    species_info = open("%sspecies_info.txt" % midas_directory)
     species_info.readline() #header
     
     genome_id_to_return=''

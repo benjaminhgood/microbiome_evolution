@@ -36,12 +36,14 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("species_name", help="name of species to process")
 parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
+parser.add_argument("--include-china", help="Includes Chinese subjects from Qin et al (Nature, 2012)", action="store_true")
 parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
 args = parser.parse_args()
 
 species_name = args.species_name
 debug = args.debug
 chunk_size = args.chunk_size
+include_china = args.include_china
 ################################################################################
 
 min_change = 0.8

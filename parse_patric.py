@@ -7,6 +7,7 @@ import stats_utils
 from math import floor, ceil
 import gene_diversity_utils
 import parse_midas_data
+
 #########################################################################################
 #
 # Read in the Kegg info for a given speceis
@@ -24,7 +25,7 @@ def load_kegg_annotations(gene_names):
         genome_id='.'.join(gene_names[i].split('.')[0:2])
         if genome_id not in genomes_visited:
             genomes_visited.append(genome_id)
-            file= bz2.BZ2File("%skegg/%s.kegg.txt.bz2" % (parse_midas_data.data_directory, genome_id),"r")
+            file= bz2.BZ2File("%skegg/%s.kegg.txt.bz2" % (parse_midas_data.patric_directory, genome_id),"r")
             file.readline() #header  
             file.readline() #blank line
             for line in file:
@@ -46,11 +47,11 @@ def load_spgenes_annotations(gene_names):
     # dictionary to store the special gene ids (gene_id -> [property,product])
     spgenes_ids={}
     genomes_visited=[]
-    for i in range(0, len(gene_names)):
-        genome_id='.'.join(gene_names[i].split('.')[0:2])
+    for gene_name in gene_names: 
+        genome_id='.'.join(gene_name.split('.')[0:2])
         if genome_id not in genomes_visited:
             genomes_visited.append(genome_id)
-            file= gzip.open("%spatric_spgene/%s.PATRIC.spgene.tab.gz" % (parse_midas_data.data_directory, genome_id),"r")
+            file= gzip.open("%spatric_spgene/%s.PATRIC.spgene.tab.gz" % (parse_midas_data.patric_directory, genome_id),"r")
             file.readline() #header  
             for line in file:
                 if line.strip() != "":
@@ -59,16 +60,15 @@ def load_spgenes_annotations(gene_names):
                     product=items[6]
                     property=items[7]
                     spgenes_ids[gene_name]=[[property,product]]
-
-    return spgenes_ids, spgenes_set
-
+    
+    return spgenes_ids
 
 def load_antibiotic_resistance_genes(species_name):
     
     # get pangenome genome for species_name
     
     pangenome_genes = parse_midas_data.load_pangenome_genes(species_name)
-    spgenes_ids = load_spgenes_annotations(gene_names)
+    spgenes_ids = load_spgenes_annotations(pangenome_genes)
     
     antibiotic_resistance_genes = set([])
     
@@ -84,7 +84,7 @@ def load_virulence_factors(species_name):
     # get pangenome genome for species_name
     
     pangenome_genes = parse_midas_data.load_pangenome_genes(species_name)
-    spgenes_ids = load_spgenes_annotations(gene_names)
+    spgenes_ids = load_spgenes_annotations(pangenome_genes)
     
     virulence_genes = set([])
     
@@ -100,4 +100,3 @@ def load_virulence_factors(species_name):
 if __name__=='__main__':
 
     pass
-    
