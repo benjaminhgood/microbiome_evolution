@@ -95,6 +95,36 @@ def load_virulence_factors(species_name):
             
     return virulence_genes
 
+
+######################################################################################
+# 
+# Create a new genome.features.gz file for running MIDAS on a different representative genome for SNP calling. 
+#
+####################################################################################
+def new_genome_features_file(genome_id):
+    
+    pollard_patric_dir='/pollard/shattuck0/snayfach/databases/PATRIC/genomes'
+    outFile=gzip.open('/pollard/home/ngarud/BenNanditaProject/MIDAS_ref_genome_test/genome_features_files/%s_features.gz' % genome_id,"w")
+    outFile.write("gene_id\tscaffold_id\tstart\tend\tstrand\tgene_type\tfunctions\n")
+    
+    for genome_part in ['cds','rna']:
+        file= gzip.open("%s/%s/%s.PATRIC.%s.tab.gz" % (pollard_patric_dir,genome_id, genome_id, genome_part),"r")
+        file.readline() #header
+
+        for line in file:
+            items = line.split("\t")
+            gene_id=items[5].strip().split('|')[1]
+            scaffold_id=items[2].strip()
+            start=items[9].strip()
+            end=items[10].strip()
+            strand=items[11].strip()
+            gene_type=items[4].strip()
+            if len(items)>15:
+                functions=items[15].strip()
+            else:
+                functions=''
+            outFile.write(gene_id +'\t' +scaffold_id +'\t'+start +'\t' + end +'\t' +strand +'\t' +gene_type +'\t' +functions +'\n')
+
 #######################    
 
 if __name__=='__main__':
