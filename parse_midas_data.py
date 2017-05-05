@@ -1557,6 +1557,25 @@ def representative_genome_id(desired_species_name):
             return genome_id_to_return
 
 
+##########################################################
+#
+# Get a list of all genome_ids corresponding to reference genomes for a given species in the midas_db. 
+#
+#########################################################
+def get_ref_genome_ids(desired_species_name):
+    
+    genome_ids=[]
+    genome_info = open("%sgenome_info.txt" % midas_directory)
+    genome_info.readline() #header
+    for line in genome_info:
+        items = line.split("\t")
+        genome_id = items[0].strip()
+        species_id=items[5].strip() 
+        if desired_species_name == species_id:
+            genome_ids.append(genome_id)
+    return genome_ids
+
+
 
 #######################    
 
