@@ -11,7 +11,7 @@ import gene_diversity_utils
 import stats_utils
 import os
 import pandas
-
+import parse_patric
 ################################################################################
 #
 # Standard header to read in argument information
@@ -112,7 +112,7 @@ variable_genes=set(numpy.asarray(list(numpy.setdiff1d(gene_names_tmp,core_genes_
 # Load kegg information 
 ##############################################
 # load the kegg information for this species
-kegg_ids=parse_midas_data.load_kegg_annotations(gene_names)
+kegg_ids=parse_patric.load_kegg_annotations(gene_names)
 
 
 ############################################################## 
@@ -178,10 +178,27 @@ for pathway_name in avg_pi_per_pathway_core.keys():
 # compute pi/pathway -- variable genes
 ############################################################
 
-pi_per_gene, avg_pi_per_gene, passed_sites_per_gene, num_people_with_data =  diversity_utils.calculate_pi_matrix_per_gene(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=variable_genes)
+# I NEED TO FIX THIS DEF -- doesn't return num people with data anymore
+# also want to recycle the old pi_matrix definition. 
+#pi_per_gene, avg_pi_per_gene, passed_sites_per_gene, num_people_with_data =  diversity_utils.calculate_pi_matrix_per_gene(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=variable_genes)
+
+avg_pi_per_gene={}
+pi_per_gene={}
+passed_sites_per_gene={}
+num_people_with_data={}
+for gene_name in variable_genes:
+    gene_pi_matrix, gene_avg_pi_matrix, gene_passed_sites= diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=[gene_name])
+    pi_per_gene[gene_name] = gene_pi_matrix
+    avg_pi_per_gene[gene_name] = gene_avg_pi_matrix
+    passed_sites_per_gene[gene_name]=gene_passed_sites
+    num_people_with_data[gene_name]=sum(numpy.diagonal(passed_sites_per_gene[gene_name])>5)
+    
 
 # aggregate pi/gene by pathway. 
-pi_per_pathway_variable, avg_pi_per_pathway_variable, passed_sites_per_pathway_variable, num_genes_per_pathway_variable, num_people_with_data_per_pathway_variable = diversity_utils.calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene,num_people_with_data,kegg_ids)
+#pi_per_pathway_variable, avg_pi_per_pathway_variable, passed_sites_per_pathway_variable, num_genes_per_pathway_variable, num_people_with_data_per_pathway_variable = diversity_utils.calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene,num_people_with_data,kegg_ids)
+
+#FIX THIS:
+pi_per_pathway_variable, avg_pi_per_pathway_variable, passed_sites_per_pathway_variable = diversity_utils.calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene,kegg_ids)
 
 for pathway_name in avg_pi_per_pathway_variable.keys():
     avg_pi_per_pathway_variable[pathway_name] = avg_pi_per_pathway_variable[pathway_name]/(passed_sites_per_pathway_variable[pathway_name]+(passed_sites_per_pathway_variable[pathway_name]==0))     
