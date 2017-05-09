@@ -1185,6 +1185,38 @@ def load_centroid_gene_map(desired_species_name):
     
     return centroid_gene_map
 
+
+####
+#
+# In this definition we return as a key the centroid and as value a list of ALL genes that are within the 95% clster.
+#
+###
+def load_complete_centroid_gene_map(desired_species_name):
+    
+    gene_info_file = gzip.open("%span_genomes/%s/gene_info.txt.gz" % (midas_directory, desired_species_name), 'r')
+    
+    gene_info_file.readline() # header
+    
+    complete_centroid_gene_map = {}
+    
+    for line in gene_info_file:
+        
+        items = line.split("\t") 
+        gene_id = items[0].strip()
+        centroid_id = items[3].strip()
+        
+        if centroid_id not in complete_centroid_gene_map:
+            complete_centroid_gene_map[centroid_id] = [gene_id]
+        else:
+            complete_centroid_gene_map[centroid_id].append(gene_id)
+            
+        
+    gene_info_file.close()
+    
+    return complete_centroid_gene_map
+
+
+
 ###############################################################################
 #
 # Loads the MIDAS's pangenome (after clustering at X% identity)
@@ -1575,6 +1607,52 @@ def get_ref_genome_ids(desired_species_name):
             genome_ids.append(genome_id)
     return genome_ids
 
+##########################################################
+#
+# parse the intermediate files of MIDAS to obtain CNV counts for 99% gene centroids
+#
+#########################################################
+def parse_99_percent_genes(desired_species_name,samples, allowed_genes=[]):
+
+    # dictionary to store all the data (key=sampleID, value={gene, numreads})
+    data={}
+
+    for sample in samples:
+        if sample[-1]=='c':
+            pollard_dir='/pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_samples_combined_output/'+sample+'/genes/output'
+        else:
+            pollard_dir='/pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/'+sample+'/genes/output'
+        data[sample]={}
+
+        file = gzip.open("%s/%s.genes.gz" % (pollard_dir, desired_species_name), 'r')
+        file.readline() #header
+        for line in file:
+            items = line.split()
+            gene = items[0]
+            count_reads= items[1]            
+            if gene in allowed_genes:
+                data[sample][gene]=int(count_reads)
+           
+
+    # create a numpy array with the data
+    data_numpy_array_dict={}
+    data_numpy_array=numpy.asarray([])
+    for gene in allowed_genes:
+        data_numpy_array_dict[gene]=[]
+        for sample in data.keys():
+            if gene in data[sample]:
+                data_numpy_array_dict[gene].append(data[sample][gene])
+            else:
+                data_numpy_array_dict[gene].append(0)
+        data_numpy_array_dict[gene]=numpy.asarray(data_numpy_array_dict[gene])
+        if len(data_numpy_array) > 0:
+            data_numpy_array=numpy.row_stack((data_numpy_array,data_numpy_array_dict[gene]))
+        else:
+            data_numpy_array=data_numpy_array_dict[gene]
+
+    return data_numpy_array
+                
+                
 
 
 #######################    
