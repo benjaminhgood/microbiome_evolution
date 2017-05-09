@@ -1633,11 +1633,11 @@ def parse_99_percent_genes(desired_species_name,samples, allowed_genes=[]):
             if gene in allowed_genes:
                 data[sample][gene]=int(count_reads)
            
-
-    # create a numpy array with the data
+#    # create a numpy array with the data
     data_numpy_array_dict={}
     data_numpy_array=numpy.asarray([])
     for gene in allowed_genes:
+        
         data_numpy_array_dict[gene]=[]
         for sample in data.keys():
             if gene in data[sample]:
@@ -1645,12 +1645,18 @@ def parse_99_percent_genes(desired_species_name,samples, allowed_genes=[]):
             else:
                 data_numpy_array_dict[gene].append(0)
         data_numpy_array_dict[gene]=numpy.asarray(data_numpy_array_dict[gene])
-        if len(data_numpy_array) > 0:
-            data_numpy_array=numpy.row_stack((data_numpy_array,data_numpy_array_dict[gene]))
-        else:
-            data_numpy_array=data_numpy_array_dict[gene]
 
-    return data_numpy_array
+    #consolidate into a single ref genome esp. if multiple genes are in a single ref. 
+    ref_genome_dict={}
+    for gene in allowed_genes:
+        #modify the gene name to just have the refgenome
+        ref_genome='.'.join(gene.split('.')[0:2])
+        if ref_genome not in ref_genome_dict:
+            ref_genome_dict[ref_genome]=data_numpy_array_dict[gene]
+        else:
+            ref_genome_dict[ref_genome]+=data_numpy_array_dict[gene]
+
+    return ref_genome_dict
                 
                 
 
