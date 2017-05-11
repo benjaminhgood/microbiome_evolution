@@ -88,45 +88,53 @@ for i in range(0,10):
 header_visno=visNo2.readline()
 
 for line in visNo2:
-    VISNO=line.split('\t')[8][1]
-    sample_id=line.split('\t')[10]
-    sample_id_alt=line.split('\t')[6]
-    RANDSID= line.split('\t')[13]
+    VISNO=line.strip().split('\t')[8][1]
+    sample_id=line.strip().split('\t')[10]
+    sample_id_alt=line.strip().split('\t')[6]
+    RANDSID= line.strip().split('\t')[13]
     visNo2_dict[sample_id]=VISNO
     visNo2_dict_alt[sample_id_alt]=[VISNO, RANDSID]
 
 # outFile:
+# open the HMP file again to read in each line to match up the subject ID and sample ID to the metadata. 
+HMP_ids = open(HMP_ids_FN,"r")
+HMP_header=HMP_ids.readline() #header
+
 outFN='/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/HMP_ids_time.txt'
 outFile=open(outFN,'w')
 outFile.write(HMP_header.strip() +'\tVISNO\tstudy_day\n')
 
 # match all the dictionaries:
-for key in HMP_ids_dict.keys():
-    RANDSID=HMP_ids_dict[key][0]
-    sample_id=HMP_ids_dict[key][1]
-    if key in SRA_dict.keys():
-        SRS=SRA_dict[key]
+counter=0
+for line in HMP_ids:  
+    RANDSID=line.split('\t')[0]
+    sample_id=line.split('\t')[1]
+    run_accession=line.split('\t')[2] 
+    if run_accession in SRA_dict.keys():
+        SRS=SRA_dict[run_accession]
         if SRS in visNo_dict.keys():
             VISNO=str(visNo_dict[SRS][0])
             RANDSID=IDs_dict[SRS]
             study_day=days_dict[RANDSID][VISNO][1]
-            outFile.write('\t'.join(HMP_ids_dict[key]) +'\t' + VISNO + '\t' + study_day +'\n')
+            counter +=1
+            outFile.write(line.strip() +'\t' + VISNO + '\t' + study_day +'\n')
         else:
-#            outFile.write('\t'.join(HMP_ids_dict[key]) +'\tNA\tNA\n')
             if sample_id in visNo2_dict.keys():
                 VISNO=visNo2_dict[sample_id]
                 study_day=days_dict[RANDSID][VISNO][1]
-                outFile.write('\t'.join(HMP_ids_dict[key]) +'\t' + VISNO + '\t' + study_day +'\n')
+                counter +=1
+                outFile.write(line.strip() +'\t' + VISNO + '\t' + study_day +'\n')
             elif sample_id in visNo2_dict_alt.keys():
                 if visNo2_dict_alt[sample_id][1] == RANDSID:
                     VISNO=visNo2_dict_alt[sample_id][0]
                     study_day=days_dict[RANDSID][VISNO][1] 
-                    outFile.write('\t'.join(HMP_ids_dict[key]) +'\t' + VISNO + '\t' + study_day +'\n')
-                print sample_id
+                    counter +=1
+                    outFile.write(line.strip() +'\t' + VISNO + '\t' + study_day +'\n')
+                else:
+                    print line
             else:
-                print '\t'.join(HMP_ids_dict[key]) +'\tNA\tNA\n'
+                print line.strip() +'\tNA\tNA\n'
 
 
-
-
+print counter
 
