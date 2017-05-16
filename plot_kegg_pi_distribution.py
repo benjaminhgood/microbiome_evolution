@@ -188,9 +188,10 @@ passed_sites_per_gene={}
 num_people_with_data={}
 for gene_name in variable_genes:
     gene_pi_matrix, gene_avg_pi_matrix, gene_passed_sites= diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=[gene_name])
+    # check if the diagonals of gene_passed_sites  are less than 5. If so, then zero out these idxs for gene_passed_sites, gene_pi_matrix, and gene_avg_pi_matrix
+    passed_sites_per_gene[gene_name]=gene_passed_sites
     pi_per_gene[gene_name] = gene_pi_matrix
     avg_pi_per_gene[gene_name] = gene_avg_pi_matrix
-    passed_sites_per_gene[gene_name]=gene_passed_sites
     num_people_with_data[gene_name]=sum(numpy.diagonal(passed_sites_per_gene[gene_name])>5)
     
 
