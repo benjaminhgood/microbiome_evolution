@@ -65,7 +65,7 @@ desired_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
 
 # Load SNP information for species_name
 sys.stderr.write("Loading %s...\n" % species_name)
-dummy_samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=desired_samples)
+dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=desired_samples)
 sys.stderr.write("Done!\n")
     
 # Calculate fixation matrices
