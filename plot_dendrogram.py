@@ -1,6 +1,7 @@
 import matplotlib  
 matplotlib.use('Agg') 
 import parse_midas_data
+import parse_HMP_data
 import pylab
 import sys
 import numpy
@@ -51,8 +52,9 @@ allowed_variant_types = set(['1D','2D','3D','4D'])
 
 # Load subject and sample metadata
 sys.stderr.write("Loading HMP metadata...\n")
-subject_sample_map = parse_midas_data.parse_subject_sample_map()
-sample_country_map = parse_midas_data.parse_sample_country_map()
+subject_sample_map = parse_HMP_data.parse_subject_sample_map()
+sample_country_map = parse_HMP_data.parse_sample_country_map()
+sample_phenotype_map = parse_HMP_data.parse_sample_phenotype_map()
 sys.stderr.write("Done!\n")
 
 # Load core gene set
@@ -207,6 +209,8 @@ for icoord, dcoord in zip(ddata['icoord'], ddata['dcoord']):
 
 leaf_xs = list(sorted(set(leaf_xs)))
 
+print substitution_rate.shape
+print len(snp_samples), len(dummy_samples)
 print len(leaf_xs)
 print len(ddata['ivl'])
 
@@ -218,13 +222,21 @@ for i in xrange(0,len(ddata['ivl'])):
     idx = long(ddata['ivl'][i])
     x = leaf_xs[i]
     y = yplotmin
+    
+    print i, ddata['ivl'][i], idx
+    
     sample = snp_samples[idx]
     
     
     if united_states_idxs[idx]:
-        color = 'b'
+        if sample_phenotype_map[sample]==0:
+            color = '#9ecae1'
+        elif sample_phenotype_map[sample]==1:
+            color = '#3182bd'
+        else:
+            color = '#deebf7'      
     else:
-        color = 'r'
+        color = '#de2d26'
         
     pylab.plot([x],[y],'o',color=color,markeredgewidth=0)
     

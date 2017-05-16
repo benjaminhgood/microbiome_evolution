@@ -34,8 +34,8 @@ def parse_merged_sample_names(items):
     samples = []
     for item in items:
         sample = item.strip()
-        #if sample.endswith('c'):
-        #    sample = sample[:-1]
+        if sample.endswith('c'):
+            sample = sample[:-1]
         samples.append(sample)
         
     samples = numpy.array(samples)
@@ -181,6 +181,17 @@ def parse_sample_country_map():
     # Nothing else so far
      
     return sample_country_map
+
+def calculate_sample_subject_map(subject_sample_map):
+    
+    # invert subject sample map
+    sample_subject_map = {}
+    for subject in subject_sample_map.keys():
+        for sample in subject_sample_map[subject].keys():
+            sample_subject_map[sample] = subject
+            
+    return sample_subject_map
+    
 
 ###############################################################################
 #
@@ -555,7 +566,8 @@ def parse_coverage_distribution(desired_species_name,prevalence_filter=True):
             sample_coverage_histogram[float(subitems[0])] = float(subitems[1])
         sample_coverage_histograms.append(sample_coverage_histogram)
         samples.append(items[0])
-        
+    
+    samples = parse_merged_sample_names(samples)    
     return sample_coverage_histograms, samples
     
 ## 
@@ -568,7 +580,7 @@ def parse_marker_gene_coverages(desired_species_name):
     marker_file = bz2.BZ2File("%ssnps/%s/marker_coverage.txt.bz2" % (data_directory, desired_species_name))
     
     line = marker_file.readline() # header
-    samples = line.split()[1:]
+    samples = parse_merged_sample_names(line.split()[1:])
     species = []
     species_coverage_matrix = []
     
@@ -845,9 +857,27 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
     
     allowed_genes = set(allowed_genes)
     allowed_variant_types = set(allowed_variant_types)
+    
+    seen_samples = set()
+    desired_sample_idxs = []
+    for sample in samples:
         
-    desired_sample_idxs = numpy.array([sample in allowed_samples for sample in samples])
+        if (sample in allowed_samples) and (sample not in seen_samples):
+            desired_sample_idxs.append(True)
+        else:
+            desired_sample_idxs.append(False)
+            
+        seen_samples.add(sample)
+        
+    desired_sample_idxs = numpy.array(desired_sample_idxs)    
+    
+        
     desired_samples = samples[desired_sample_idxs]
+    
+    
+    
+    print len(samples), len(allowed_samples), len(desired_samples)
+    
     
     # map from gene_name -> var_type -> (list of locations, matrix of allele counts)
     allele_counts_map = {}
@@ -1060,19 +1090,28 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[]):
     gene_summary_file = file("%sgenes/%s/genes_summary.txt" % (data_directory, species_name),"r")
     marker_coverage_map = {}
     gene_summary_file.readline() # header
+    marker_coverage_samples = []
+    marker_coverages = []
     for summary_line in gene_summary_file:
         items = summary_line.split()
         sample = items[0].strip()
         marker_coverage = float(items[5])
-        marker_coverage_map[sample] = marker_coverage
+        marker_coverage_samples.append(sample)
+        marker_coverages.append(marker_coverage)
+
     gene_summary_file.close()
+
+    marker_coverage_samples = parse_merged_sample_names(marker_coverage_samples)
+
+    marker_coverage_map = {sample: marker_coverage for sample,marker_coverage in zip(marker_coverage_samples, marker_coverages)}
     
     # Now read through remaining files
     reads_line = gene_reads_file.readline() # header
     depth_line = gene_depth_file.readline() # header
     presabs_line = gene_presabs_file.readline() # header
     items = presabs_line.split()
-    samples = numpy.array([item.strip() for item in items[1:]])
+    
+    samples = parse_merged_sample_names(items[1:])
     
     # ordered vector of marker coverages (guaranteed to be in same order as samples)
     marker_coverages = numpy.array([marker_coverage_map[sample] for sample in samples])
