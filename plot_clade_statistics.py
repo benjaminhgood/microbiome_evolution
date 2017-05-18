@@ -1,6 +1,7 @@
 import matplotlib  
 matplotlib.use('Agg') 
 import parse_midas_data
+import parse_HMP_data
 import pylab
 import sys
 import numpy
@@ -54,8 +55,8 @@ max_clade_d = 1e-02
 
 # Load subject and sample metadata
 sys.stderr.write("Loading HMP metadata...\n")
-subject_sample_map = parse_midas_data.parse_subject_sample_map()
-sample_country_map = parse_midas_data.parse_sample_country_map()
+subject_sample_map = parse_HMP_data.parse_subject_sample_map()
+sample_country_map = parse_HMP_data.parse_sample_country_map()
 sys.stderr.write("Done!\n")
 
 # Load core gene set
@@ -123,38 +124,24 @@ coarse_grained_cluster_sizes = numpy.array([cluster_idxs.sum() for cluster_idxs 
 print "Top level:", len(coarse_grained_cluster_idxss), coarse_grained_cluster_sizes
 
 
-# calculate compressed distance matrix suitable for agglomerative clustering
-#Y = []
-#for i in xrange(0,substitution_rate.shape[0]):
-#    for j in xrange(i+1,substitution_rate.shape[1]):
-#        Y.append(substitution_rate[i,j]) 
-#Y = numpy.array(Y) 
-    
-#Z = linkage(Y, method='average')        
-    
-#c, coph_dists = cophenet(Z, Y)
-#sys.stderr.write("cophenetic correlation: %g\n" % c)
-
-
-# Make a zoomed dendrogram
-#pylab.figure(2, figsize=(15, 5))
-#pylab.title('Zoomed hierarchical clustering dendrogram for %s' % species_name)
-#pylab.xlabel('sample index')
-#pylab.ylabel('distance')
-#dendrogram(
-#    Z,
-#    leaf_rotation=90.,  # rotates the x axis labels
-#    leaf_font_size=8.,  # font size for the x axis labels
-#)
-#pylab.ylim([0,5e-04])
-#pylab.savefig('%s/%s_zoomed_dendrogram.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
-#pylab.savefig('%s/%s_zoomed_dendrogram.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
 
 # only focus on the members of the largest clade
 remapped_cluster_idxss = [cluster_idxs[coarse_grained_idxs] for cluster_idxs in coarse_grained_cluster_idxss]
 largest_clade_idxs = remapped_cluster_idxss[0]
 largest_clade_size = largest_clade_idxs.sum()
+
 coarse_grained_samples = snp_samples[coarse_grained_idxs]
+largest_clade_samples = set(coarse_grained_samples[largest_clade_idxs])
+
+# Load gene coverage information for species_name
+sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
+gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
+sys.stderr.write("Done!\n")
+
+desired_gene_sample_idxs = numpy.array([sample in largest_clade_samples for sample in gene_samples])
+gene_prevalences = gene_diversity_utils.calculate_fractional_gene_prevalences(gene_depth_matrix[:,desired_gene_sample_idxs], marker_coverages[desired_gene_sample_idxs])
+
+gene_prevalence_map = {gene_name: prevalence for gene_name, prevalence in zip(gene_names, gene_prevalences)} 
 
 if len(coarse_grained_samples)>2:
 
@@ -169,6 +156,18 @@ if len(coarse_grained_samples)>2:
     polymorphic_freqs = [] 
     inconsistent_freqs = [] 
     null_inconsistent_freqs = []
+
+    # initialize prevalence bins 
+    prevalence_bins = numpy.linspace(0,1,11)
+    prevalence_bins[-1] = 1.01
+    
+    prevalence_locations = numpy.arange(0,10)*0.1+0.05
+    
+    prevalence_synonymous_differences = { i: 0.0 for i in xrange(0,len(prevalence_locations)) }
+    prevalence_synonymous_opportunities = { i: 0.0 for i in xrange(0,len(prevalence_locations)) }
+    prevalence_nonsynonymous_differences = { i: 0.0 for i in xrange(0,len(prevalence_locations)) }
+    prevalence_nonsynonymous_opportunities = { i: 0.0 for i in xrange(0,len(prevalence_locations)) }
+
 
     # initialize distance bins for LD computations
     distance_bins = numpy.logspace(0,4,20) # bins start from 1 to 10^4 and there are 20 evenly spaced bins log(1)=0, log(10^4)-4
@@ -204,7 +203,7 @@ if len(coarse_grained_samples)>2:
     while final_line_number >= 0:
     
         sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
-        dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_variant_types=allowed_variant_types, allowed_samples=coarse_grained_samples,chunk_size=chunk_size,initial_line_number=final_line_number, allowed_genes=core_genes)
+        dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_variant_types=allowed_variant_types, allowed_samples=coarse_grained_samples,chunk_size=chunk_size,initial_line_number=final_line_number)
         sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
     
         # Calculate fixation matrix
@@ -238,6 +237,9 @@ if len(coarse_grained_samples)>2:
         
         sys.stderr.write("Calculating intra-gene synonymous LD...\n")
         for gene_name in allele_counts_map.keys():
+            
+            if gene_name not in core_genes:
+                continue
         
             locations = numpy.array([location for chromosome, location in allele_counts_map[gene_name]['4D']['locations']])*1.0
             allele_counts = allele_counts_map[gene_name]['4D']['alleles']
@@ -348,6 +350,9 @@ if len(coarse_grained_samples)>2:
         # Now repeat for nonsynonymous ones
         for gene_name in allele_counts_map.keys():
             
+            if gene_name not in core_genes:
+                continue
+            
             locations = numpy.array([location for chromosome, location in allele_counts_map[gene_name]['1D']['locations']])*1.0
             allele_counts = allele_counts_map[gene_name]['1D']['alleles']
         
@@ -411,6 +416,40 @@ if len(coarse_grained_samples)>2:
             nonsynonymous_total_control_rsquared_denominators += (control_rsquared_denominators).sum()    
         #sys.stderr.write("Calculating something else?...\n")
         
+        # Construct indices of pairs in largest subclade
+        largest_clade_idx_numbers = numpy.nonzero(largest_clade_idxs)[0]
+        pair_idxs_1 = []
+        pair_idxs_2 = []
+        for i in xrange(0,len(largest_clade_idx_numbers)):
+            for j in xrange(i+1,len(largest_clade_idx_numbers)):
+                pair_idxs_1.append(largest_clade_idx_numbers[i])
+                pair_idxs_2.append(largest_clade_idx_numbers[j])
+        
+        pair_idxs = (numpy.array(pair_idxs_1),numpy.array(pair_idxs_2))
+        
+        # Now repeat for prevalence-specific dNdSs
+        for gene_name in allele_counts_map.keys():
+        
+            if gene_name in gene_prevalence_map:
+                prevalence = gene_prevalence_map[gene_name]
+                prevalence_idx = numpy.digitize([prevalence], prevalence_bins)[0]-1
+            else:
+                sys.stderr.write("No prevalence found: %s!\n" % gene_name)
+                prevalence_idx = 0
+                
+            #print prevalence, prevalence_idx
+            #print gene_snp_difference_matrix[pair_idxs].sum()
+            # Calculate fixation matrix
+            gene_snp_difference_matrix, gene_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set(['4D']), allowed_genes=set([gene_name]), min_change=min_change)     
+            prevalence_synonymous_differences[prevalence_idx] += gene_snp_difference_matrix[pair_idxs].sum()
+            prevalence_synonymous_opportunities[prevalence_idx] += gene_snp_opportunity_matrix[pair_idxs].sum()
+            
+            # Calculate fixation matrix
+            gene_snp_difference_matrix, gene_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set(['1D']), allowed_genes=set([gene_name]), min_change=min_change)     
+            prevalence_nonsynonymous_differences[prevalence_idx] += gene_snp_difference_matrix[pair_idxs].sum()
+            prevalence_nonsynonymous_opportunities[prevalence_idx] += gene_snp_opportunity_matrix[pair_idxs].sum()
+            
+         
         
     
     substitution_rate = snp_difference_matrix*1.0/snp_opportunity_matrix 
@@ -499,6 +538,57 @@ if len(coarse_grained_samples)>2:
     pylab.savefig('%s/%s_intragene_ld.pdf' % (parse_midas_data.analysis_directory, species_name), bbox_inches='tight')
     pylab.savefig('%s/%s_intragene_ld.png' % (parse_midas_data.analysis_directory, species_name), bbox_inches='tight', dpi=300)
 
+    pylab.figure(4,figsize=(3.42,4))
+    pylab.suptitle(species_name)
+    
+    outer_grid = gridspec.GridSpec(2, 1, height_ratios=[1,1], hspace=0.05)
+    
+    fig = pylab.gcf()
+
+    prevalence_dS_axis = plt.Subplot(fig, outer_grid[0])
+    fig.add_subplot(prevalence_dS_axis)
+
+    prevalence_dNdS_axis = plt.Subplot(fig, outer_grid[1])
+    fig.add_subplot(prevalence_dNdS_axis)
+
+    prevalence_dNdS_axis.spines['top'].set_visible(False)
+    prevalence_dNdS_axis.spines['right'].set_visible(False)
+    prevalence_dNdS_axis.get_xaxis().tick_bottom()
+    prevalence_dNdS_axis.get_yaxis().tick_left()
+
+    prevalence_dS_axis.spines['top'].set_visible(False)
+    prevalence_dS_axis.spines['right'].set_visible(False)
+    prevalence_dS_axis.get_xaxis().tick_bottom()
+    prevalence_dS_axis.get_yaxis().tick_left()
+
+
+    prevalence_dNdS_axis.set_xlim([0,1])
+    prevalence_dNdS_axis.set_ylim([0,1.1])
+    
+    prevalence_dNdS_axis.plot([0,1],[1,1],'k:')
+    
+    prevalence_dS_axis.set_xlim([0,1])
+     
+    prevalence_dNdS_axis.set_xlabel('Gene prevalence (%)')
+    prevalence_dNdS_axis.set_ylabel("dN/dS")
+    prevalence_dS_axis.set_ylabel("dS")
+    prevalence_dS_axis.set_xticklabels([])
+    
+    prevalence_dNdSs = []
+    prevalence_dSs = []
+    for prevalence_idx in xrange(0,len(prevalence_locations)):
+        
+        
+        dNdS = ( (prevalence_nonsynonymous_differences[prevalence_idx]+1.0)/(prevalence_nonsynonymous_opportunities[prevalence_idx]+1.0) ) / ( (prevalence_synonymous_differences[prevalence_idx]+1.0)/(prevalence_synonymous_opportunities[prevalence_idx]+1.0) )
+        prevalence_dNdSs.append(dNdS)
+    
+        prevalence_dSs.append( (prevalence_synonymous_differences[prevalence_idx])*1.0/(prevalence_synonymous_opportunities[prevalence_idx]+(prevalence_synonymous_opportunities[prevalence_idx]<1)) )
+    
+    prevalence_dS_axis.semilogy(prevalence_locations, prevalence_dSs, 'b.-')
+    prevalence_dNdS_axis.plot(prevalence_locations, prevalence_dNdSs, 'b.-')
+    
+    pylab.savefig('%s/%s_diversity_vs_prevalence.pdf' % (parse_midas_data.analysis_directory, species_name), bbox_inches='tight')
+    pylab.savefig('%s/%s_diversity_vs_prevalence.png' % (parse_midas_data.analysis_directory, species_name), bbox_inches='tight', dpi=300)
 
 else:
     

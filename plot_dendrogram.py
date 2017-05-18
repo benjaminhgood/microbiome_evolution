@@ -137,10 +137,12 @@ c, coph_dists = cophenet(Z, Y)
 sys.stderr.write("cophenetic correlation: %g\n" % c)
 
 # Make a dendrogram
-pylab.figure(1, figsize=(15, 5))
-pylab.title('UPGMA dendrogram for %s' % species_name)
+pylab.figure(1, figsize=(7, 2))
+pylab.title('UPGMA dendrogram for %s' % species_name,fontsize=7)
 pylab.xlabel('sample index')
 pylab.ylabel('distance')
+
+
 ddata = dendrogram(Z, no_plot=True)
 
 # calculate second minimum y value
@@ -169,14 +171,13 @@ else:
 
 y_penultimax = ys[-1]
 
-ymin=2e-10
+ymin = 1e-06
+#ymin=2e-10
 ymax=1e-01
 
 yplotmin = 1e-06
 yplotmax = 1e-01
 
-
-#print ymin
 
 leaf_xs = []
 
@@ -197,24 +198,24 @@ for icoord, dcoord in zip(ddata['icoord'], ddata['dcoord']):
         if (y1==ymin):
             leaf_xs.append(x1)
         
+        if (y0<2e-04) and (y1<2e-04):
+            linewidth=0.75
+            color='0.4'
+        else:
+            linewidth=0.3
+            color='0.6'
+        
         #print x0, '->', x1, '\t',y0, '->', y1       
-        pylab.semilogy([x0,x1],[y0,y1],'b-')
+        pylab.semilogy([x0,x1],[y0,y1],'-',color=color,linewidth=linewidth)
         
         if (y0==y_penultimax) and (y1==y_penultimax):
             # it's the cross bar that bridges the two most-diverged clades
             # so plot a root branch to the top of the plot
             xavg = (x0+x1)*0.5
             
-            pylab.semilogy([xavg,xavg],[y_penultimax, ymax],'b-')
+            pylab.semilogy([xavg,xavg],[y_penultimax, ymax],'-',color=color,linewidth=linewidth)
 
 leaf_xs = list(sorted(set(leaf_xs)))
-
-print substitution_rate.shape
-print len(snp_samples), len(dummy_samples)
-print len(leaf_xs)
-print len(ddata['ivl'])
-
-print ddata['leaves']
 
 
 for i in xrange(0,len(ddata['ivl'])):
@@ -222,8 +223,6 @@ for i in xrange(0,len(ddata['ivl'])):
     idx = long(ddata['ivl'][i])
     x = leaf_xs[i]
     y = yplotmin
-    
-    print i, ddata['ivl'][i], idx
     
     sample = snp_samples[idx]
     
@@ -238,13 +237,18 @@ for i in xrange(0,len(ddata['ivl'])):
     else:
         color = '#de2d26'
         
-    pylab.plot([x],[y],'o',color=color,markeredgewidth=0)
+    pylab.plot([x],[y],'o',color=color,markeredgewidth=0,markersize=3)
     
 pylab.xticks([])
 pylab.xlim([xmin,xmax])
-pylab.ylim([yplotmin,yplotmax])
+pylab.ylim([yplotmin/1.4,yplotmax])
 pylab.xlabel('Samples')
 pylab.ylabel('SNP divergence')
+pylab.gca().spines['top'].set_visible(False)
+pylab.gca().spines['right'].set_visible(False)
+pylab.gca().get_xaxis().tick_bottom()
+pylab.gca().get_yaxis().tick_left()
+
 
 pylab.savefig('%s/%s_full_dendrogram.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
 pylab.savefig('%s/%s_full_dendrogram.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
