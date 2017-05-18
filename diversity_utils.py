@@ -421,7 +421,7 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_sample_i
 
     if len(allowed_sample_idxs)==0:
         # all samples are allowed
-        allowed_sample_idxs = numpy.array([True for i in xrange(0,allele_counts.values()[0].values()[0]['alleles'].shape[1])])
+        allowed_sample_idxs = numpy.array([True for i in xrange(0,allele_counts_map.values()[0].values()[0]['alleles'].shape[1])])
 
     if len(allowed_genes)==0:
         allowed_genes = set(passed_sites_map.keys())
@@ -987,12 +987,13 @@ def calculate_pi_matrix_per_gene(allele_counts_map, passed_sites_map, variant_ty
     return pi_per_gene, avg_pi_per_gene, passed_sites_per_gene
 
 
-def calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene, kegg_ids):
+def calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene,num_people_with_data, kegg_ids):
     
     pi_per_pathway={}
     avg_pi_per_pathway={}
     passed_sites_per_pathway={}
     num_genes_per_pathway={}
+    num_people_with_data_pathway={}
     for gene_name in avg_pi_per_gene.keys():
         pathway=kegg_ids[gene_name][0][1]
         if pathway not in avg_pi_per_pathway.keys():
@@ -1000,17 +1001,25 @@ def calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_si
             avg_pi_per_pathway[pathway]=avg_pi_per_gene[gene_name]
             passed_sites_per_pathway[pathway]=passed_sites_per_gene[gene_name]
             num_genes_per_pathway[pathway]=1
+            num_people_with_data_pathway[pathway]=num_people_with_data[gene_name]
         else:
             pi_per_pathway[pathway]+=pi_per_gene[gene_name]
             avg_pi_per_pathway[pathway]+=avg_pi_per_gene[gene_name]
             passed_sites_per_pathway[pathway]+=passed_sites_per_gene[gene_name]  
             num_genes_per_pathway[pathway]+=1
+            num_people_with_data_pathway[pathway]+=num_people_with_data[gene_name]       
             
     for pathway_name in avg_pi_per_pathway.keys():
+        # we want to identify people that have few passed sites even after aggregating the data accross genes. Then set the values in these cells to zero because these data points are too noisy
+        low_passed_sites_idxs=passed_sites_per_pathway[pathway]<30
+        passed_sites_per_pathway[pathway][low_passed_sites_idxs]=0
+        avg_pi_per_pathway[pathway_name][low_passed_sites_idxs]=0
+        pi_per_pathway[pathway_name][low_passed_sites_idxs]=0
+        # now compute pi/pathway.  
         avg_pi_per_pathway[pathway_name] = avg_pi_per_pathway[pathway_name]/(passed_sites_per_pathway[pathway_name]+(passed_sites_per_pathway[pathway_name]==0))     
         pi_per_pathway[pathway_name] = pi_per_pathway[pathway_name]/(passed_sites_per_pathway[pathway_name]+(passed_sites_per_pathway[pathway_name]==0))     
-
-    return pi_per_pathway,avg_pi_per_pathway,num_genes_per_pathway
+        num_people_with_data_pathway[pathway_name]/float(num_genes_per_pathway[pathway])
+    return pi_per_pathway,avg_pi_per_pathway,num_people_with_data_pathway, num_genes_per_pathway
 
 
 ##

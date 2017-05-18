@@ -10,7 +10,7 @@
 #$ -l arch=linux-x64               #-- SGE resources (CPU type)
 #$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
 #$ -l h_rt=336:00:00               #-- runtime limit (see above; this requests 24 hours)
-#$ -t 1-52                        #-- remove first '#' to specify the number of
+#$ -t 1-66                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
 readarray files < ~/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/combined_sampleIDs.txt

@@ -16,12 +16,12 @@ sys.stderr.write("Done!\n")
 
 # Load SNP information for species_name
 sys.stderr.write("Loading %s...\n" % species)
-samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species, combination_type="sample", debug=False)
+samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species, debug=False)
 sys.stderr.write("Done!\n")
     
 sys.stderr.write("Calculating synonymous SFS...\n")
 # calculate SFS
-pooled_freqs = diversity_utils.calculate_pooled_freqs(allele_counts_map, passed_sites_map, variant_type='4D')
+pooled_freqs = diversity_utils.calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_variant_types=['4D'])
 pooled_freqs = numpy.fmin(pooled_freqs,1-pooled_freqs)
     
 bins = numpy.linspace(0,0.5,51)
@@ -31,7 +31,7 @@ xs = bins[1:]-(bins[1]-bins[0])/2
 sfs_syn, dummy = numpy.histogram(pooled_freqs, bins=bins) 
     
 sys.stderr.write("Calculating nonsynonymous SFS...\n")
-pooled_freqs = diversity_utils.calculate_pooled_freqs(allele_counts_map, passed_sites_map, variant_type='1D')
+pooled_freqs = diversity_utils.calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_variant_types=['1D'])
 pooled_freqs = numpy.fmin(pooled_freqs,1-pooled_freqs)
     
 sfs_non, dummy = numpy.histogram(pooled_freqs, bins=bins) 
