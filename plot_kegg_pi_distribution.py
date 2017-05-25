@@ -12,6 +12,7 @@ import stats_utils
 import os
 import pandas
 import parse_patric
+import pickle
 ################################################################################
 #
 # Standard header to read in argument information
@@ -367,7 +368,7 @@ sys.stderr.write("Done!\n")
 # Aggregate by pathway
 dS_per_pathway, fixation_opportunities_per_pathway_syn, num_people_with_data_per_pathway_syn, num_genes_per_pathway_syn=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_per_gene_syn,fixation_opportunities_per_gene_syn, num_people_with_data_syn,kegg_ids)
 dN_per_pathway, fixation_opportunities_per_pathway_non, num_people_with_data_per_pathway_non, num_genes_per_pathway_non=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_per_gene_non,fixation_opportunities_per_gene_non,num_people_with_data_non, kegg_ids)
-dtot_per_pathway_variable, fixation_opportunities_per_pathway_all_variable, num_people_with_data_per_pathway_tot_varible, num_genes_per_pathway_tot_variable =diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_per_gene_all,fixation_opportunities_per_gene_all,num_people_with_data_all, kegg_ids)
+dtot_per_pathway_variable, fixation_opportunities_per_pathway_all_variable, num_people_with_data_per_pathway_tot_variable, num_genes_per_pathway_tot_variable =diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_per_gene_all,fixation_opportunities_per_gene_all,num_people_with_data_all, kegg_ids)
 
 #calculate fraction nonsynonymous
 fraction_nonsynonymous_per_pathway_variable={}
@@ -393,8 +394,45 @@ for pathway in dS_per_pathway.keys():
 ###############################################################
 # save variables so that I can plot cross-species comparisons #
 ###############################################################
-numpy.savez(os.path.expanduser('~/tmp_intermediate_files/kegg_pi_%s.npz' % species_name),avg_pi_matrix_core=avg_pi_matrix_core, avg_pi_matrix_variable=avg_pi_matrix_variable, dtot_core=dtot_core, dtot_variable=dtot_variable, fraction_nonsynonymous_core=fraction_nonsynonymous_core, fraction_nonsynonymous_variable=fraction_nonsynonymous_variable, diff_subject_idxs=diff_subject_idxs, same_sample_idxs=same_sample_idxs)
 
+
+saved_data=dict(
+    avg_pi_matrix_core=avg_pi_matrix_core, 
+    avg_pi_matrix_variable=avg_pi_matrix_variable, 
+    avg_pi_per_pathway_core=avg_pi_per_pathway_core,
+    avg_pi_per_pathway_variable=avg_pi_per_pathway_variable, 
+    passed_sites_per_pathway_core=passed_sites_per_pathway_core,
+    passed_sites_per_pathway_varaiable=passed_sites_per_pathway_variable, 
+    num_genes_per_pathway_core=num_genes_per_pathway_core,
+    num_genes_per_pathway_variable=num_genes_per_pathway_variable,
+    num_people_with_data_pathway_core=num_people_with_data_pathway_core,
+    num_people_with_data_pathway_variable=num_people_with_data_pathway_variable, 
+    fraction_nonsynonymous_core=fraction_nonsynonymous_core, 
+    fraction_nonsynonymous_variable=fraction_nonsynonymous_variable, 
+    fraction_nonsynonymous_per_pathway_core=fraction_nonsynonymous_per_pathway_core,
+    fraction_nonsynonymous_per_pathway_variable=fraction_nonsynonymous_per_pathway_variable,
+    fixation_opportunities_per_pathway_syn_non_core=fixation_opportunities_per_pathway_syn_non_core,
+    fixation_opportunities_per_pathway_syn_non_variable=fixation_opportunities_per_pathway_syn_non_variable,
+    num_genes_per_pathway_syn_non_core=num_genes_per_pathway_syn_non_core,
+    num_genes_per_pathway_syn_non_variable=num_genes_per_pathway_syn_non_variable,
+    num_people_with_data_per_pathway_fixations_core=num_people_with_data_per_pathway_fixations_core,
+    num_people_with_data_per_pathway_fixations_variable=num_people_with_data_per_pathway_fixations_variable,
+    dtot_core=dtot_core, 
+    dtot_variable=dtot_variable,
+    dtot_per_pathway_core=dtot_per_pathway_core,
+    dtot_per_pathway_variable=dtot_per_pathway_variable,
+    fixation_opportunities_per_pathway_all_core=fixation_opportunities_per_pathway_all_core,
+    fixation_opportunities_per_pathway_all_variable=fixation_opportunities_per_pathway_all_variable,
+    num_genes_per_pathway_tot_core=num_genes_per_pathway_tot_core,
+    num_genes_per_pathway_tot_variable=num_genes_per_pathway_tot_variable,
+    num_people_with_data_per_pathway_tot_core=num_people_with_data_per_pathway_tot_core,
+    num_people_with_data_per_pathway_tot_variable=num_people_with_data_per_pathway_tot_variable,
+    diff_subject_idxs=diff_subject_idxs, 
+    same_sample_idxs=same_sample_idxs)
+
+saved_data_file=os.path.expanduser('~/tmp_intermediate_files/kegg_pi_%s.dat' % species_name)
+with open(saved_data_file, 'wb') as outfile:
+    pickle.dump(saved_data, outfile, protocol=pickle.HIGHEST_PROTOCOL)
 
 ############################################################
 # Plot
@@ -602,7 +640,7 @@ labels.append('All core genes, n=' +str(sum(num_genes_per_pathway_syn_non_core.v
 labels.append('All variable genes, n=' +str(sum(num_genes_per_pathway_syn_non_variable.values())-num_genes_per_pathway_syn_non_variable['Annotated pathways']))
 
 for pathway in sorted_pathways:
-    #check which people have enough data. Otherwise don't add this. ### FIX THIS ####
+    #check which people have enough data. Otherwise don't add this. 
     high_num_sites_idx=numpy.where(fixation_opportunities_per_pathway_syn_non_core[pathway][diff_subject_idxs]>=2*min_passed_sites_per_person) # I'm multipleying min_passed_sites_per_person by 2 because I've summed syn and nonsyn together. 
     if len(high_num_sites_idx)>0:
         data.append(fraction_nonsynonymous_per_pathway_core[pathway][diff_subject_idxs][high_num_sites_idx])
@@ -672,9 +710,10 @@ pylab.savefig('%s/%s_fraction_nonsyn_per_pathway_variable.png' % (parse_midas_da
 
 ######################################
 # plot total divergence per pathway  #
+# core genes                         #
 ###################################### 
 sorted_pathways=[] 
-for pathway in sorted(num_genes_per_pathway_tot, key=num_genes_per_pathway_tot.get, reverse=True):
+for pathway in sorted(num_genes_per_pathway_tot_core, key=num_genes_per_pathway_tot_core.get, reverse=True):
     sorted_pathways.append(pathway)
 
 pylab.figure(figsize=(6,15))
@@ -685,22 +724,76 @@ pylab.xlim(1e-7,1)
 data=[]
 labels=[]
 # first add all data from entire genome
-data.append(dtot[diff_subject_idxs])
-#labels.append('All core genes, n=' +str(int(sum(num_genes_per_pathway_tot.values()))))
-labels.append('All variable genes, n=' +str('x'))
-for pathway in sorted_pathways:
-    data.append(dtot_per_pathway[pathway][diff_subject_idxs])
-    num_genes=num_genes_per_pathway_tot[pathway]
-    if pathway !='':
-        labels.append(pathway + ', n=' + str(int(num_genes)))
-    else: 
-        labels.append('Unannotated Pathways' + ', n=' + str(int(num_genes)))
+data.append(dtot_core[diff_subject_idxs])
+data.append(dtot_variable[diff_subject_idxs])
+labels.append('All core genes, n=' +str(int(sum(num_genes_per_pathway_tot_core.values()) - num_genes_per_pathway_tot_core['Annotated pathways'])))
+labels.append('All variable genes, n=' +str(int(sum(num_genes_per_pathway_tot_variable.values()) - num_genes_per_pathway_tot_variable['Annotated pathways'])))
 
-pylab.boxplot(data,0,'.',0)
+for pathway in sorted_pathways:
+    #check which people have enough data. Otherwise don't add this. 
+    high_num_sites_idx=numpy.where(fixation_opportunities_per_pathway_all_core[pathway][diff_subject_idxs]>=min_passed_sites_per_person)  
+    if len(high_num_sites_idx)>0: 
+        data.append(numpy.clip(dtot_per_pathway_core[pathway][diff_subject_idxs][high_num_sites_idx],5*1e-7,1))
+        num_genes=num_genes_per_pathway_tot_core[pathway]
+    if pathway !='':
+        labels.append(pathway + ', n=' + str(int(num_genes))+ ', m='+str(int(num_people_with_data_per_pathway_tot_core[pathway])))
+    else: 
+        labels.append('Unannotated Pathways' + ', n=' + str(int(num_genes))+ ', m='+str(int(num_people_with_data_per_pathway_tot_core[pathway])))
+
+bp=pylab.boxplot(data,0,'.',0, patch_artist=True)
+
+for patch in bp['boxes']:
+    patch.set_facecolor(colors[0]) 
+
 pylab.xscale('log')
 locs, dummy_labels = pylab.yticks()
 pylab.yticks(locs, labels, fontsize=9)
 
-pylab.savefig('%s/%s_fixations_per_pathway.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+pylab.savefig('%s/%s_fixations_per_pathway_core.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+
+
+
+######################################
+# plot total divergence per pathway  #
+# variable genes                     #
+###################################### 
+sorted_pathways=[] 
+for pathway in sorted(num_genes_per_pathway_tot_variable, key=num_genes_per_pathway_tot_variable.get, reverse=True):
+    sorted_pathways.append(pathway)
+
+pylab.figure(figsize=(6,15))
+pylab.xlabel('Total divergence')
+pylab.title(species_name+', ' + str(len(same_sample_idxs[0])) + ' subjects')
+pylab.xlim(1e-7,1)
+
+data=[]
+labels=[]
+# first add all data from entire genome
+data.append(dtot_core[diff_subject_idxs])
+data.append(dtot_variable[diff_subject_idxs])
+labels.append('All core genes, n=' +str(int(sum(num_genes_per_pathway_tot_core.values()) - num_genes_per_pathway_tot_core['Annotated pathways'])))
+labels.append('All variable genes, n=' +str(int(sum(num_genes_per_pathway_tot_variable.values()) - num_genes_per_pathway_tot_variable['Annotated pathways'])))
+
+for pathway in sorted_pathways:
+    #check which people have enough data. Otherwise don't add this. 
+    high_num_sites_idx=numpy.where(fixation_opportunities_per_pathway_all_variable[pathway][diff_subject_idxs]>=min_passed_sites_per_person)  
+    if len(high_num_sites_idx)>0: 
+        data.append(numpy.clip(dtot_per_pathway_variable[pathway][diff_subject_idxs][high_num_sites_idx],5*1e-7,1))
+        num_genes=num_genes_per_pathway_tot_variable[pathway]
+    if pathway !='':
+        labels.append(pathway + ', n=' + str(int(num_genes))+ ', m='+str(int(num_people_with_data_per_pathway_tot_variable[pathway])))
+    else: 
+        labels.append('Unannotated Pathways' + ', n=' + str(int(num_genes))+ ', m='+str(int(num_people_with_data_per_pathway_tot_variable[pathway])))
+
+bp=pylab.boxplot(data,0,'.',0, patch_artist=True)
+
+for patch in bp['boxes']:
+    patch.set_facecolor(colors[0]) 
+
+pylab.xscale('log')
+locs, dummy_labels = pylab.yticks()
+pylab.yticks(locs, labels, fontsize=9)
+
+pylab.savefig('%s/%s_fixations_per_pathway_variable.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
 
 
