@@ -89,10 +89,11 @@ high_pi_snp_samples = samples[(median_coverages>=min_coverage)*(pis>1e-03)]
 # Load gene coverage information for species_name
 ####################################################
 
-# this represents all gene names regardless of prevalences
-gene_names, new_species_names=list(parse_midas_data.load_pangenome_genes(species_name))
+# Load all the genes from the reference genome regardless of prevalence. 
+gene_names=parse_midas_data.load_reference_genes(species_name)
 # convert format of gene names from set to list:
 gene_names=list(gene_names)
+
 
 # Variable genes: find the difference between gene_names and core_genes
 gene_names_tmp=numpy.asarray(gene_names)
@@ -187,6 +188,36 @@ for gene_name in variable_genes:
 
 
 pi_per_pathway_variable, avg_pi_per_pathway_variable, passed_sites_per_pathway_variable,num_people_with_data_pathway_variable, num_genes_per_pathway_variable = diversity_utils.calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene,num_people_with_data,kegg_ids)
+
+
+
+############################################################
+# compute pi/pathway -- variable AND core genes
+############################################################
+avg_pi_per_gene={}
+pi_per_gene={}
+passed_sites_per_gene={}
+num_people_with_data={}
+for gene_name in gene_names: #gene_names has both core and variable genes. 
+    gene_pi_matrix, gene_avg_pi_matrix, gene_passed_sites= diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D', allowed_genes=[gene_name])
+    # check if the values of gene_passed_sites are less than 5. If so, then zero out these idxs for gene_passed_sites, gene_pi_matrix, and gene_avg_pi_matrix. Basically all of these people or pairs of people have too few sites to compute realiable statistics. 
+    low_passed_sites_idxs=(gene_passed_sites)<min_passed_sites_per_gene
+    gene_passed_sites[low_passed_sites_idxs] =0
+    gene_pi_matrix[low_passed_sites_idxs]=0
+    gene_avg_pi_matrix[low_passed_sites_idxs]=0
+    # put all the data into the dictionary for later aggregation. 
+    # don't add any genes that have zero information.
+    if sum(numpy.diagonal(gene_passed_sites)>min_passed_sites_per_gene)>0: 
+        passed_sites_per_gene[gene_name]=gene_passed_sites
+        pi_per_gene[gene_name] = gene_pi_matrix
+        avg_pi_per_gene[gene_name] = gene_avg_pi_matrix
+        num_people_with_data[gene_name]=sum(numpy.diagonal(passed_sites_per_gene[gene_name])>min_passed_sites_per_gene)
+#    # even though some genes are categorized as variable, they have data for all people. The core/var assignment came from the gene file, but the coverage/bp comes from the SNP file. 
+#    if sum(numpy.diagonal(passed_sites_per_gene[gene_name])>5)>100:
+#        print gene_name
+
+
+pi_per_pathway_core_variable, avg_pi_per_pathway_core_variable, passed_sites_per_pathway_core_variable,num_people_with_data_pathway_core_variable, num_genes_per_pathway_core_variable = diversity_utils.calculate_mean_pi_matrix_per_pathway(pi_per_gene, avg_pi_per_gene, passed_sites_per_gene,num_people_with_data,kegg_ids)
 
 
 ##########################################################
@@ -391,6 +422,82 @@ for pathway in dS_per_pathway.keys():
 
 
 
+
+###############################################################
+# Calculate fixation matrices/pathway core AND variable genes #
+###############################################################
+min_change=0.8
+fixation_matrix_per_gene_syn={}
+fixation_opportunities_per_gene_syn={}
+num_people_with_data_syn={}
+fixation_matrix_per_gene_non={}
+fixation_opportunities_per_gene_non={}
+num_people_with_data_non={}
+fixation_matrix_per_gene_all={}
+fixation_opportunities_per_gene_all={}
+num_people_with_data_all={}
+
+for gene_name in gene_names:
+    sys.stderr.write("Calculating 4D fixation matrix...\n")
+    fixation_matrix, fixation_opportunities= diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set(['4D']),allowed_genes=set([gene_name]), min_change=min_change)
+    # check if the values of gene_passed_sites are less than 5. If so, then zero out these idxs for gene_passed_sites, gene_pi_matrix, and gene_avg_pi_matrix. Basically all of these people or pairs of people have too few sites to compute realiable statistics. 
+    low_passed_sites_idxs=(fixation_opportunities)<min_passed_sites_per_gene
+    fixation_opportunities[low_passed_sites_idxs] =0
+    fixation_matrix[low_passed_sites_idxs]=0
+    # don't add any genes that have zero information. 
+    if sum(numpy.diagonal(fixation_opportunities)>min_passed_sites_per_gene)>0:
+        fixation_matrix_per_gene_syn[gene_name]=fixation_matrix
+        fixation_opportunities_per_gene_syn[gene_name]=fixation_opportunities
+        num_people_with_data_syn[gene_name]=sum(numpy.diagonal(fixation_opportunities)>min_passed_sites_per_gene)
+    sys.stderr.write("Calculating 1D fixation matrix...\n")
+    fixation_matrix, fixation_opportunities = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set(['1D']),allowed_genes=set([gene_name]), min_change=min_change)
+    low_passed_sites_idxs=(fixation_opportunities)<min_passed_sites_per_gene
+    fixation_opportunities[low_passed_sites_idxs] =0
+    fixation_matrix[low_passed_sites_idxs]=0
+    # don't add any genes that have zero information. 
+    if sum(numpy.diagonal(fixation_opportunities)>min_passed_sites_per_gene)>0:
+        fixation_matrix_per_gene_non[gene_name]=fixation_matrix
+        fixation_opportunities_per_gene_non[gene_name]=fixation_opportunities
+        num_people_with_data_non[gene_name]=sum(numpy.diagonal(fixation_opportunities)>min_passed_sites_per_gene)
+    sys.stderr.write("Calculating total fixation matrix...\n")
+    fixation_matrix, fixation_opportunities = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map,allowed_genes=set([gene_name]), min_change=min_change)
+    low_passed_sites_idxs=(fixation_opportunities)<min_passed_sites_per_gene
+    fixation_opportunities[low_passed_sites_idxs] =0
+    fixation_matrix[low_passed_sites_idxs]=0
+    # don't add any genes that have zero information. 
+    if sum(numpy.diagonal(fixation_opportunities)>min_passed_sites_per_gene)>0:
+        fixation_matrix_per_gene_all[gene_name]=fixation_matrix
+        fixation_opportunities_per_gene_all[gene_name]=fixation_opportunities
+        num_people_with_data_all[gene_name]=sum(numpy.diagonal(fixation_opportunities)>min_passed_sites_per_gene)
+
+sys.stderr.write("Done!\n")
+
+# Aggregate by pathway
+dS_per_pathway, fixation_opportunities_per_pathway_syn, num_people_with_data_per_pathway_syn, num_genes_per_pathway_syn=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_per_gene_syn,fixation_opportunities_per_gene_syn, num_people_with_data_syn,kegg_ids)
+dN_per_pathway, fixation_opportunities_per_pathway_non, num_people_with_data_per_pathway_non, num_genes_per_pathway_non=diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_per_gene_non,fixation_opportunities_per_gene_non,num_people_with_data_non, kegg_ids)
+dtot_per_pathway_core_variable, fixation_opportunities_per_pathway_all_core_variable, num_people_with_data_per_pathway_tot_core_variable, num_genes_per_pathway_tot_core_variable =diversity_utils.calculate_mean_fixation_matrix_per_pathway(fixation_matrix_per_gene_all,fixation_opportunities_per_gene_all,num_people_with_data_all, kegg_ids)
+
+#calculate fraction nonsynonymous
+fraction_nonsynonymous_per_pathway_core_variable={}
+fixation_opportunities_per_pathway_syn_non_core_variable={}
+num_genes_per_pathway_syn_non_core_variable={}
+num_people_with_data_per_pathway_fixations_core_variable={}
+for pathway in dS_per_pathway.keys():
+    if pathway in dN_per_pathway.keys():
+        #check if both dN and dS have enough sites before adding in the data
+        syn_non_idx=(fixation_opportunities_per_pathway_syn[pathway]==0)*(fixation_opportunities_per_pathway_non[pathway]==0)
+        dS_per_pathway[pathway][syn_non_idx]=0
+        dN_per_pathway[pathway][syn_non_idx]=0
+        fixation_opportunities_per_pathway_syn[pathway][syn_non_idx]=0
+        fixation_opportunities_per_pathway_non[pathway][syn_non_idx]=0
+        dNplusdS=dS_per_pathway[pathway] + dN_per_pathway[pathway]
+        fraction_nonsynonymous_per_pathway_core_variable[pathway]=dN_per_pathway[pathway]/(dNplusdS+(dNplusdS==0))
+        fixation_opportunities_per_pathway_syn_non_core_variable[pathway]=fixation_opportunities_per_pathway_syn[pathway] + fixation_opportunities_per_pathway_non[pathway]
+        num_people_with_data_per_pathway_fixations_core_variable[pathway]=(num_people_with_data_per_pathway_syn[pathway]+ num_people_with_data_per_pathway_non[pathway])/2.0
+        num_genes_per_pathway_syn_non_core_variable[pathway]=(num_genes_per_pathway_syn[pathway] + num_genes_per_pathway_non[pathway])/2.0
+
+
+
 ###############################################################
 # save variables so that I can plot cross-species comparisons #
 ###############################################################
@@ -401,32 +508,44 @@ saved_data=dict(
     avg_pi_matrix_variable=avg_pi_matrix_variable, 
     avg_pi_per_pathway_core=avg_pi_per_pathway_core,
     avg_pi_per_pathway_variable=avg_pi_per_pathway_variable, 
+    avg_pi_per_pathway_core_variable=avg_pi_per_pathway_core_variable, 
     passed_sites_per_pathway_core=passed_sites_per_pathway_core,
-    passed_sites_per_pathway_varaiable=passed_sites_per_pathway_variable, 
+    passed_sites_per_pathway_variable=passed_sites_per_pathway_variable, 
+    passed_sites_per_pathway_core_variable=passed_sites_per_pathway_core_variable, 
     num_genes_per_pathway_core=num_genes_per_pathway_core,
     num_genes_per_pathway_variable=num_genes_per_pathway_variable,
+    num_genes_per_pathway_core_variable=num_genes_per_pathway_core_variable,
     num_people_with_data_pathway_core=num_people_with_data_pathway_core,
     num_people_with_data_pathway_variable=num_people_with_data_pathway_variable, 
+    num_people_with_data_pathway_core_variable=num_people_with_data_pathway_core_variable, 
     fraction_nonsynonymous_core=fraction_nonsynonymous_core, 
     fraction_nonsynonymous_variable=fraction_nonsynonymous_variable, 
     fraction_nonsynonymous_per_pathway_core=fraction_nonsynonymous_per_pathway_core,
     fraction_nonsynonymous_per_pathway_variable=fraction_nonsynonymous_per_pathway_variable,
+    fraction_nonsynonymous_per_pathway_core_variable=fraction_nonsynonymous_per_pathway_core_variable,
     fixation_opportunities_per_pathway_syn_non_core=fixation_opportunities_per_pathway_syn_non_core,
     fixation_opportunities_per_pathway_syn_non_variable=fixation_opportunities_per_pathway_syn_non_variable,
+    fixation_opportunities_per_pathway_syn_non_core_variable=fixation_opportunities_per_pathway_syn_non_core_variable,
     num_genes_per_pathway_syn_non_core=num_genes_per_pathway_syn_non_core,
     num_genes_per_pathway_syn_non_variable=num_genes_per_pathway_syn_non_variable,
+    num_genes_per_pathway_syn_non_core_variable=num_genes_per_pathway_syn_non_core_variable,
     num_people_with_data_per_pathway_fixations_core=num_people_with_data_per_pathway_fixations_core,
     num_people_with_data_per_pathway_fixations_variable=num_people_with_data_per_pathway_fixations_variable,
+    num_people_with_data_per_pathway_fixations_core_variable=num_people_with_data_per_pathway_fixations_core_variable,
     dtot_core=dtot_core, 
     dtot_variable=dtot_variable,
     dtot_per_pathway_core=dtot_per_pathway_core,
     dtot_per_pathway_variable=dtot_per_pathway_variable,
+    dtot_per_pathway_core_variable=dtot_per_pathway_core_variable,
     fixation_opportunities_per_pathway_all_core=fixation_opportunities_per_pathway_all_core,
     fixation_opportunities_per_pathway_all_variable=fixation_opportunities_per_pathway_all_variable,
+    fixation_opportunities_per_pathway_all_corevariable=fixation_opportunities_per_pathway_all_core_variable,
     num_genes_per_pathway_tot_core=num_genes_per_pathway_tot_core,
     num_genes_per_pathway_tot_variable=num_genes_per_pathway_tot_variable,
+    num_genes_per_pathway_tot_core_variable=num_genes_per_pathway_tot_core_variable,
     num_people_with_data_per_pathway_tot_core=num_people_with_data_per_pathway_tot_core,
     num_people_with_data_per_pathway_tot_variable=num_people_with_data_per_pathway_tot_variable,
+    num_people_with_data_per_pathway_tot_core_variable=num_people_with_data_per_pathway_tot_core_variable,
     diff_subject_idxs=diff_subject_idxs, 
     same_sample_idxs=same_sample_idxs)
 
