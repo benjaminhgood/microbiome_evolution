@@ -27,18 +27,18 @@ def load_kegg_annotations(gene_names):
             genomes_visited.append(genome_id)
             file= bz2.BZ2File("%skegg/%s.kegg.txt.bz2" % (parse_midas_data.patric_directory, genome_id),"r")
             file.readline() #header  
-            file.readline() #blank line
             for line in file:
-                if line.strip() != "":
-                    items = line.split("\t")
-                    gene_name=items[0].strip().split('|')[1]
-                    kegg_ids[gene_name]=[]
-                    kegg_pathway_tmp=items[1].strip().split(';')
-                    if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
-                        for i in range(0, len(kegg_pathway_tmp)):
-                            kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
-                    elif kegg_pathway_tmp[0] =='':
-                        kegg_ids[gene_name].append(['',''])
+                if line.split('\t')[0]!='':
+                    if line.strip() != "":
+                        items = line.split("\t")
+                        gene_name=items[0].strip().split('|')[1]
+                        kegg_ids[gene_name]=[]
+                        kegg_pathway_tmp=items[1].strip().split(';')
+                        if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
+                            for i in range(0, len(kegg_pathway_tmp)):
+                                kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
+                        elif kegg_pathway_tmp[0] =='':
+                            kegg_ids[gene_name].append(['',''])
     return kegg_ids
 
 ########################################
