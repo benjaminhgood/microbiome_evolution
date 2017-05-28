@@ -12,7 +12,8 @@ import matplotlib.colors as colors
 import pickle
 import pandas
 import seaborn as sns
-
+import pandas
+import random
 
 # plotting tools
 import matplotlib.colors as colors
@@ -32,10 +33,11 @@ species_names = parse_midas_data.parse_good_species_list()
 
 files={}
 
-for i in range(0, 30):
-    species_name=species_names[i]
+for species_name in  species_names:
     if (os.path.exists(os.path.expanduser('~/tmp_intermediate_files/kegg_pi_%s.dat' % species_name))):
         files[species_name]=pickle.load(open(os.path.expanduser('~/tmp_intermediate_files/kegg_pi_%s.dat' % species_name),'rb'))
+    else:
+        print species_name
 
 colors=['#a1d99b','#c994c7']  
 
@@ -47,6 +49,7 @@ colors=['#a1d99b','#c994c7']
 # try ordering species based on median piS in core
 species_list=[]
 mean_avg_pi=[]
+sample_size=[]
 for species_name in species_names:
     if species_name in files.keys():
         avg_pi_matrix_core=files[species_name]['avg_pi_matrix_core']
@@ -54,7 +57,7 @@ for species_name in species_names:
         avg_pi_per_pathway_core=files[species_name]['avg_pi_per_pathway_core']
         avg_pi_per_pathway_variable=files[species_name]['avg_pi_per_pathway_variable']
         passed_sites_per_pathway_core=files[species_name]['passed_sites_per_pathway_core']
-        passed_sites_per_pathway_variable=files[species_name]['passed_sites_per_pathway_varaiable'] #need to fix this
+        passed_sites_per_pathway_variable=files[species_name]['passed_sites_per_pathway_variable'] #need to fix this
         num_genes_per_pathway_core=files[species_name]['num_genes_per_pathway_core']
         num_genes_per_pathway_variable=files[species_name]['num_genes_per_pathway_variable']
         num_people_with_data_pathway_core=files[species_name]['num_people_with_data_pathway_core']
@@ -84,36 +87,33 @@ for species_name in species_names:
         avg_pi=numpy.median(avg_pi_matrix_core[same_sample_idxs])
         species_list.append(species_name)
         mean_avg_pi.append(avg_pi)
+        sample_size.append(len(same_sample_idxs[0]))
 
+df=pandas.DataFrame({'species':species_list,'sample_size':sample_size})
+df=df.sort('sample_size')
+sorted_species=list(df['species']) # this has a list of species sorted by sample size 
 
+######################################################################
+# plot a comparison of pi for core vs variable genes accross species
+#####################################################################
 
-
-
-
-
-
-
-
-sorted_species=[x for (y,x) in sorted(zip(mean_avg_pi,species_list))]
-
-
-pylab.figure(figsize=(6,12))
+pylab.figure(figsize=(6,20))
 pylab.xlabel('Pi/bp')
 pylab.ylabel("Species/gene type")
 pylab.xlim(1e-7,1e-1)
 
 data=[]    
 labels=[]   
-for species_name in species_names:
+for species_name in sorted_species:
     if species_name in files.keys():
 #for species_name in sorted_species:
         avg_pi_matrix_core=files[species_name]['avg_pi_matrix_core']
         avg_pi_matrix_variable=files[species_name]['avg_pi_matrix_variable']
         same_sample_idxs=files[species_name]['same_sample_idxs']
         data.append(avg_pi_matrix_core[same_sample_idxs]) 
-        labels.append(species_name + '_core, n=' + str(len(same_sample_idxs[0]))) 
+        labels.append(species_name + '_core, m=' + str(len(same_sample_idxs[0]))) 
         data.append(avg_pi_matrix_variable[same_sample_idxs]) 
-        labels.append(species_name + '_variable, n=' + str(len(same_sample_idxs[0]))) 
+        labels.append(species_name + '_variable, m=' + str(len(same_sample_idxs[0]))) 
 
 bp=pylab.boxplot(data,0,'.',0, widths=0.75,patch_artist=True)
 k=0  
@@ -130,36 +130,18 @@ pylab.savefig('%s/core_vs_variable_genes_pi_multispecies.png' % (parse_midas_dat
 
 
 
-
-
-
 ######################################################################
 # plot a comparison of fraction nonsyn for core vs variable genes accross species
 #####################################################################
 
-# try ordering species based on median fraction nonsyn in core
-species_list=[]
-mean_avg_pi=[]
-for species_name in species_names:
-    if species_name in files.keys():
-        fraction_nonsynonymous_core=files[species_name]['fraction_nonsynonymous_core']
-        fraction_nonsynonymous_variable=files[species_name]['fraction_nonsynonymous_variable']
-        diff_subject_idxs=files[species_name]['diff_subject_idxs']
-        avg_pi=numpy.median(fraction_nonsynonymous_core[diff_subject_idxs])
-        species_list.append(species_name)
-        mean_avg_pi.append(avg_pi)
-
-sorted_species=[x for (y,x) in sorted(zip(mean_avg_pi,species_list))]
-
-
-pylab.figure(figsize=(6,12))
+pylab.figure(figsize=(6,20))
 pylab.xlabel('Fraction nonsynonymous fixations')
 pylab.ylabel("Species/gene type")
 pylab.xlim(0,1)
 
 data=[]    
 labels=[]   
-for species_name in species_names:
+for species_name in sorted_species:
     if species_name in files.keys():
 #for species_name in sorted_species:
         fraction_nonsynonymous_core=files[species_name]['fraction_nonsynonymous_core']
@@ -186,33 +168,21 @@ pylab.yticks(locs, labels, fontsize=9)
 pylab.savefig('%s/core_vs_variable_genes_fraction_nonsyn_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
 
 
+
+
 ######################################################################
 # plot a comparison of total fixations for core vs variable genes accross species
 #####################################################################
 
-# try ordering species based on median dtot_core
-species_list=[]
-mean_avg_pi=[]
-for species_name in species_names:
-    if species_name in files.keys():
-        dtot_core=files[species_name]['dtot_core']
-        dtot_variable=files[species_name]['dtot_variable']
-        diff_subject_idxs=files[species_name]['diff_subject_idxs']
-        avg_pi=numpy.median(dtot_core[diff_subject_idxs])
-        species_list.append(species_name)
-        mean_avg_pi.append(avg_pi)
 
-sorted_species=[x for (y,x) in sorted(zip(mean_avg_pi,species_list))]
-
-
-pylab.figure(figsize=(6,12))
+pylab.figure(figsize=(6,20))
 pylab.xlabel('Total fixations')
 pylab.ylabel("Species/gene type")
 pylab.xlim(1e-7,1e-1)
 
 data=[]    
 labels=[]   
-for species_name in species_names:
+for species_name in sorted_species:
     if species_name in files.keys():
 #for species_name in sorted_species:
         dtot_core=files[species_name]['dtot_core']
@@ -220,9 +190,9 @@ for species_name in species_names:
         diff_subject_idxs=files[species_name]['diff_subject_idxs']
         same_sample_idxs=files[species_name]['same_sample_idxs']
         data.append(dtot_core[diff_subject_idxs]) 
-        labels.append(species_name + '_core, n=' + str(len(same_sample_idxs[0]))) 
+        labels.append(species_name + '_core, m=' + str(len(same_sample_idxs[0]))) 
         data.append(dtot_variable[diff_subject_idxs]) 
-        labels.append(species_name + '_variable, n=' + str(len(same_sample_idxs[0]))) 
+        labels.append(species_name + '_variable, m=' + str(len(same_sample_idxs[0]))) 
 
 bp=pylab.boxplot(data,0,'.',0, widths=0.75,patch_artist=True)
 k=0  
@@ -240,42 +210,6 @@ pylab.savefig('%s/core_vs_variable_genes_fixations_multispecies.png' % (parse_mi
 ################################################################
 # Plot fraction dN vs dtot for all species core vs var 
 ################################################################  
-
-pylab.figure(figsize=(8,8))
-pylab.xlabel('Total fixations')
-pylab.ylabel("Fraction nonsynonymous")
-pylab.xlim(1e-7,1e-1)
-pylab.ylim(0,1)
-
-data=[]    
-labels=[]   
-for species_name in species_names:
-    if species_name in files.keys():
-#for species_name in sorted_species:
-        fraction_nonsynonymous_core=files[species_name]['fraction_nonsynonymous_core']
-        fraction_nonsynonymous_variable=files[species_name]['fraction_nonsynonymous_variable']
-        dtot_core=files[species_name]['dtot_core']
-        dtot_variable=files[species_name]['dtot_variable']
-        diff_subject_idxs=files[species_name]['diff_subject_idxs']
-        same_sample_idxs=files[species_name]['same_sample_idxs']
-        pylab.semilogx(dtot_core[diff_subject_idxs],fraction_nonsynonymous_core[diff_subject_idxs], 'r.', label='core')
-        pylab.semilogx(dtot_variable[diff_subject_idxs],fraction_nonsynonymous_variable[diff_subject_idxs], 'b.', label='variable')
-
-#pylab.legend(loc='lower right',frameon=False)
-pylab.savefig('%s/core_vs_variable_genes_fraction_nonsyn_vs_fixations_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
-
-
-
-
-################################################
-# repeat except color each species differently #
-################################################
-
-species_names_Bacteroides=['Bacteroides_uniformis_57318', 'Bacteroides_vulgatus_57955','Bacteroides_fragilis_54507','Bacteroides_thetaiotaomicron_56941','Bacteroides_ovatus_58035', 'Bacteroides_massiliensis_44749','Bacteroides_cellulosilyticus_58046','Bacteroides_finegoldii_57739','Bacteroides_stercoris_56735','Bacteroides_caccae_53434','Bacteroides_xylanisolvens_57185']
-
-species_names_Alistipes=['Alistipes_finegoldii_56071','Alistipes_onderdonkii_55464','Alistipes_putredinis_61533', 'Alistipes_shahii_62199']
-
-
 
 
 pylab.figure(figsize=(8,len(files.keys()*3)))
@@ -490,7 +424,7 @@ for species_name in species_names:
         avg_pi_matrix_variable=files[species_name]['avg_pi_matrix_variable']
         avg_pi_per_pathway_core=files[species_name]['avg_pi_per_pathway_variable']
         same_sample_idxs=files[species_name]['same_sample_idxs']
-        passed_sites_per_pathway_core=files[species_name]['passed_sites_per_pathway_varaiable']
+        passed_sites_per_pathway_core=files[species_name]['passed_sites_per_pathway_variable']
         num_genes_per_pathway_core=files[species_name]['num_genes_per_pathway_variable']
         num_people_with_data_pathway_core=files[species_name]['num_people_with_data_pathway_variable']
         # add the full genome data:
@@ -947,7 +881,7 @@ for species_name in species_names:
             high_num_sites_idx=numpy.where(passed_sites_per_pathway_core[pathway][same_sample_idxs]>=min_passed_sites_per_person)
             if len(high_num_sites_idx)>0:
                 if num_genes_per_pathway_core[pathway]>=min_number_genes:
-                    mean_pi=numpy.mean(avg_pi_per_pathway_core[pathway][same_sample_idxs][high_num_sites_idx]) 
+                    mean_pi=numpy.clip(numpy.mean(avg_pi_per_pathway_core[pathway][same_sample_idxs][high_num_sites_idx]),1e-7,1) 
                     if pathway!='':
                         mean_pi_dict[pathway]=mean_pi
                     else:
@@ -969,7 +903,7 @@ for pathway in pathway_names:
 df=df.reindex(pathway_order)
 
 # use seaborn to plot a heat map of the pi values
-pylab.figure(figsize=(16,8))
+pylab.figure(figsize=(24,8))
 pylab.subplot(1,2,1)
 sns.heatmap(df, cmap='RdYlGn_r',norm=LogNorm(vmin=1e-7, vmax=1e-2))
 #pylab.savefig('%s/pi_per_pathway_heatmap_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
@@ -1037,9 +971,9 @@ for pathway in pathway_names:
 df=df.reindex(pathway_order)
 
 # use seaborn to plot a heat map of the pi values
-pylab.figure(figsize=(16,8))
+pylab.figure(figsize=(24,8))
 pylab.subplot(1,2,1)
-sns.heatmap(df, cmap='RdYlGn_r')
+sns.heatmap(df, cmap='RdYlGn_r',vmin=0.0, vmax=1)
 #pylab.savefig('%s/pi_per_pathway_heatmap_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
 
 
@@ -1060,7 +994,7 @@ pylab.savefig('%s/fraction_nonsyn_per_pathway_core_ranking_heatmap_multispecies.
 # variable genes               #
 ################################
 
-min_number_genes=10
+min_number_genes=5
 min_passed_sites_per_person=100
 
 data_dict={}
@@ -1104,7 +1038,7 @@ for pathway in pathway_names:
 df=df.reindex(pathway_order)
 
 # use seaborn to plot a heat map of the pi values
-pylab.figure(figsize=(16,8))
+pylab.figure(figsize=(24,8))
 pylab.subplot(1,2,1)
 sns.heatmap(df, cmap='RdYlGn_r')
 #pylab.savefig('%s/pi_per_pathway_heatmap_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
@@ -1122,6 +1056,117 @@ sns.heatmap(df, cmap='RdYlGn_r',yticklabels=False)
 pylab.savefig('%s/fraction_nonsyn_per_pathway_variable_ranking_heatmap_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
 
 
+
+################################
+# fraction nonsyn per pathway  #
+# core and variable genes      #
+################################
+
+min_number_genes=5
+min_passed_sites_per_person=100
+
+data_dict={}
+# load the data into data_dict, where keys are species_name, values are mean_pi
+for species_name in species_names:
+    if species_name in files.keys():
+        fraction_nonsynonymous_core=files[species_name]['fraction_nonsynonymous_core']
+        fraction_nonsynonymous_variable=files[species_name]['fraction_nonsynonymous_variable']
+        fraction_nonsynonymous_per_pathway_core=files[species_name]['fraction_nonsynonymous_per_pathway_core_variable']
+        diff_subject_idxs=files[species_name]['diff_subject_idxs']
+        fixation_opportunities_per_pathway_syn_non_core=files[species_name]['fixation_opportunities_per_pathway_syn_non_core_variable']
+        num_genes_per_pathway_syn_non_core=files[species_name]['num_genes_per_pathway_syn_non_core_variable']
+        num_people_with_data_per_pathway_fixations_core=files[species_name]['num_people_with_data_per_pathway_fixations_core_variable']
+        mean_pi_dict={}
+        mean_pi_dict['All core genes']=numpy.mean(fraction_nonsynonymous_core[diff_subject_idxs])
+        mean_pi_dict['All variable genes']=numpy.mean(fraction_nonsynonymous_variable[diff_subject_idxs])
+        for pathway in fraction_nonsynonymous_per_pathway_core:
+            #check which people have enough data. Otherwise don't add this.
+            high_num_sites_idx=numpy.where(fixation_opportunities_per_pathway_syn_non_core[pathway][diff_subject_idxs]>=min_passed_sites_per_person)
+            if len(high_num_sites_idx)>0:
+                if num_genes_per_pathway_syn_non_core[pathway]>=min_number_genes:
+                    mean_pi=numpy.mean(fraction_nonsynonymous_per_pathway_core[pathway][diff_subject_idxs][high_num_sites_idx]) 
+                    if pathway!='':
+                        mean_pi_dict[pathway]=mean_pi
+                    else:
+                        mean_pi_dict['Unannotated pathways']=mean_pi  
+        data_dict[species_name]=mean_pi_dict
+
+# convert data_dict into a pandas dataframe
+df=pandas.DataFrame(data_dict)
+df.index.name='pathways'
+# get the mean value across species:
+df['mean']=df.mean(axis=1)
+df=df.sort('mean')
+pathway_names=list(df.index)
+pathway_order=[]
+pathway_order.append('All core genes')
+pathway_order.append('All variable genes')
+pathway_order.append('Annotated pathways')
+pathway_order.append('Unannotated pathways')
+for pathway in pathway_names:
+    if pathway not in pathway_order:
+        pathway_order.append(pathway)
+
+df=df.reindex(pathway_order)
+del df['mean']
+
+# drop Acidaminococcus_intestini_54097 because it messes up coloring
+#df=df.drop('Acidaminococcus_intestini_54097',axis=1)
+
+# make a boxplot where each species is a data point. Order the pathways based on mean fraction nonsyn
+pylab.figure(figsize=(8,8))
+df.T.boxplot(vert=False)
+pylab.savefig('%s/fraction_nonsyn_per_pathway_boxplot_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
+
+#sns.pairplot(df)
+
+# plot a scatter plot of every pair of points
+# randomly sample n species to plot
+n=8
+random_species_names=random.sample(list(df.columns.values),n)
+
+pylab.figure(figsize=(30,30))
+plot_no=1
+for i in range(0, n):
+    for j in range(0,n):        
+        pylab.subplot(n,n,plot_no) 
+        x=list(df[random_species_names[i]])
+        y=list(df[random_species_names[j]])
+        pylab.scatter(x,y, color='red',marker='.')
+        pylab.xlabel(random_species_names[i])
+        pylab.ylabel(random_species_names[i])
+        pylab.xlim(0,0.5)
+        pylab.ylim(0,0.5)
+        #ax=df.plot(x=random_species_names[i], y=random_species_names[j], style='o', xlim=[0,0.8], ylim=[0,0.8],legend=False,subplots=True)
+        #ax.set_xlabel(random_species_names[i])
+        #ax.set_ylabel(random_species_names[j])
+        plot_no+=1
+
+pylab.savefig('%s/fraction_nonsyn_per_pathway_core_variable_pairplot_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
+
+# plot the spearman correlation coefficients between every pair of species
+spearman_corr=df.corr(method='spearman')
+
+# plot a heatmap of the spearman correlation coefficients
+pylab.figure(figsize=(15,15))
+sns.heatmap(spearman_corr, cmap='RdYlBu_r')
+pylab.savefig('%s/fraction_nonsyn_per_pathway_core_variable_spearman_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
+
+
+# use seaborn to plot a heat map of the pi values
+pylab.figure(figsize=(24,8))
+pylab.subplot(1,2,1)
+sns.heatmap(df, cmap='RdYlBu_r')
+
+# Iterate through each species again and compute the rank order of each column. 
+for species_name in species_names:   
+    if species_name in df.columns:
+        df[species_name]=df[species_name].rank(ascending=True)
+
+# use seaborn to plot a heat map of the rank orders
+pylab.subplot(1,2,2)
+sns.heatmap(df, cmap='RdYlBu_r',yticklabels=False)
+pylab.savefig('%s/fraction_nonsyn_per_pathway_core_variable_ranking_heatmap_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
 
 
 
@@ -1174,7 +1219,7 @@ for pathway in pathway_names:
 df=df.reindex(pathway_order)
 
 # use seaborn to plot a heat map of the pi values
-pylab.figure(figsize=(16,8))
+pylab.figure(figsize=(24,8))
 pylab.subplot(1,2,1)
 sns.heatmap(df, cmap='RdYlGn_r')
 #pylab.savefig('%s/pi_per_pathway_heatmap_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
@@ -1199,7 +1244,7 @@ pylab.savefig('%s/fixations_per_pathway_core_ranking_heatmap_multispecies.png' %
 # variable genes               #
 ################################
 
-min_number_genes=10
+min_number_genes=5
 min_passed_sites_per_person=100
 
 data_dict={}
@@ -1243,7 +1288,7 @@ for pathway in pathway_names:
 df=df.reindex(pathway_order)
 
 # use seaborn to plot a heat map of the pi values
-pylab.figure(figsize=(16,8))
+pylab.figure(figsize=(24,8))
 pylab.subplot(1,2,1)
 sns.heatmap(df, cmap='RdYlGn_r')
 #pylab.savefig('%s/pi_per_pathway_heatmap_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
