@@ -17,6 +17,6 @@
 OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP
 mkdir $OUTDIR
 
-merge_midas.py snps $OUTDIR/snps_Qin_HMP_samples_combined -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin.txt -t file --sample_depth 5 --site_depth 3 --min_samples 1 --max_species 150 --site_prev 0.0 --threads 5 >& $OUTDIR/snps_Qin_HMP_samples_combined/snps_core_variable_Qin_HMP_samples_combined.log
+merge_midas.py snps $OUTDIR/snps_Qin_HMP_samples_combined -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin.txt -t file --sample_depth 5 --site_depth 3 --min_samples 1 --max_species 150 --site_prev 0.0 --threads 10 >& $OUTDIR/snps_Qin_HMP_samples_combined/snps_core_variable_Qin_HMP_samples_combined.log
 
 
