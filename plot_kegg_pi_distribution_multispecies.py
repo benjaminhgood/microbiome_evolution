@@ -41,6 +41,28 @@ for species_name in  species_names:
 
 colors=['#a1d99b','#c994c7']  
 
+####################################################################
+# Order the species according to their phylogenetic relationships. #
+#################################################################### 
+
+# to make this plot I will have to feed the list of species to R. When I am in R, I will drop the species that are not in the list. Then, R will output a tree. 
+
+# output a file to the temp dir with the species number only
+outFN=os.path.expanduser("~/tmp_intermediate_files/species_names.txt")
+out_file=open(outFN, 'w')
+for species in species_names:
+    print species
+    id_no=species.strip().split('_')[2]
+    out_file.write(species + '\t' + id_no +'\n')
+    
+# run the R script to prune the species tree
+os.system('Rscript ~/ben_nandita_hmp_scripts/prune_species_tree.R ' +  outFN)
+
+# read in the order of the species that are on the tree:
+file=open(os.path.expanduser("~/tmp_intermediate_files/species_order.txt"))
+species_order=[]
+for line in file:
+    species_order.append(line.strip())
 
 
 ######################################################################
@@ -1145,6 +1167,7 @@ for i in range(0, n):
 pylab.savefig('%s/fraction_nonsyn_per_pathway_core_variable_pairplot_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
 
 # plot the spearman correlation coefficients between every pair of species
+df = df[species_order]
 spearman_corr=df.corr(method='spearman')
 
 # plot a heatmap of the spearman correlation coefficients
@@ -1167,7 +1190,6 @@ for species_name in species_names:
 pylab.subplot(1,2,2)
 sns.heatmap(df, cmap='RdYlBu_r',yticklabels=False)
 pylab.savefig('%s/fraction_nonsyn_per_pathway_core_variable_ranking_heatmap_multispecies.png' % (parse_midas_data.analysis_directory), bbox_inches='tight', dpi=300)
-
 
 
 ################################
