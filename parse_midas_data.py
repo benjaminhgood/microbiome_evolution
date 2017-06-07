@@ -545,7 +545,7 @@ def parse_marker_gene_coverage_distribution(desired_species_name):
         
     return marker_gene_coverages
 
-def parse_coverage_distribution(desired_species_name,prevalence_filter=True):
+def parse_coverage_distribution(desired_species_name,prevalence_filter=True,remove_c=True):
 
     if prevalence_filter:
         full_str = ""
@@ -567,7 +567,8 @@ def parse_coverage_distribution(desired_species_name,prevalence_filter=True):
         sample_coverage_histograms.append(sample_coverage_histogram)
         samples.append(items[0])
     
-    samples = parse_merged_sample_names(samples)    
+    if remove_c == True:
+        samples = parse_merged_sample_names(samples)    
     return sample_coverage_histograms, samples
     
 ## 
@@ -683,7 +684,7 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
 # at least 2 independent people. 
     
     # Load genomic coverage distributions
-    sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name)
+    sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name, remove_c=True)
     depth_threshold_map = calculate_relative_depth_threshold_map(sample_coverage_histograms, sample_list, min_nonzero_median_coverage, lower_factor, upper_factor)
     
    
@@ -704,7 +705,8 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
     # get list of samples
     depth_items = depth_line.split()
     samples = numpy.array(depth_items[1:])
-    
+    samples= parse_merged_sample_names(samples) # NRG (06/06/17): I added this so that the keys in dictionary are compatible. 
+
     # samples
     prevalence_threshold = min([min_samples*1.0/len(samples), 0.5])
     
