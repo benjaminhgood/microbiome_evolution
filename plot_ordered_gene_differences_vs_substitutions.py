@@ -92,7 +92,7 @@ while final_line_number >= 0:
     
     # Calculate fixation matrix
     sys.stderr.write("Calculating matrix of snp differences...\n")
-    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix =     diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)    
+    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix =     diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)   # 
     sys.stderr.write("Done!\n")
     
     if snp_difference_matrix.shape[0]==0:
@@ -164,17 +164,17 @@ same_subject_gene_plowers = []
 same_subject_gene_puppers = []
 within_host_gene_idx_map = {}
 for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
-    
+#    
     snp_i = same_subject_snp_idxs[0][sample_pair_idx]
     snp_j = same_subject_snp_idxs[1][sample_pair_idx]
-    
+#    
     plower,pupper = stats_utils.calculate_poisson_rate_interval(snp_difference_matrix[snp_i, snp_j], snp_opportunity_matrix[snp_i, snp_j],alpha)
-    
+#    
     same_subject_snp_plowers.append(plower)
     same_subject_snp_puppers.append(pupper)
-    
+#    
     #snp_differences = diversity_utils.calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, min_change=min_change)
-
+#
     i = same_subject_gene_idxs[0][sample_pair_idx]
     j = same_subject_gene_idxs[1][sample_pair_idx]
     gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages)
@@ -183,14 +183,14 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
         for gene_idx, depth_tuple_1, depth_tuple_2 in gene_differences:
             if gene_idx not in within_host_gene_idx_map:
                 within_host_gene_idx_map[gene_idx]=0
-            
+#            
             within_host_gene_idx_map[gene_idx]+=1
-
+#
     plower,pupper = stats_utils.calculate_poisson_rate_interval(gene_difference_matrix[i,j], gene_opportunity_matrix[i,j])
-    
+#    
     same_subject_gene_plowers.append(plower)
     same_subject_gene_puppers.append(pupper)
-
+#
 
 # clip lower bounds 
 same_subject_gene_plowers = numpy.clip(same_subject_gene_plowers,1e-06,1e09)
@@ -214,8 +214,7 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
     
     diff_subject_snp_plowers.append(plower)
     diff_subject_snp_puppers.append(pupper)
-    
-    
+        
     i = diff_subject_gene_idxs[0][sample_pair_idx]
     j = diff_subject_gene_idxs[1][sample_pair_idx]
     gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages)
@@ -232,8 +231,7 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
                 low_divergence_between_host_gene_idx_map[gene_idx]=0
             
             low_divergence_between_host_gene_idx_map[gene_idx]+=1
-    
-        
+            
     plower,pupper = stats_utils.calculate_poisson_rate_interval(gene_difference_matrix[i,j], gene_opportunity_matrix[i,j],alpha)
     
     diff_subject_gene_plowers.append(plower)
@@ -251,6 +249,7 @@ for gene_idx in within_host_gene_idx_map.keys():
     within_host_gene_sfs.append(within_host_gene_idx_map[gene_idx])
     for i in xrange(0, within_host_gene_idx_map[gene_idx]):
         within_host_gene_prevalences.append(prevalences[gene_idx])
+
 within_host_gene_sfs.sort()
 within_host_gene_sfs = numpy.array(within_host_gene_sfs)
 within_host_gene_prevalences.sort()
@@ -264,6 +263,7 @@ for gene_idx in between_host_gene_idx_map.keys():
     between_host_gene_sfs.append(between_host_gene_idx_map[gene_idx])
     for i in xrange(0, between_host_gene_idx_map[gene_idx]):
         between_host_gene_prevalences.append(prevalences[gene_idx])
+
 between_host_gene_sfs.sort()
 between_host_gene_sfs = numpy.array(between_host_gene_sfs)
 between_host_gene_prevalences.sort()
@@ -275,6 +275,7 @@ for gene_idx in low_divergence_between_host_gene_idx_map.keys():
     low_divergence_between_host_gene_sfs.append(low_divergence_between_host_gene_idx_map[gene_idx])
     for i in xrange(0, low_divergence_between_host_gene_idx_map[gene_idx]):
         low_divergence_between_host_gene_prevalences.append(prevalences[gene_idx])
+
 low_divergence_between_host_gene_sfs.sort()
 low_divergence_between_host_gene_sfs = numpy.array(low_divergence_between_host_gene_sfs)
 low_divergence_between_host_gene_prevalences.sort()
@@ -347,7 +348,6 @@ for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(diff_subject_snp_plo
     
     snp_axis.semilogy([y,y],[snp_plower,snp_pupper],'r-',linewidth=0.35)
     gene_axis.semilogy([y,y],[gene_plower,gene_pupper],'r-',linewidth=0.35)
-
 
 y-=5
 snp_axis.semilogy([y,y],[1e-09,1e09],'-',linewidth=0.25,color='0.7')
