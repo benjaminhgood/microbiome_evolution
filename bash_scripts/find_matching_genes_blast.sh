@@ -1,5 +1,31 @@
 species=$1
 
+
+
+############################################################################
+# Blast within-host gene changes against other genomes. Is there a match?  #
+############################################################################
+
+###############################################################################
+# First make a database that includes every species with sufficient coverage  #
+###############################################################################  
+# need a database against which I should map to. Get the list of species with enough data 
+ls ~/ben_nandita_hmp_data/genes > ~/tmp_intermediate_files/list_of_species_with_gene_data.txt
+
+rm ~/tmp_intermediate_files/all_species_pan_genomes_genes.fasta
+while read species_name; do
+    zcat ~/ben_nandita_hmp_data/midas_db/pan_genomes/${species_name}/centroids.ffn.gz >> ~/tmp_intermediate_files/all_species_pan_genomes_genes.fasta
+done < ~/tmp_intermediate_files/list_of_species_with_gene_data.txt
+
+#make the db
+makeblastdb -in ~/tmp_intermediate_files/all_species_pan_genomes_genes.fasta -out ~/tmp_intermediate_files/all_species_pan_genomes_genes_db -dbtype nucl
+
+
+#################################################
+# run blast against the genes that are changing #
+#################################################
+
+
 file=~/ben_nandita_hmp_analysis/${species}_within_host_gene_changes.txt
 
 # need to get the sequences of the genes that are changing. Grep the gene names and reads from this file. 
