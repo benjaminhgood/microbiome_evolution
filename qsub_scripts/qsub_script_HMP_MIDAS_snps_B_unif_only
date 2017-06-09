@@ -10,18 +10,32 @@
 #$ -l arch=linux-x64               #-- SGE resources (CPU type)
 #$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
 #$ -l h_rt=336:00:00               #-- runtime limit (see above; this requests 24 hours)
-#$ -t 1-2                        #-- remove first '#' to specify the number of
+#$ -t 1-234                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
-readarray files < ~/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_mapid_test_0.92/sample_ids_test.txt
+readarray files < ~/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/sample_paths.txt
 
 files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
 file=${files[$SGE_TASK_ID]}
-echo $file
 
-OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_read_stealing_test/${file}
+sample=`echo $file | cut -f9 -d'/'`
 
-mkdir $OUTDIR
 
-run_midas.py snps $OUTDIR -1 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_tech_reps/${file}_1.fastq.gz -2 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_tech_reps/${file}_2.fastq.gz --species_id Bacteroides_uniformis_57318
+echo $sample
+
+#check whether the sample is a merged sample or not (if it has a c at the end, then it is)
+# the reason for doing is is to direct midas to the correct path with the relevant fasta files. 
+last_character=`echo $sample | sed -e "s/^.*\(.\)$/\1/"`
+echo $last_character
+
+if [ "$last_character" == "c" ]
+then
+path=/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps
+else
+path=/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_tech_reps
+fi
+
+OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_read_stealing_test/Bacteroides_uniformis_57318/${sample}
+
+run_midas.py snps $OUTDIR -1 ${path}/${sample}_1.fastq.gz -2 ${path}/${sample}_2.fastq.gz --species_id Bacteroides_uniformis_57318
 
