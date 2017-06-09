@@ -1077,7 +1077,7 @@ def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_
 # returns (lots of things, see below)
 #
 ###############################################################################
-def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[]):
+def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[], convert_centroid_names=True):
         
     # Open post-processed MIDAS output
     # Raw read counts
@@ -1175,10 +1175,13 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[]):
     gene_depth_matrix = numpy.array(gene_depth_matrix)
     gene_reads_matrix = numpy.array(gene_reads_matrix)
 
-    new_gene_names = []
-    centroid_gene_map = load_centroid_gene_map(species_name)
-    for gene_name in gene_names:
-        new_gene_names.append(centroid_gene_map[gene_name])
+    if convert_centroid_names:
+        new_gene_names = []
+        centroid_gene_map = load_centroid_gene_map(species_name)
+        for gene_name in gene_names:
+            new_gene_names.append(centroid_gene_map[gene_name])
+    else:
+        new_gene_names=gene_names
 
     return desired_samples, new_gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
 
