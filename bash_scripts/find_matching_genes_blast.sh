@@ -6,19 +6,6 @@ species=$1
 # Blast within-host gene changes against other genomes. Is there a match?  #
 ############################################################################
 
-###############################################################################
-# First make a database that includes every species with sufficient coverage  #
-###############################################################################  
-# need a database against which I should map to. Get the list of species with enough data 
-ls ~/ben_nandita_hmp_data/genes > ~/tmp_intermediate_files/list_of_species_with_gene_data.txt
-
-rm ~/tmp_intermediate_files/all_species_pan_genomes_genes.fasta
-while read species_name; do
-    zcat ~/ben_nandita_hmp_data/midas_db/pan_genomes/${species_name}/centroids.ffn.gz >> ~/tmp_intermediate_files/all_species_pan_genomes_genes.fasta
-done < ~/tmp_intermediate_files/list_of_species_with_gene_data.txt
-
-#make the db
-makeblastdb -in ~/tmp_intermediate_files/all_species_pan_genomes_genes.fasta -out ~/tmp_intermediate_files/all_species_pan_genomes_genes_db -dbtype nucl
 
 
 #################################################
@@ -45,8 +32,9 @@ while read line; do
     first_no=`echo $line | cut -f2 -d' '| cut -f1 -d'.'`
     second_no=`echo $line | cut -f2 -d' '| cut -f2 -d'.'`
     percent=`echo $line | cut -f3 -d' '`
+    bit_score=`echo $line | cut -f12 -d' '`
     matching_genome=`cat ~/ben_nandita_hmp_data/midas_db/genome_info.txt | grep -w ${first_no}.${second_no} | cut -f6`
-    echo -e "$gene\t$matching_genome\t$percent" >> ~/tmp_intermediate_files/${species}_all_within_host_changes_matching_genome.txt
+    echo -e "$gene\t$matching_genome\t$percent\t$bit_score" >> ~/tmp_intermediate_files/${species}_all_within_host_changes_matching_genome.txt
 done < ~/tmp_intermediate_files/${species}_all_within_host_gene_changes_blast.txt
 
 
@@ -75,8 +63,9 @@ while read line; do
     first_no=`echo $line | cut -f2 -d' '| cut -f1 -d'.'`
     second_no=`echo $line | cut -f2 -d' '| cut -f2 -d'.'`
     percent=`echo $line | cut -f3 -d' '`
+    bit_score=`echo $line | cut -f12 -d' '`
     matching_genome=`cat ~/ben_nandita_hmp_data/midas_db/genome_info.txt | grep -w ${first_no}.${second_no} | cut -f6`
-    echo -e "$gene\t$matching_genome\t$percent" >> ~/tmp_intermediate_files/${species}_all_random_gene_set_matching_genome.txt
+    echo -e "$gene\t$matching_genome\t$percent\t$bit_score" >> ~/tmp_intermediate_files/${species}_all_random_gene_set_matching_genome.txt
 done < ~/tmp_intermediate_files/${species}_all_random_gene_set_blast.txt
 
 
