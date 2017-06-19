@@ -28,7 +28,6 @@ INDIR=/pollard/shattuck0/snayfach/metagenomes/T2D/fastq
 
 run_midas.py species $OUTDIR -1 ${INDIR}/${file}_1.fastq.gz -2 ${INDIR}/${file}_2.fastq.gz
 run_midas.py snps $OUTDIR -1 ${INDIR}/${file}_1.fastq.gz -2 ${INDIR}/${file}_2.fastq.gz
-
 run_midas.py genes $OUTDIR -1 ${INDIR}/${file}_1.fastq.gz -2 ${INDIR}/${file}_2.fastq.gz
 
 
