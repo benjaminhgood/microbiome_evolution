@@ -5,6 +5,7 @@ import pylab
 import sys
 import numpy
 import diversity_utils
+import gene_diversity_utils
 import stats_utils
 
 ################################################################################
@@ -39,29 +40,36 @@ sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(sam
     
 # Load SNP information for species_name
 sys.stderr.write("Loading SNP data for %s...\n" % species_name)
-snp_samples, allele_counts_map, passed_sites_map = parse_midas_data.parse_snps(species_name, debug)
+snp_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug)
 sys.stderr.write("Done!\n")
  
 median_coverages = numpy.array([sample_coverage_map[snp_samples[i]] for i in xrange(0,len(snp_samples))])
   
 # Calculate full matrix of synonymous pairwise differences
 sys.stderr.write("Calculate synonymous pi matrix...\n")
-pi_matrix_syn, avg_pi_matrix_syn = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D')
+pi_matrix_syn, avg_pi_matrix_syn, passed_sites = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D')
+
+pi_matrix_syn = pi_matrix_syn /(passed_sites+(passed_sites==0))
+avg_pi_matrix_syn = avg_pi_matrix_syn/(passed_sites+(passed_sites==0))
 
 pi_matrix_syn = numpy.clip(pi_matrix_syn,1e-06,1)
 avg_pi_matrix_syn = numpy.clip(avg_pi_matrix_syn,1e-06,1)
 pis = numpy.diag(pi_matrix_syn)
 
 # Calculate fixation matrix
-fixation_matrix_syn, persite_fixation_matrix_syn = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type='4D', min_change=min_change)    
+fixation_matrix_syn, persite_fixation_matrix_syn = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types='4D', min_change=min_change)    
 sys.stderr.write("Done!\n")
     
 # Calculate full matrix of nonsynonymous pairwise differences
 sys.stderr.write("Calculate nonsynonymous pi matrix...\n")
 # Calculate allele count matrices
-pi_matrix_non, avg_pi_matrix_non = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='1D')
+pi_matrix_non, avg_pi_matrix_non, passed_sites = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='1D')
+
+pi_matrix_non = pi_matrix_non /(passed_sites+(passed_sites==0))
+avg_pi_matrix_non = avg_pi_matrix_non/(passed_sites+(passed_sites==0))
+
 # Calculate fixation matrix
-fixation_matrix_non, persite_fixation_matrix_non = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, variant_type='1D', min_change=min_change)
+fixation_matrix_non, persite_fixation_matrix_non = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map,  allowed_variant_types='1D', min_change=min_change)
 sys.stderr.write("Done!\n")
 
 # Calculate total fixation matrix
@@ -77,7 +85,7 @@ avg_num_genes = (total_num_genes[:,None]+total_num_genes[None,:])/2.0
     
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculate gene hamming matrix...\n")
-gene_hamming_matrix = diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+gene_hamming_matrix, num_opportunities = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
 
 # Now need to make the gene samples and snp samples match up
 desired_samples = list(set(snp_samples[(median_coverages>=min_coverage)*(pis<1e-03)]) & set(gene_samples[marker_coverages>min_coverage]))   
@@ -103,15 +111,15 @@ diff_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene
 
 # Example: get the precise changes between samples from the same subject
 for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
-
+    #
     i = same_subject_snp_idxs[0][sample_pair_idx]
     j = same_subject_snp_idxs[1][sample_pair_idx]
     snp_differences = diversity_utils.calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, min_change=min_change)
-
+    #
     i = same_subject_gene_idxs[0][sample_pair_idx]
     j = same_subject_gene_idxs[1][sample_pair_idx]
-    gene_differences = diversity_utils.calculate_gene_differences_between(i, j, gene_names, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
-
+    gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+    #
     if (len(snp_differences)>0) or (len(gene_differences)>0):
         # Print them out!
         print "Changes between pair", sample_pair_idx
@@ -123,7 +131,7 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
         if len(gene_differences)>0:
             for gene_diff_idx in xrange(0,len(gene_differences)):
                 print gene_differences[gene_diff_idx]
-        
+                #        
     else:
         pass
         

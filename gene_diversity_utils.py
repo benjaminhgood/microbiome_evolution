@@ -62,7 +62,6 @@ def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_cover
 
 
 
-
 def calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages, min_log2_fold_change=4):
     # in this definition, we keep track of whether there was a gene 'gain' or 'loss' by removing numpy.fabs. This info will be used to plot the gain/loss events between two successive time pints. 
 

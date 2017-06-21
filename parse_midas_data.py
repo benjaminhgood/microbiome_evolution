@@ -545,7 +545,7 @@ def parse_marker_gene_coverage_distribution(desired_species_name):
         
     return marker_gene_coverages
 
-def parse_coverage_distribution(desired_species_name,prevalence_filter=True):
+def parse_coverage_distribution(desired_species_name,prevalence_filter=True,remove_c=True):
 
     if prevalence_filter:
         full_str = ""
@@ -567,7 +567,8 @@ def parse_coverage_distribution(desired_species_name,prevalence_filter=True):
         sample_coverage_histograms.append(sample_coverage_histogram)
         samples.append(items[0])
     
-    samples = parse_merged_sample_names(samples)    
+    if remove_c == True:
+        samples = parse_merged_sample_names(samples)    
     return sample_coverage_histograms, samples
     
 ## 
@@ -683,7 +684,7 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
 # at least 2 independent people. 
     
     # Load genomic coverage distributions
-    sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name)
+    sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name, remove_c=True)
     depth_threshold_map = calculate_relative_depth_threshold_map(sample_coverage_histograms, sample_list, min_nonzero_median_coverage, lower_factor, upper_factor)
     
    
@@ -704,7 +705,8 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
     # get list of samples
     depth_items = depth_line.split()
     samples = numpy.array(depth_items[1:])
-    
+    samples= parse_merged_sample_names(samples) # NRG (06/06/17): I added this so that the keys in dictionary are compatible. 
+
     # samples
     prevalence_threshold = min([min_samples*1.0/len(samples), 0.5])
     
@@ -1075,7 +1077,7 @@ def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_
 # returns (lots of things, see below)
 #
 ###############################################################################
-def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[]):
+def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[], convert_centroid_names=True):
         
     # Open post-processed MIDAS output
     # Raw read counts
@@ -1173,10 +1175,13 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[]):
     gene_depth_matrix = numpy.array(gene_depth_matrix)
     gene_reads_matrix = numpy.array(gene_reads_matrix)
 
-    new_gene_names = []
-    centroid_gene_map = load_centroid_gene_map(species_name)
-    for gene_name in gene_names:
-        new_gene_names.append(centroid_gene_map[gene_name])
+    if convert_centroid_names:
+        new_gene_names = []
+        centroid_gene_map = load_centroid_gene_map(species_name)
+        for gene_name in gene_names:
+            new_gene_names.append(centroid_gene_map[gene_name])
+    else:
+        new_gene_names=gene_names
 
     return desired_samples, new_gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
 

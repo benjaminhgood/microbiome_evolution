@@ -10,21 +10,22 @@
 #$ -l arch=linux-x64               #-- SGE resources (CPU type)
 #$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
 #$ -l h_rt=336:00:00               #-- runtime limit (see above; this requests 24 hours)
-#$ -t 1-186                        #-- remove first '#' to specify the number of
+#$ -t 1-1                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
-readarray files < ~/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_IDs_healthy.txt
+#readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Li_2016_FMT/Li_2016_FMT_paired_samples_only.txt
 
+#files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
+#file=${files[$SGE_TASK_ID]}
+#echo $file
 
-files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
-file=${files[$SGE_TASK_ID]}
-echo $file
+file=FAT_DON_11
 
-OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output/${file}
+OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Li_2016_FMT/MIDAS_1.2.2_output/${file}
 
 mkdir $OUTDIR
 
-INDIR=/pollard/shattuck0/snayfach/metagenomes/T2D/fastq
+INDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Li_2016_FMT/joined_fastq_files_hmp_combine_tech_reps
 
 run_midas.py species $OUTDIR -1 ${INDIR}/${file}_1.fastq.gz -2 ${INDIR}/${file}_2.fastq.gz
 run_midas.py snps $OUTDIR -1 ${INDIR}/${file}_1.fastq.gz -2 ${INDIR}/${file}_2.fastq.gz
