@@ -1678,7 +1678,8 @@ def parse_99_percent_genes(desired_species_name,samples, allowed_genes=[]):
     for gene in allowed_genes:
         
         data_numpy_array_dict[gene]=[]
-        for sample in data.keys():
+        #for sample in data.keys(): old version: may not preserve order of samples
+        for sample in samples:
             if gene in data[sample]:
                 data_numpy_array_dict[gene].append(data[sample][gene])
             else:
