@@ -4,6 +4,8 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.cluster.hierarchy import cophenet
 from scipy.cluster.hierarchy import fcluster
 from numpy.random import shuffle
+import scipy.stats
+import config
 
 # Calls consensus genotypes from matrix of allele counts
 #
@@ -1022,4 +1024,150 @@ def calculate_mean_fixation_matrix_per_pathway(fixation_per_gene, passed_sites_p
         fixation_per_pathway[pathway_name] = fixation_per_pathway[pathway_name]/(passed_sites_per_pathway[pathway_name]+(passed_sites_per_pathway[pathway_name]==0))     
         num_people_with_data_pathway[pathway_name]=num_people_with_data_pathway[pathway_name]/float(num_genes_per_pathway[pathway_name])
     return fixation_per_pathway, passed_sites_per_pathway, num_people_with_data_pathway, num_genes_per_pathway
+
+#######################
+#
+# Calculate pi from SFS map
+#
+#######################
+def calculate_pi_from_sfs_map(sfs_map):
+    
+    alts = []
+    refs = []
+    depths = []
+    counts = []
+    for key in sfs_map.keys():
+        D,A = key
+        n = sfs_map[key][0]
+        
+        alts.append(A)
+        refs.append(D-A)
+        depths.append(D)
+        counts.append(n)
+    
+    alts = numpy.array(alts)
+    refs = numpy.array(refs)
+    depths = numpy.array(depths)
+    counts = numpy.array(counts)
+    
+    alt_lower_threshold = numpy.ceil(depths*0.05)+0.5 #at least one read above 5%.
+    alts[alts<alt_lower_threshold] = 0
+    alt_upper_threshold = numpy.floor(depths*0.95)-0.5 #at least one read below 95%
+    alts[alts>alt_upper_threshold] = depths[alts>alt_upper_threshold]
+        
+    total_pi = ((2*alts*(depths-alts)*1.0/(depths*(depths-1)+(depths<1.1)))*(counts)).sum()
+    num_opportunities = counts.sum()
+    
+    return total_pi/num_opportunities
+    
+def calculate_polymorphism_rates_from_sfs_map(sfs_map,lower_threshold=0.2,upper_threshold=0.8):
+    
+    total_sites = 0
+    within_sites = 0
+    between_sites = 0
+    for key in sfs_map.keys():
+        D,A = key
+        n = sfs_map[key][0]
+        reverse_n = sfs_map[key][1]
+        
+        f = A*1.0/D
+        
+        total_sites += n
+        
+        if ((f>lower_threshold) and (f<upper_threshold)):
+            # an intermediate frequency site
+            within_sites += n
+        else:    
+            if f>0.5:
+                between_sites += (n-reverse_n)
+            else:
+                between_sites += reverse_n
+        
+        
+    between_polymorphism_rate = between_sites*1.0/total_sites
+    within_polymorphism_rate = within_sites*1.0/total_sites
+    
+    return within_polymorphism_rate, between_polymorphism_rate
+    
+#######################
+#
+# Estimate smoothed within-person SFS with EM algorithm
+#
+#######################
+def calculate_smoothed_sfs(sfs_map,fs=[],num_iterations=100):
+    
+    alts = []
+    refs = []
+    depths = []
+    counts = []
+    for key in sfs_map.keys():
+        D,A = key
+        n = sfs_map[key][0]
+        
+        alts.append(A)
+        refs.append(D-A)
+        depths.append(D)
+        counts.append(n)
+    
+    alts = numpy.array(alts)
+    refs = numpy.array(refs)
+    depths = numpy.array(depths)
+    counts = numpy.array(counts)
+    
+    
+    weights = counts*1.0/counts.sum()
+    
+    if len(fs)==0:
+        fs = numpy.linspace(0,1,101)[1:-1]
+        
+    dfs = fs[1]-fs[0]
+    
+    logfs = numpy.log(fs)
+    log1minusfs = numpy.log(1-fs)
+    
+    # initial guess for pfs    
+    pfs = numpy.zeros_like(fs)
+    pfs[fs>=0.99] = 1e-02/(fs>=0.99).sum()
+    pfs[(fs<0.99)*(fs>0.01)] = 1e-04/((fs<0.99)*(fs>0.01)).sum()
+    pfs[fs<=0.01] = (1-1e-02-1e-04)/(fs<=0.01).sum()
+    #print pfs.sum()
+    pfs /= pfs.sum()
+    
+    # EM loop
+    for iteration in xrange(0,num_iterations):
+        log_pfs = numpy.log(pfs)
+        
+        log_posteriors = alts[:,None]*logfs[None,:]+refs[:,None]*log1minusfs[None,:]+numpy.log(pfs)[None,:]
+        
+        log_posteriors -= log_posteriors.max(axis=1)[:,None]
+        
+        posteriors = numpy.exp(log_posteriors)
+        posteriors /= posteriors.sum(axis=1)[:,None]
+        
+        pfs = (posteriors*weights[:,None]).sum(axis=0)
+        pfs = numpy.clip(pfs, 1e-100, 1e100)
+    
+        #print pfs.sum()
+        
+        # normalize
+        pfs /= pfs.sum()
+        
+    return fs, pfs
+
+def get_truong_pvalue(A,D):
+    A = min([A,D-A])
+    perr = 1e-02
+    
+    return scipy.stats.binom.sf(A,D,perr)+scipy.stats.binom.pmf(A,D,perr)
+    
+ 
+# definition of a polymorphic site according to Truong et al    
+def is_polymorphic_truong(A,D):
+    
+    alpha = get_truong_pvalue(A,D)
+    
+    return alpha<0.05
+
+
+
 
