@@ -6,6 +6,8 @@ from scipy.cluster.hierarchy import fcluster
 from numpy.random import shuffle
 import scipy.stats
 import config
+from scipy.special import betainc
+import sys
 
 # Calls consensus genotypes from matrix of allele counts
 #
@@ -1094,7 +1096,111 @@ def calculate_polymorphism_rates_from_sfs_map(sfs_map,lower_threshold=0.2,upper_
 # Estimate smoothed within-person SFS with EM algorithm
 #
 #######################
-def calculate_smoothed_sfs(sfs_map,fs=[],num_iterations=100):
+def calculate_smoothed_sfs(sfs_map, num_iterations=100, perr=0.01, lower_threshold=config.consensus_lower_threshold, upper_threshold=config.consensus_upper_threshold):
+    
+    alts = []
+    refs = []
+    depths = []
+    counts = []
+    for key in sfs_map.keys():
+        D,A = key
+        n = sfs_map[key][0]
+        
+        alts.append(A)
+        refs.append(D-A)
+        depths.append(D)
+        counts.append(n)
+    
+    alts = numpy.array(alts)
+    refs = numpy.array(refs)
+    depths = numpy.array(depths)
+    counts = numpy.array(counts)
+    weights = counts*1.0/counts.sum()
+    
+    # calculate median depth (or rough approximation)
+    sorted_depths, sorted_counts = (numpy.array(x) for x in zip(*sorted(zip(depths, counts))))
+    CDF = numpy.cumsum(sorted_counts)*1.0/sorted_counts.sum()
+    Dbar = sorted_depths[CDF>0.5][0]
+    #Dbar = min([Dbar,100])
+    
+    Abars = numpy.arange(0,Dbar+1)
+    Rbars = Dbar-Abars
+    fs = Abars*1.0/Dbar
+    df = fs[1]-fs[0]
+    flowers=  fs-df/2
+    flowers[0] = 0-1e-10
+    fuppers = fs+df/2
+    fuppers[-1] = 1+1e-10
+    
+    pfs = numpy.zeros_like(fs)
+    
+    
+    # first infer rate of polymorphisms (p_poly) using EM
+    
+    # Initial guess
+    p_poly = 1e-04
+    
+    # calculate probability of data, conditioned on it not being polymorphic
+    # (i.e., alt reads are sequencing errors)
+    # (this doesn't depend on p_poly)
+    pdata_errs = (betainc(alts+1,refs+1,perr)+betainc(refs+1,alts+1,perr))/(2*perr)
+    pdata_intermediates = 1-(betainc(alts+1,refs+1, lower_threshold)+betainc(refs+1,alts+1,1-upper_threshold)) 
+    # EM loop
+    for iteration in xrange(0,num_iterations):
+        posterior_polys = 1.0/(1.0+(1-p_poly)/(p_poly)*pdata_errs)
+        p_poly = (posterior_polys*weights).sum()
+    
+    
+    
+    # Calculate avg posterior probability of freq being between lower and upper threshold
+    p_intermediate = (posterior_polys*pdata_intermediates*weights).sum()
+    
+    # Now Calculate smoothed SFS estimate
+    
+    # Posterior method
+    #posterior_frequencies = (betainc(alts[:,None]+1,refs[:,None]+1, fuppers[None,:])-betainc(alts[:,None]+1,refs[:,None]+1,flowers[None,:]))
+    # The reason why we don't use this one is that it assumes a higher variance than our internal model. In reality, we believe that there are a few fixed frequencies, not that every one is independent. (Really we'd want to do some sort of EM, but it's slowly converging)
+    
+    
+    
+    # Bin overlap method
+    
+    freqs = alts*1.0/depths
+    freqs_plushalf = numpy.clip((alts+0.5)*1.0/depths,0,1)
+    freqs_minushalf = numpy.clip((alts-0.5)*1.0/depths,0,1)
+    
+    a = numpy.fmax(flowers[None,:],freqs_minushalf[:,None])
+    b = numpy.fmin(fuppers[None,:],freqs_plushalf[:,None])
+    
+    posterior_frequencies = (b-a)*(b>a)/(freqs_plushalf-freqs_minushalf)[:,None]
+    
+    # Delta function method
+    #posterior_frequencies = (freqs[:,None]>flowers[None,:])*(freqs[:,None]<=fuppers[None,:]) 
+    # the reason why we don't use this one is that it suffers from binning artefacts 
+    # though not *so* bad
+    
+    #pfs = ((posterior_frequencies)*((posterior_polys*weights)[:,None])).sum(axis=0)
+    pfs = ((posterior_frequencies)*((weights)[:,None])).sum(axis=0)
+    
+    pfs /= pfs.sum()
+    
+    
+    # Re-sampling method (too smooth)
+    #prefactors = numpy.exp( loggamma(Abars[None,:]+alts[:,None]+1)+loggamma(Rbars[None,:]+refs[:,None]+1)+loggamma(Dbar+1)+loggamma(depths+1)[:,None]-loggamma(Dbar+depths+2)[:,None]-loggamma(Abars+1)[None,:]-loggamma(Rbars+1)[None,:]-loggamma(alts+1)[:,None]-loggamma(refs+1)[:,None])
+    #pfs = ((prefactors*(p_poly+(1-p_poly)*(betainc(Abars[None,:]+alts[:,None]+1, Rbars[None,:]+refs[:,None]+1, perr)+betainc(Rbars[None,:]+refs[:,None]+1, Abars[None,:]+alts[:,None]+1, perr))/(2*perr)))*weights[:,None]).sum(axis=0)
+    
+    print p_poly, p_intermediate, Dbar
+    
+    return fs, pfs, p_intermediate, p_poly
+    
+    
+    
+#######################
+#
+# Estimate smoothed within-person SFS with EM algorithm
+#
+#######################
+def calculate_smoothed_sfs_continuous_EM(sfs_map,fs=[],num_iterations=100):
     
     alts = []
     refs = []

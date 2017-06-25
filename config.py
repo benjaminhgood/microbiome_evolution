@@ -17,5 +17,9 @@ debug_species_name = 'Bacteroides_uniformis_57318'
 good_species_min_coverage = 10
 good_species_min_prevalence = 10
 
+min_median_coverage = 20
+
 consensus_lower_threshold = 0.2
-consensus_upper_threhsold = 0.8
+consensus_upper_threshold = 0.8
+
+threshold_within_between_fraction = 0.1

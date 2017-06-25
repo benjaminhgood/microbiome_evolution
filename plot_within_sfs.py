@@ -126,21 +126,22 @@ sys.stderr.write("Done!\n")
 sys.stderr.write("Calculating smoothed SFSs...\n")
 fss = []
 pfss = []
-coarse_pfss = []
 between_polymorphism_rates = []
 within_polymorphism_rates = []
 ratios = []
 raw_between_polymorphism_rates = []
 raw_within_polymorphism_rates = []
+bayes_within_polymorphism_rates = []
 
 
 for i in xrange(0,len(desired_samples)):
     sys.stderr.write("%d\n" % i)
-    fs, pfs = diversity_utils.calculate_smoothed_sfs(sfs_map[desired_samples[i]])
+    fs, pfs, p_intermediate, p_poly = diversity_utils.calculate_smoothed_sfs(sfs_map[desired_samples[i]])
     fss.append(fs)
     pfss.append(pfs)
-    fs, coarse_pfs = diversity_utils.calculate_smoothed_sfs(sfs_map[desired_samples[i]],num_iterations=20)
-    coarse_pfss.append(coarse_pfs)
+    
+    bayes_within_polymorphism_rates.append( p_intermediate )
+    
     between_polymorphism_rates.append( pfs[fs>0.8].sum() )
     within_polymorphism_rates.append( pfs[(fs<=0.8)*(fs>=0.2)].sum() )
     
@@ -241,9 +242,11 @@ for i in xrange(0,len(avg_pis)):
     
     fs = fss[sorted_idxs[i]]
     pfs = pfss[sorted_idxs[i]]
-    coarse_pfs = coarse_pfss[sorted_idxs[i]]
     within_polymorphism_rate = within_polymorphism_rates[sorted_idxs[i]]
     between_polymorphism_rate = between_polymorphism_rates[sorted_idxs[i]]
+    bayes_within_polymorphism_rate = bayes_within_polymorphism_rates[sorted_idxs[i]]
+    raw_within_polymorphism_rate = raw_within_polymorphism_rates[sorted_idxs[i]]
+    
     other_ratio = ratios[sorted_idxs[i]]
     
     between_polymorphism_line = numpy.ones_like(fs)*between_polymorphism_rate
@@ -270,14 +273,11 @@ for i in xrange(0,len(avg_pis)):
     
     ratio = within_polymorphism_rate/between_polymorphism_rate
     
-    print pi, ratio, other_ratio, between_polymorphism_rate, within_polymorphism_rate
+    print i, desired_samples[sorted_idxs[i]]
+    print pi, ratio, other_ratio, raw_within_polymorphism_rate, bayes_within_polymorphism_rate
     
-    if i<5:
-        fs, fine_pfs = diversity_utils.calculate_smoothed_sfs(sfs_map[desired_samples[sorted_idxs[i]]],num_iterations=1000)
-        axis.plot(fs[f_idxs], fine_pfs[f_idxs],'g-')
         
     axis.plot(fs[f_idxs], pfs[f_idxs], 'b-', label=('%d: pi=%g, r=%g, D=%g' % (i, pi, ratio, D)))
-    axis.plot(fs[f_idxs], coarse_pfs[f_idxs],'b-',alpha=0.5)
     axis.plot(fs[f_idxs], between_polymorphism_line[f_idxs],'r:')
     axis.plot(fs[f_idxs], within_polymorphism_line[f_idxs],'b:')
     
@@ -314,11 +314,11 @@ pylab.savefig('%s/%s_within_vs_between.pdf' % (parse_midas_data.analysis_directo
 
 pylab.figure(6,figsize=(4,3))
 pylab.loglog([1e-07,1e-01],[1e-07,1e-01],'k:')
-pylab.loglog(within_polymorphism_rates, raw_within_polymorphism_rates, 'k.',alpha=0.5)
+pylab.loglog(raw_within_polymorphism_rates, bayes_within_polymorphism_rates, 'k.',alpha=0.5)
 pylab.ylim([1e-07,1e-01])
 pylab.xlim([1e-07,1e-01]) 
-pylab.xlabel('EM')
-pylab.ylabel('Raw')
+pylab.xlabel('Raw')
+pylab.ylabel('Bayes')
 pylab.savefig('%s/%s_within_raw_vs_em.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
 
 sys.stderr.write("Saving figure...\t")
