@@ -1,0 +1,33 @@
+#!/bin/bash                         #-- what is the language of this shell
+#                                  #-- Any line that starts with #$ is an instruction to SGE
+#$ -S /bin/bash                     #-- the shell for the job
+#$ -o output_error_directory       #-- output directory (fill in)
+#$ -e output_error_directory       #-- error directory (fill in)
+#$ -cwd                            #-- tell the job that it should start in your working directory
+#$ -r y                            #-- tell the system that if a job crashes, it should be restarted
+#$ -j y                            #-- tell the system that the STDERR and STDOUT should be joined
+#$ -l mem_free=1G                  #-- submits on nodes with enough free memory (required)
+#$ -l arch=linux-x64               #-- SGE resources (CPU type)
+#$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
+#$ -l h_rt=336:00:00               #-- runtime limit (see above; this requests 24 hours)
+#$ -t 1-167                        #-- remove first '#' to specify the number of
+                                   #-- tasks if desired (see Tips section)
+
+readarray files < ~/BenNanditaProject/MIDAS_intermediate_files_hmp/List_of_non_sample_reps.txt
+files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
+sample=${files[$SGE_TASK_ID]}
+echo $sample
+
+
+
+i=1
+species=Bacteroides_uniformis_57318 
+
+sample_file=~/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_tech_reps/${sample}_${i}.fastq.gz
+
+gunzip -c $sample_file | paste - - - - | cut -f 1,2 | sed 's/^/>/' | tr "\t" "\n" > ~/tmp_intermediate_files/${sample}_${i}.fasta
+
+blastn -db ~/tmp_intermediate_files/${species}_marker_genes_db  -query ~/tmp_intermediate_files/${sample}_1.fasta -outfmt 6 -out ~/tmp_intermediate_files/${species}_${sample}_1_marker_genes_blast.txt 
+
+rm ~/tmp_intermediate_files/${sample}_${i}.fasta
+
