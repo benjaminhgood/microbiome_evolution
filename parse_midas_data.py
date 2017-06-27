@@ -1001,6 +1001,33 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
 # returns vector of samples, vector of pi_s (raw counts), vector of opportunities
 #
 ###############################################################################
+def parse_within_sample_pi_new(species_name, allowed_genes=set([]), allowed_variant_types=set(['4D']), debug=False):
+    
+    samples, sfs_map = parse_within_sample_sfs(species_name, allowed_variant_types)
+    
+    total_pi = []
+    total_opportunities = []
+    for sample in samples: 
+        p,n = diversity_utils.calculate_pi_from_sfs_map(sfs_map[sample])
+        total_pi.append(p)
+        total_opportunities.append(n)
+        
+    total_pi = numpy.array(total_pi)*1.0
+    total_opportunities = numpy.array(total_opportunities)*1.0
+    
+    return samples, total_pi, total_opportunities
+    
+
+###############################################################################
+#
+# Calculates within-sample synonymous pi directly from annotated_snps.txt.bz2. 
+# Ugly hack (since it does not encourage code re-use and puts pop-gen logic
+# in the basic parsing scripts) but we need it so that we can call parse_snps 
+# on subsets of samples later on to improve performance
+#
+# returns vector of samples, vector of pi_s (raw counts), vector of opportunities
+#
+###############################################################################
 def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_types=set(['4D']), debug=False):
     
     # Open post-processed MIDAS output
@@ -1069,6 +1096,62 @@ def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_
     snp_file.close()
 
     return numpy.array(samples), total_pi, total_opportunities
+
+###############################################################################
+#
+# Calculates within-sample sfs directly from annotated_snps.txt.bz2. 
+# Ugly hack (since it does not encourage code re-use and puts pop-gen logic
+# in the basic parsing scripts) but we need it so that we can call parse_snps 
+# on subsets of haploid samples later on to improve performance
+#
+# returns vector of samples, vector of sfs maps
+#
+# (
+#
+###############################################################################
+def parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])):
+    
+    # First write (filtered) genome-wide coverage distribution
+    sfs_file = bz2.BZ2File("%ssnps/%s/within_sample_sfs.txt.bz2" % (data_directory, species_name),"r")
+    sfs_file.readline() # header
+    
+    sfs_map = {}
+    samples = []
+    for line in sfs_file:
+        items = line.split("\t")
+        sample = items[0].strip()
+        variant_type = items[1].strip()
+        sfs_items = items[2:]
+        
+        
+        if variant_type not in allowed_variant_types:
+            continue
+        
+        if sample not in sfs_map:
+            sfs_map[sample] = {}
+            samples.append(sample)
+            
+        
+            
+        for sfs_item in sfs_items:
+            subitems = sfs_item.split(",")
+            D = long(subitems[0])
+            A = long(subitems[1])
+            n = long(subitems[2])
+            reverse_n = float(subitems[3])
+            
+            if D<0.5:
+                continue
+    
+            if (A,D) not in sfs_map[sample]:
+                sfs_map[sample][(D,A)] = [0,0.0]
+                
+            sfs_map[sample][(D,A)][0] += n
+            sfs_map[sample][(D,A)][1] += reverse_n
+            
+            
+    return numpy.array(samples), sfs_map
+
 
 ###############################################################################
 #
@@ -1683,7 +1766,8 @@ def parse_99_percent_genes(desired_species_name,samples, allowed_genes=[]):
     for gene in allowed_genes:
         
         data_numpy_array_dict[gene]=[]
-        for sample in data.keys():
+        #for sample in data.keys(): old version: may not preserve order of samples
+        for sample in samples:
             if gene in data[sample]:
                 data_numpy_array_dict[gene].append(data[sample][gene])
             else:

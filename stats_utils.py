@@ -159,7 +159,7 @@ def calculate_IQR_from_histogram(histogram):
 # based on n>=0 counts at L>=0 sites.
 #
 ####
-def calculate_poisson_rate_interval(n,L,alpha=0.05):
+def calculate_poisson_rate_interval(n,L,alpha=0.5): # by default use a 50% confidence interval
     
     if n<0.5:
         # No counts. Have some info on upper bound, but none on lower bound.

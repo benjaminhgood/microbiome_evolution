@@ -24,11 +24,11 @@ else:
 sys.stderr.write('Postprocessing species: %s\n' % species_name)
 
 sys.stderr.write('Calculating species-specific marker gene coverages...\n')
-os.system('python %scalculate_marker_gene_coverage.py %s' % (parse_midas_data.scripts_directory, species_name))   
+#os.system('python %scalculate_marker_gene_coverage.py %s' % (parse_midas_data.scripts_directory, species_name))   
 sys.stderr.write('Done calculating species-specific marker gene coverages!\n')
 
 sys.stderr.write('Calculating coverage distributions...\n')
-os.system('python %scalculate_coverage_distribution.py %s' % (parse_midas_data.scripts_directory, species_name))
+#os.system('python %scalculate_coverage_distribution.py %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating coverage distribution!\n')
 
 # Calculate core genome set 
@@ -36,7 +36,13 @@ sys.stderr.write('Done calculating coverage distribution!\n')
 
 # Calculate error pvalues
 sys.stderr.write('Calculating error pvalues...\n')
-os.system('python %scalculate_error_pvalues.py %s' % (parse_midas_data.scripts_directory, species_name))
+#os.system('python %scalculate_error_pvalues.py %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating error pvalues!\n')
+
+# Calculate error pvalues
+sys.stderr.write('Calculating within-sample SFSs...\n')
+os.system('python %scalculate_within_person_sfs.py %s' % (parse_midas_data.scripts_directory, species_name))
+sys.stderr.write('Done calculating within-sample SFSs!\n')
+    
     
 sys.stderr.write("Done postprocessing %s!\n\n" % species_name)

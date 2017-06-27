@@ -64,76 +64,116 @@ samples = numpy.array(samples)
 median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
 
 # Only plot samples above a certain depth threshold
-snp_samples = samples[(median_coverages>=min_coverage)]
-
-# Analyze SNPs, looping over chunk sizes. 
-# Clunky, but necessary to limit memory usage on cluster
+desired_samples = samples[(median_coverages>=min_coverage)]
+desired_median_coverages = numpy.array([sample_coverage_map[sample] for sample in desired_samples])
 
 # Load SNP information for species_name
-sys.stderr.write("Loading %s...\n" % species_name)
+sys.stderr.write("Loading SFSs for %s...\t" % species_name)
+samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['4D'])) 
+sys.stderr.write("Done!\n")
 
-binss=None
-bin_locationss=None
-countss=None
-pi_matrix_syn = numpy.array([])
-avg_pi_matrix_syn = numpy.array([])
-pi_opportunities_syn = numpy.array([])
-snp_difference_matrix = numpy.array([])
-snp_opportunity_matrix = numpy.array([])
-desired_median_coverages = numpy.array([])
+# Set up binned SFS
+sys.stderr.write("Calculating binned SFSs...\t")
+binss = [numpy.arange(0,long(sample_coverage_map[sample])+1)*1.0/long(sample_coverage_map[sample]) for sample in desired_samples]
+for i in xrange(0,len(binss)):
+    binss[i][0] = -0.01
+    binss[i][-1] = 1.01
+        
+bin_locationss = [binss[i][1:]-(binss[i][2]-binss[i][1])/2 for i in xrange(0,len(desired_samples))]        
+countss = [numpy.zeros_like(bin_locationss[i]) for i in xrange(0,len(desired_samples))]
 
-final_line_number = 0
-while final_line_number >= 0:
+avg_pis = []
+# Populate binned SFSs
+for i in xrange(0,len(desired_samples)):
+
+    freqs = []
+    freq_counts = []
     
-    sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
-    desired_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number)
-    sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
+    avg_pis.append( diversity_utils.calculate_pi_from_sfs_map(sfs_map[desired_samples[i]]) )
     
-    if binss==None:
-        desired_median_coverages = numpy.array([sample_coverage_map[desired_samples[i]] for i in xrange(0,len(desired_samples))])
-
-        binss = [numpy.arange(0,long(desired_median_coverages[i])+1)*1.0/long(desired_median_coverages[i]) for i in xrange(0,len(desired_samples))]
-        for i in xrange(0,len(binss)):
-            binss[i][0] = -0.01
-            binss[i][-1] = 1.01
+    for key in sfs_map[desired_samples[i]].keys():
+        D,A = key
+        n = sfs_map[desired_samples[i]][key][0]
         
-        bin_locationss = [binss[i][1:]-(binss[i][2]-binss[i][1])/2 for i in xrange(0,len(desired_samples))]
+        is_polymorphic_truong = diversity_utils.is_polymorphic_truong(A,D)
         
-        countss = [numpy.zeros_like(bin_locationss[i]) for i in xrange(0,len(desired_samples))]
-
-        pi_matrix_syn = numpy.zeros((len(desired_samples), len(desired_samples)))*1.0
-        avg_pi_matrix_syn = numpy.zeros_like(pi_matrix_syn)
-        pi_opportunities_syn = numpy.zeros_like(pi_matrix_syn)
+        #if A==1:
+        #    A=0
+        #if A==(D-1):
+        #    A=D
         
-    # Calculate full matrix of synonymous pairwise differences
-    sys.stderr.write("Calculate synonymous pi matrix...\n")
-    chunk_pi_matrix_syn, chunk_avg_pi_matrix_syn, chunk_passed_sites = diversity_utils.calculate_pi_matrix(allele_counts_map, passed_sites_map, variant_type='4D')
-
-    pi_matrix_syn += chunk_pi_matrix_syn
-    avg_pi_matrix_syn += chunk_avg_pi_matrix_syn
-    pi_opportunities_syn += chunk_passed_sites
+        f = A*1.0/D
+        #f = min([f,1-f])
+        
+        if is_polymorphic_truong:
+            freqs.append(f)
+            freq_counts.append(n)
+        
+        
+    freqs = numpy.array(freqs)
+    freq_counts = numpy.array(freq_counts)
     
+    bin_idxs = numpy.digitize(freqs,bins=binss[i])
+    
+    for bin_idx, n in zip(bin_idxs, freq_counts):
+        countss[i][bin_idx-1] += n
 
-    sys.stderr.write("Calculate within person SFS...\n")
-    chunk_sample_freqs, chunk_passed_sites = diversity_utils.calculate_sample_freqs( allele_counts_map, passed_sites_map, variant_type='4D')
 
-    for i in xrange(0,len(desired_samples)):
-        
-        chunk_counts,dummy = numpy.histogram(chunk_sample_freqs[i],binss[i])
-        chunk_counts[0] += (chunk_passed_sites[i]-len(chunk_sample_freqs[i]))
-        
-        countss[i] += chunk_counts
-        
+avg_pis = numpy.array(avg_pis)
+           
 sys.stderr.write("Done!\n")   
 
-avg_pi_matrix_syn = avg_pi_matrix_syn/(pi_opportunities_syn+(pi_opportunities_syn==0))
+sys.stderr.write("Calculating smoothed SFSs...\n")
+fss = []
+pfss = []
+between_polymorphism_rates = []
+within_polymorphism_rates = []
+ratios = []
+raw_between_polymorphism_rates = []
+raw_within_polymorphism_rates = []
+bayes_within_polymorphism_rates = []
 
-avg_pis = numpy.diag(avg_pi_matrix_syn)
+
+for i in xrange(0,len(desired_samples)):
+    sys.stderr.write("%d\n" % i)
+    fs, pfs, p_intermediate, p_poly = diversity_utils.calculate_smoothed_sfs(sfs_map[desired_samples[i]])
+    fss.append(fs)
+    pfss.append(pfs)
+    
+    bayes_within_polymorphism_rates.append( p_intermediate )
+    
+    between_polymorphism_rates.append( pfs[fs>0.8].sum() )
+    within_polymorphism_rates.append( pfs[(fs<=0.8)*(fs>=0.2)].sum() )
+    
+    raw_within_polymorphism_rate, raw_between_polymorphism_rate = diversity_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[desired_samples[i]])
+    raw_within_polymorphism_rates.append(raw_within_polymorphism_rate)
+    raw_between_polymorphism_rates.append(raw_between_polymorphism_rate)
+    
+    ratios.append( raw_within_polymorphism_rate/raw_between_polymorphism_rate )
+    #ratios.append( within_polymorphism_rates[-1]/between_polymorphism_rates[-1] )
+    
+sys.stderr.write("Done!\n")
+
+
+ratios = numpy.array(ratios)
+ratios = numpy.clip(ratios,1e-3,1e3)
+between_polymorphism_rates = numpy.array(between_polymorphism_rates)
+between_polymorphism_rates = numpy.clip(between_polymorphism_rates,3e-07,2)
+
+within_polymorphism_rates = numpy.array(within_polymorphism_rates)
+within_polymorphism_rates = numpy.clip(within_polymorphism_rates,3e-07,2)
+
+raw_within_polymorphism_rates = numpy.array(raw_within_polymorphism_rates)
+raw_within_polymorphism_rates = numpy.clip(raw_within_polymorphism_rates,3e-07,2)
+
+raw_between_polymorphism_rates = numpy.array(raw_between_polymorphism_rates)
+raw_between_polymorphism_rates = numpy.clip(raw_between_polymorphism_rates,3e-07,2)
+
 
 # Now sort based on avg pi
 sorted_idxs = numpy.arange(0,len(avg_pis))
 
-avg_pis, sorted_idxs = (numpy.array(x) for x in zip(*sorted(zip(avg_pis,sorted_idxs),reverse=True)))
+sorted_avg_pis, sorted_idxs = (numpy.array(x) for x in zip(*sorted(zip(avg_pis,sorted_idxs),reverse=True)))
 
 # This figure has everything on the same one
 pylab.figure(1)
@@ -148,13 +188,22 @@ figure_width=3.42
 figure_height=2*len(avg_pis)
 pylab.figure(2,figsize=(figure_width,figure_height))
 fig = pylab.gcf()
-
 # make three panels panels
 outer_grid  = gridspec.GridSpec(len(avg_pis), 1, height_ratios=([1]*len(avg_pis)), hspace=0.1)
 
+
+# This figure spreads them all out
+pylab.figure(3,figsize=(figure_width,figure_height))
+continuous_fig = pylab.gcf()
+# make three panels panels
+continuous_outer_grid  = gridspec.GridSpec(len(avg_pis), 1, height_ratios=([1]*len(avg_pis)), hspace=0.1)
+
+
+sys.stderr.write("Plotting SFSs...\t")
+
 for i in xrange(0,len(avg_pis)):
 
-    pi = avg_pis[i]
+    pi = sorted_avg_pis[i]
     D = desired_median_coverages[sorted_idxs[i]]
     counts = numpy.array(countss[sorted_idxs[i]])
     bin_locations = bin_locationss[sorted_idxs[i]]
@@ -173,15 +222,70 @@ for i in xrange(0,len(avg_pis)):
     
     axis = plt.Subplot(fig, outer_grid[i])
     fig.add_subplot(axis)
-    axis.set_xlim([0,0.5])
-    axis.set_xticks(numpy.arange(0,11)*0.05)
+    #axis.set_xlim([0,0.5])
+    #axis.set_xticks(numpy.arange(0,11)*0.05)
+    
+    axis.set_xticks(numpy.arange(0,21)*0.05)
+    axis.set_xlim([0.05,0.95])
+    
+    
     axis.set_xticklabels([])
-    axis.set_ylim([0,counts[1:].max()+1])
+    #axis.set_ylim([0,counts.max()+1])
     
-    axis.plot(bin_locations[1:], counts[1:], label=('%d: pi=%g, D=%g' % (i, pi, D)))
+    bin_idxs = (bin_locations>0.05)*(bin_locations<0.95)
+    
+    axis.plot(bin_locations[bin_idxs], counts[bin_idxs], label=('%d: pi=%g, D=%g' % (i, pi, D)))
     axis.legend(frameon=False,fontsize=7)
-     
     
+    # Then do figure 3
+    pylab.figure(3)
+    
+    fs = fss[sorted_idxs[i]]
+    pfs = pfss[sorted_idxs[i]]
+    within_polymorphism_rate = within_polymorphism_rates[sorted_idxs[i]]
+    between_polymorphism_rate = between_polymorphism_rates[sorted_idxs[i]]
+    bayes_within_polymorphism_rate = bayes_within_polymorphism_rates[sorted_idxs[i]]
+    raw_within_polymorphism_rate = raw_within_polymorphism_rates[sorted_idxs[i]]
+    
+    other_ratio = ratios[sorted_idxs[i]]
+    
+    between_polymorphism_line = numpy.ones_like(fs)*between_polymorphism_rate
+    between_polymorphism_line /= ((fs>=0.1)*(fs<=0.9)).sum()
+    
+    within_polymorphism_line = numpy.ones_like(fs)*within_polymorphism_rate
+    within_polymorphism_line /= ((fs>=0.1)*(fs<=0.9)).sum()
+    
+    
+    axis = plt.Subplot(continuous_fig, continuous_outer_grid[i])
+    continuous_fig.add_subplot(axis)
+    #axis.set_xlim([0,0.5])
+    #axis.set_xticks(numpy.arange(0,11)*0.05)
+    
+    axis.set_xticks(numpy.arange(0,21)*0.05)
+    axis.set_xlim([0.05,0.95])
+    
+    if i<(len(desired_samples)-1):
+        axis.set_xticklabels([])
+    
+    f_idxs = (fs>0.05)*(fs<0.95)
+    
+    #axis.set_ylim([0,pfs[f_idxs].max()])
+    
+    ratio = within_polymorphism_rate/between_polymorphism_rate
+    
+    print i, desired_samples[sorted_idxs[i]]
+    print pi, ratio, other_ratio, raw_within_polymorphism_rate, bayes_within_polymorphism_rate
+    
+        
+    axis.plot(fs[f_idxs], pfs[f_idxs], 'b-', label=('%d: pi=%g, r=%g, D=%g' % (i, pi, ratio, D)))
+    axis.plot(fs[f_idxs], between_polymorphism_line[f_idxs],'r:')
+    axis.plot(fs[f_idxs], within_polymorphism_line[f_idxs],'b:')
+    
+    axis.legend(frameon=False,fontsize=7)
+    
+     
+sys.stderr.write("Done!\n")
+   
 pylab.figure(1)   
 m = pylab.scatter([-1],[1],c=[-1], vmin=vmin, vmax=vmax, cmap=cmap,    marker='^')
     
@@ -193,6 +297,31 @@ cbar.set_ticklabels(['$10^{-4}$','$10^{-3}$','$10^{-2}$'])
 #cl = pylab.getp(cbar.ax, 'ymajorticklabels')
 #pylab.setp(cl, fontsize=9) 
 fig.text(0.947,0.035,'$\\pi_s$',fontsize=12)
+
+pylab.figure(4)
+pylab.loglog(avg_pis, ratios, 'k.')
+pylab.savefig('%s/%s_ratio_vs_pi.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
+
+pylab.figure(5,figsize=(4,3))
+pylab.loglog([1e-07,1e-01],[1e-07,1e-01],'k:')
+pylab.fill_between([1e-07,1e-01],[1e-08,1e-08],[1e-08,1e-02],color='0.8')
+pylab.loglog(raw_between_polymorphism_rates, raw_within_polymorphism_rates, 'k.',alpha=0.5)
+pylab.ylim([1e-07,1e-01])
+pylab.xlim([1e-07,1e-01]) 
+pylab.ylabel('Intermediate freq polymorphism rate')
+pylab.xlabel('High freq polymorphism rate')
+pylab.savefig('%s/%s_within_vs_between.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
+
+pylab.figure(6,figsize=(4,3))
+pylab.loglog([1e-07,1e-01],[1e-07,1e-01],'k:')
+pylab.loglog(raw_within_polymorphism_rates, bayes_within_polymorphism_rates, 'k.',alpha=0.5)
+pylab.ylim([1e-07,1e-01])
+pylab.xlim([1e-07,1e-01]) 
+pylab.xlabel('Raw')
+pylab.ylabel('Bayes')
+pylab.savefig('%s/%s_within_raw_vs_em.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
+
+sys.stderr.write("Saving figure...\t")
     
 pylab.savefig('%s/%s_within_person_sfs.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
 pylab.savefig('%s/%s_within_person_sfs.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
@@ -200,4 +329,11 @@ pylab.savefig('%s/%s_within_person_sfs.png' % (parse_midas_data.analysis_directo
 pylab.figure(2)
 pylab.savefig('%s/%s_within_person_sfs_separate.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
 pylab.savefig('%s/%s_within_person_sfs_separate.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
+
+pylab.figure(3)
+pylab.savefig('%s/%s_continuous_within_person_sfs_separate.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
+pylab.savefig('%s/%s_continuous_within_person_sfs_separate.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
   
+
+  
+sys.stderr.write("Done!\n")

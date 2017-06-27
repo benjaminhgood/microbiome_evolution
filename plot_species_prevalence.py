@@ -25,7 +25,7 @@ mpl.rcParams['legend.fontsize']  = 'small'
 
 
 min_marker_coverage = 20
-min_prevalence=10
+min_prevalence=20
 
 bacteroides_color = '#084594'
 alistipes_color = '#B10026'
@@ -33,6 +33,7 @@ rest_color = '0.7'
 
 good_species_list = []
 prevalences = []
+permissive_prevalences = []
     
 species_coverage_matrix, samples, species = parse_midas_data.parse_global_marker_gene_coverages()
 for i in xrange(0,len(species)):
@@ -42,6 +43,7 @@ for i in xrange(0,len(species)):
     if prevalence >= min_prevalence:
         good_species_list.append(species[i])
         prevalences.append(prevalence)
+        permissive_prevalences.append( (species_coverages>=10).sum() )
     
 pylab.figure(figsize=(5,2))
 axis = pylab.gca()
@@ -53,7 +55,7 @@ axis.get_yaxis().tick_left()
 
 
 
-prevalences, good_species_list = zip(*sorted(zip(prevalences, good_species_list),reverse=True))
+prevalences, permissive_prevalences, good_species_list = zip(*sorted(zip(prevalences, permissive_prevalences, good_species_list),reverse=True))
 locs = numpy.arange(0,len(prevalences))
 
 pretty_species_names = []
@@ -61,6 +63,7 @@ for i in xrange(0,len(prevalences)):
 
     loc = locs[i]
     prevalence = prevalences[i]
+    permissive_prevalence = permissive_prevalences[i]
     species_name = good_species_list[i]
     if species_name.startswith('Bacteroides'):
         color = bacteroides_color
@@ -69,7 +72,9 @@ for i in xrange(0,len(prevalences)):
     else:
         color = rest_color
 
+    pylab.bar([loc], [permissive_prevalence], width=0.8, linewidth=0,facecolor=color,alpha=0.5)
     pylab.bar([loc], [prevalence], width=0.8, linewidth=0,facecolor=color)
+    
 
     pretty_species_names.append( "%s %s (%s)" % tuple(species_name.split("_")))
 
