@@ -991,9 +991,9 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
             
             if is_polymorphic.sum() > 0:
             
-                is_singleton = (numpy.fabs(population_minor_prevalence-1)<1e-08)*is_polymorhpic
+                is_singleton = (numpy.fabs(population_minor_prevalence-1)<1e-08)*is_polymorphic
                 
-                is_polymorphic = (population_minor_prevalence>1.5)*is_polymorhpic
+                is_polymorphic = (population_minor_prevalence>1.5)*is_polymorphic
                 
                 singleton_freqs.extend( population_freqs[is_singleton] )
                 singleton_freqs[variant_type] += is_singleton.sum()
