@@ -452,7 +452,7 @@ Rscript ~/projectBenNandita/plot_alpha_beta_diversity.R
 # cluster by H12 algorithm
 
 # plot using haplotype info
-python ~/projectBenNandita/plot_gene_haplotypes.py $species
+python ~/ben_nandita_hmp_scripts/plot_gene_haplotypes.py $species --chunk-size 100000 --debug 
 
 # later: 
 # order the haplotypes based on pi_S. 
