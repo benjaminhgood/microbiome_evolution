@@ -10,7 +10,7 @@ from scipy.special import betainc
 import sys
 import parse_midas_data
 import stats_utils
-
+import os.path
 
 # Calls consensus genotypes from matrix of allele counts
 #
@@ -295,13 +295,14 @@ def calculate_unbiased_sigmasquared(allele_counts_1, allele_counts_2):
 def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary, species_name):
 
     freqs={}
+    depths={}
 
-    depths_4D = allele_counts_4D.sum(axis=2)
-    freqs['4D'] = allele_counts_4D[:,:,0]*1.0/(depths_4D+(depths_4D==0))
+    depths['4D'] = allele_counts_4D.sum(axis=2)
+    freqs['4D'] = allele_counts_4D[:,:,0]*1.0/(depths['4D']+(depths['4D']==0))
 
-    depths_1D = allele_counts_1D.sum(axis=2)
-    freqs['1D'] = allele_counts_1D[:,:,0]*1.0/(depths_1D+(depths_1D==0))
-
+    depths['1D'] = allele_counts_1D.sum(axis=2)
+    freqs['1D'] = allele_counts_1D[:,:,0]*1.0/(depths['1D']+(depths['1D']==0))
+    
     #explanation of numpy commands above:
     # allele_counts_1.sum(axis=2) this returns a sum over all sites alt + ref counts. 
     #(depths_1+(depths_1==0) this is done because if depths_1==0, then we've have a division error. addition of 1 when depths_1==0. 
@@ -312,14 +313,14 @@ def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary, 
     consensus['4D'] = numpy.around(freqs['4D'])
     consensus['1D'] = numpy.around(freqs['1D'])
     
-
+    
     locations=location_dictionary.keys()
     locations=sorted(locations)
    
     #s_consensus='' # store the haplotypes in a string for printing out later
     #s_annotation=''
-    outFile_consensus=open('tmp_consensus_%s.txt' % species_name ,'w')
-    outFile_anno=open('tmp_anno_%s.txt' % species_name ,'w')
+    outFile_consensus=open(os.path.expanduser('~/tmp_intermediate_files/tmp_consensus_%s.txt') % species_name ,'w')
+    outFile_anno=open(os.path.expanduser('tmp_anno_%s.txt') % species_name ,'w')
 
     for loc in range(0, len(locations)):
         location=str(int(locations[loc])) 
@@ -327,27 +328,30 @@ def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary, 
         variant_type=location_dictionary[locations[loc]][1]
         alleles=consensus[variant_type][index].tolist()
         annotation=freqs[variant_type][index].tolist()
+        coverage=depths[variant_type][index].tolist() # if coverage ==0, then set to 'N' in both the consensus and annotation files. 
 
         for person in range(0, len(alleles)):
             alleles[person]=str(int(alleles[person]))
-            if annotation[person] ==0:
-                annotation[person]=str(0) # no difference from ref
-            elif annotation[person] ==1:
-                if variant_type=='4D':
-                    annotation[person]=str(1) # fixed syn diff from ref
-                else:
-                    annotation[person]=str(2) # fixed nonsyn diff from ref
-            else: 
-                if variant_type=='4D':
-                    annotation[person]=str(3) # polymorphic syn within host
-                else:
-                    annotation[person]=str(4) # polymorphic nonsyn within host
+            if coverage[person] == 0.0:
+                alleles[person]='N'
+                annotation[person]='N'
+            else:
+                if annotation[person] ==0:
+                    annotation[person]=str(0) # no difference from ref
+                elif annotation[person] ==1:
+                    if variant_type=='4D':
+                        annotation[person]=str(1) # fixed syn diff from ref
+                    else:
+                        annotation[person]=str(2) # fixed nonsyn diff from ref
+                else: 
+                    if variant_type=='4D':
+                        annotation[person]=str(3) # polymorphic syn within host
+                    else:
+                        annotation[person]=str(4) # polymorphic nonsyn within host
         s_consensus = location + ',' + ','.join(alleles) +'\n' 
         s_annotation = location + ',' + ','.join(annotation) + '\n'
         outFile_consensus.write(s_consensus)
         outFile_anno.write(s_annotation)
-
-    return [s_consensus, s_annotation]
 
 ####################################
 
