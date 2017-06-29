@@ -138,6 +138,7 @@ if len(fine_grained_samples)>2:
     total_inconsistent_sites = [0 for max_d in max_ds]
     total_null_inconsistent_sites = [0 for max_d in max_ds]
  
+    singleton_variant_types = [{'1D':0, '2D':0, '3D':0, '4D':0} for max_d in max_ds]
     polymorphic_variant_types = [{'1D':0, '2D':0, '3D':0, '4D':0} for max_d in max_ds]
     inconsistent_variant_types = [{'1D':0, '2D':0, '3D':0, '4D':0} for max_d in max_ds]
  

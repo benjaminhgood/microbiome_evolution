@@ -953,7 +953,7 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
             # good to go, let's get calculating
                 
             # take consensus approximation
-            genotype_matrix, passed_sites_matrix = calculate_consensus_genotypes(allele_counts_matrix)
+            genotype_matrix, passed_sites_matrix = calculate_consensus_genotypes(allele_counts)
              
             population_prevalence = (genotype_matrix*passed_sites_matrix).sum(axis=1)
             population_max_prevalence = (passed_sites_matrix).sum(axis=1)
@@ -996,7 +996,7 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
                 is_polymorphic = (population_minor_prevalence>1.5)*is_polymorphic
                 
                 singleton_freqs.extend( population_freqs[is_singleton] )
-                singleton_freqs[variant_type] += is_singleton.sum()
+                singleton_variant_types[variant_type] += is_singleton.sum()
                 
                 polymorphic_freqs.extend( population_freqs[is_polymorphic] )
                 polymorphic_variant_types[variant_type] += is_polymorphic.sum()

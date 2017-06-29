@@ -63,6 +63,7 @@ alpha = 0.5 # Confidence interval range for rate estimates
 low_pi_threshold = 1e-03
 low_divergence_threshold = 1e-03
 min_change = 0.8
+allowed_variant_types = set(['1D','2D','3D','4D'])
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
@@ -100,7 +101,7 @@ fig.add_subplot(singleton_axis)
 singleton_axis.set_xlabel('Synonymous divergence, $d_S$')
 singleton_axis.set_ylabel('Fraction 1D')
 singleton_axis.set_xlim([1e-04,1e-02])
-singleton_axis.set_ylim([0,1])
+singleton_axis.set_ylim([0,1.1])
 
 ##############################################################################
 #
@@ -119,10 +120,6 @@ sys.stderr.write("Done! Core genome consists of %d genes\n" % len(core_genes))
 sys.stderr.write("Loading SNPs for %s...\n" % species_name)
 sys.stderr.write("(core genes only...)\n")
 
-
-
-pi_matrix_syn = numpy.array([])
-avg_pi_matrix_syn = numpy.array([])
 snp_difference_matrix = numpy.array([])
 snp_opportunity_matrix = numpy.array([])
 
@@ -139,7 +136,7 @@ while final_line_number >= 0:
     
     # Calculate fixation matrix
     sys.stderr.write("Calculating matrix of snp differences...\n")
-    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change, allowed_variant_types=set(['4D']))   # 
+    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change, allowed_genes=core_genes, allowed_variant_types=allowed_variant_types)   # 
     sys.stderr.write("Done!\n")
     
     if snp_difference_matrix.shape[0]==0:
@@ -157,9 +154,9 @@ while final_line_number >= 0:
     snp_samples = dummy_samples
 
 snp_substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
+snp_substitution_rate += numpy.identity(len(snp_substitution_rate))*10
 snp_substitution_rate = numpy.clip(snp_substitution_rate,1e-09,10)
 
-snp_substitution_rate += numpy.identity(len(snp_substitution_rate))*10
 
 sys.stderr.write("Postprocessing vs and ds...\n")
 ds = []
@@ -167,9 +164,9 @@ vs = []
 for idx, variant_type in singletons:
     
     if variant_type=='1D':
-        v = 1
+        v = 1.0
     elif variant_type=='4D':
-        v = 0
+        v = 0.0
     else:
         continue
         
@@ -202,6 +199,8 @@ for dstar in dstars:
     
     if less_idxs.sum() > 1:
         # some of them!
+        
+        print dstar, '1D:', (vs[less_idxs]==1).sum(), '4D:', (vs[less_idxs]==0).sum()
         
         fraction_nonsynonymous.append(vs[less_idxs].mean())
         
