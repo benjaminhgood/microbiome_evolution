@@ -8,6 +8,9 @@ import scipy.stats
 import config
 from scipy.special import betainc
 import sys
+import parse_midas_data
+import stats_utils
+
 
 # Calls consensus genotypes from matrix of allele counts
 #
@@ -21,8 +24,7 @@ def calculate_consensus_genotypes(allele_counts_matrix,lower_threshold=0.2,upper
     freqs = allele_counts_matrix[:,:,0]*1.0/(depths+(depths==0))
     passed_sites_matrix = (depths>0)*numpy.logical_or(freqs<=0.2,freqs>=0.8)
     # consensus approximation
-    freqs *= passed_sites_matrix
-    genotype_matrix = numpy.around(freqs)
+    genotype_matrix = numpy.around(freqs)*passed_sites_matrix
     
     
     return genotype_matrix, passed_sites_matrix
@@ -420,6 +422,7 @@ def calculate_sample_freqs_2D(allele_counts_map, passed_sites_map, desired_sampl
     return sample_freqs, passed_sites, joint_passed_sites
 
 ####################
+
         
 def calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_sample_idxs=[], allowed_variant_types = set(['1D','2D','3D','4D']), allowed_genes=set([]), lower_threshold=0.2,upper_threshold=0.8):
 
@@ -465,9 +468,110 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_sample_i
     pooled_freqs = numpy.array(pooled_freqs)
     return pooled_freqs
 
+def calculate_pooled_counts(allele_counts_map, passed_sites_map, allowed_sample_idxs=[], allowed_variant_types = set(['1D','2D','3D','4D']), allowed_genes=set([]),pi_min_k=1):
+
+    if len(allowed_sample_idxs)==0:
+        # all samples are allowed
+        allowed_sample_idxs = numpy.array([True for i in xrange(0,allele_counts_map.values()[0].values()[0]['alleles'].shape[1])])
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+    allowed_genes = allowed_genes & set(passed_sites_map.keys())
+     
+    pi_weighted_number = 0
+    pooled_counts = []
+    
+    for gene_name in allowed_genes:
+        
+        for variant_type in allele_counts_map[gene_name].keys():
+            
+            if variant_type not in allowed_variant_types:
+                continue
+                
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+        
+            if len(allele_counts)==0:
+                continue
+            
+            #print allele_counts_map[gene_name][variant_type]['alleles'].shape, allowed_sample_idxs.shape
+                
+            allele_counts = allele_counts[:,allowed_sample_idxs,:]
+            
+            genotype_matrix, passed_sites_matrix = calculate_consensus_genotypes(allele_counts,lower_threshold,upper_threshold)
+            prevalences = (genotype_matrix*passed_sites_matrix).sum(axis=1)
+            min_prevalences = 0.5
+            max_prevalences = (passed_sites_matrix).sum(axis=1)-0.5
+    
+            polymorphic_sites = (prevalences>min_prevalences)*(prevalences<max_prevalences)
+    
+            ks = prevalences[polymorphic_sites]
+            ns = passed_sites_matrix.sum(axis=1)[polymorphic_sites]
+            minor_ks = numpy.fmin(ks,ns-ks)
+            pooled_counts.extend( minor_ks )
+            
+            pi_weighted_number += (ks*(ns-ks)*2.0/(ns*(ns-1))*(minor_ks>=pi_min_k)).sum()
+            
+    pooled_counts = numpy.array(pooled_counts)
+    return pooled_counts, pi_weighted_number
+
+def calculate_singletons(allele_counts_map, passed_sites_map, allowed_sample_idxs=[], allowed_variant_types = set(['1D','2D','3D','4D']), allowed_genes=set([]), lower_threshold=0.2,upper_threshold=0.8,pi_min_k=1):
+
+    if len(allowed_sample_idxs)==0:
+        # all samples are allowed
+        allowed_sample_idxs = numpy.array([True for i in xrange(0,allele_counts_map.values()[0].values()[0]['alleles'].shape[1])])
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+    allowed_genes = allowed_genes & set(passed_sites_map.keys())
+     
+    singletons = []
+    
+    for gene_name in allowed_genes:
+        
+        for variant_type in allele_counts_map[gene_name].keys():
+            
+            if variant_type not in allowed_variant_types:
+                continue
+            
+                
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+        
+            if len(allele_counts)==0:
+                continue
+            
+            #print allele_counts_map[gene_name][variant_type]['alleles'].shape, allowed_sample_idxs.shape
+                
+            allele_counts = allele_counts[:,allowed_sample_idxs,:]
+            
+            genotype_matrix, passed_sites_matrix = calculate_consensus_genotypes(allele_counts,lower_threshold,upper_threshold)
+            prevalences = (genotype_matrix*passed_sites_matrix).sum(axis=1)
+            min_prevalences = 1
+            max_prevalences = (passed_sites_matrix).sum(axis=1)-1
+    
+            minor_sites = (prevalences==min_prevalences)
+            major_sites = (prevalences==max_prevalences)
+            
+            minor_singleton_idxs = numpy.nonzero(((genotype_matrix==1)*(passed_sites_matrix>0))[minor_sites])[1]
+
+            major_singleton_idxs = numpy.nonzero(((genotype_matrix==0)*(passed_sites_matrix>0))[major_sites])[1]
+
+            if len(minor_singleton_idxs) != minor_sites.sum():
+                print "Problem with minor sites:", len(minor_singleton_idxs), minor_sites.sum()
+            
+            if len(major_singleton_idxs) != major_sites.sum():
+                print "Problem with major sites:", len(major_singleton_idxs), major_sites.sum()
+                
+
+            for idx in minor_singleton_idxs:
+                singletons.append((idx, variant_type))
+            
+            for idx in major_singleton_idxs:
+                singletons.append((idx, variant_type))   
+            
+    return singletons
 
 
-def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8):
+def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=config.fixation_min_change):
 
     total_genes = set(passed_sites_map.keys())
 
@@ -820,10 +924,16 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
         allowed_genes = set(passed_sites_map.keys())
      
     allowed_genes = (allowed_genes & total_genes)     
-                      
-    polymorphic_freqs = []
+      
+    singleton_freqs = [] # actual freq value is meaningless..                 
+    polymorphic_freqs = [] # non-singleton freqs -- only ones that can be inconsistent!
     inconsistent_freqs = []
     null_inconsistent_freqs = []
+    
+    singleton_variant_types = {variant_type: 0 for variant_type in allowed_variant_types}
+    polymorphic_variant_types = {variant_type: 0 for variant_type in allowed_variant_types}
+    inconsistent_variant_types = {variant_type: 0 for variant_type in allowed_variant_types}
+    null_inconsistent_variant_types = {variant_type: 0 for variant_type in allowed_variant_types}
      
     for gene_name in allowed_genes:
          
@@ -835,16 +945,18 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
             allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
             if len(allele_counts)==0:
                 continue
+                
+            # good to go, let's get calculating
+                
+            # take consensus approximation
+            genotype_matrix, passed_sites_matrix = calculate_consensus_genotypes(allele_counts_matrix)
              
-            # good to go, let's get calculating!
-            depths = allele_counts.sum(axis=2)
-            freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
-            passed_sites_matrix = (depths>0)*numpy.logical_or(freqs<=0.2,freqs>=0.8)
-            # consensus approximation
-            genotype_matrix = numpy.around(freqs)
-     
-            population_max_prevalence = (passed_sites_matrix).sum(axis=1)-0.5
-            population_freqs = (genotype_matrix*passed_sites_matrix).sum(axis=1)*1.0/(population_max_prevalence+10*(population_max_prevalence<0.5))
+            population_prevalence = (genotype_matrix*passed_sites_matrix).sum(axis=1)
+            population_max_prevalence = (passed_sites_matrix).sum(axis=1)
+            
+            population_minor_prevalence = numpy.fmin(population_prevalence, population_max_prevalence - population_prevalence)
+            
+            population_freqs = population_prevalence*1.0/(population_max_prevalence+10*(population_max_prevalence<0.5))
             population_freqs = numpy.fmin(population_freqs, 1-population_freqs)
      
             is_polymorphic = numpy.zeros(genotype_matrix.shape[0])
@@ -854,33 +966,45 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
              
                 
                 cluster_prevalence = (genotype_matrix[:,cluster_idxs]*passed_sites_matrix[:,cluster_idxs]).sum(axis=1)
-                cluster_min_prevalence = 0.5
-                cluster_max_prevalence = (passed_sites_matrix[:,cluster_idxs]).sum(axis=1)-0.5
+                cluster_min_prevalence = 1-1e-09
+                cluster_max_prevalence = (passed_sites_matrix[:,cluster_idxs]).sum(axis=1)-1+1e-09
                 
                 cluster_freqs = cluster_prevalence*1.0/(cluster_max_prevalence+10*(cluster_max_prevalence<0.5))
                 cluster_freqs = numpy.fmin(cluster_freqs, 1-cluster_freqs)
              
                 anticluster_prevalence = (genotype_matrix[:,anticluster_idxs]*passed_sites_matrix[:,anticluster_idxs]).sum(axis=1)
-                anticluster_min_prevalence = 0.5
-                anticluster_max_prevalence = (passed_sites_matrix[:,anticluster_idxs]).sum(axis=1) - 0.5
+                anticluster_min_prevalence = 1-1e-09
+                anticluster_max_prevalence = (passed_sites_matrix[:,anticluster_idxs]).sum(axis=1) -1+1e-09
              
                 # Those that are polymorphic in the clade!
-                polymorphic_sites = (cluster_prevalence>cluster_min_prevalence)*(cluster_prevalence<cluster_max_prevalence)
+                polymorphic_sites = (cluster_prevalence>=cluster_min_prevalence)*(cluster_prevalence<=cluster_max_prevalence)
                  
                 # Those that are also polymorphic in the remaining population!
-                inconsistent_sites = polymorphic_sites*(anticluster_prevalence>anticluster_min_prevalence)*(anticluster_prevalence<anticluster_max_prevalence)
+                inconsistent_sites = polymorphic_sites*(anticluster_prevalence>=anticluster_min_prevalence)*(anticluster_prevalence<=anticluster_max_prevalence)
              
                 is_polymorphic = numpy.logical_or(is_polymorphic, polymorphic_sites)
                 is_inconsistent = numpy.logical_or(is_inconsistent, inconsistent_sites)
             
             if is_polymorphic.sum() > 0:
             
+                is_singleton = (numpy.fabs(population_minor_prevalence-1)<1e-08)*is_polymorhpic
+                
+                is_polymorphic = (population_minor_prevalence>1.5)*is_polymorhpic
+                
+                singleton_freqs.extend( population_freqs[is_singleton] )
+                singleton_freqs[variant_type] += is_singleton.sum()
+                
                 polymorphic_freqs.extend( population_freqs[is_polymorphic] )
+                polymorphic_variant_types[variant_type] += is_polymorphic.sum()
+                
                 if is_inconsistent.sum() > 0:
-                    inconsistent_freqs.extend( cluster_freqs[is_inconsistent] )
-    
+                    #inconsistent_freqs.extend( cluster_freqs[is_inconsistent] )
+                    inconsistent_freqs.extend( population_freqs[is_inconsistent] )
+                    inconsistent_variant_types[variant_type] += is_inconsistent.sum()
+                
                 # now try to compute a null expectation for a completely unlinked genome
                 polymorphic_idxs = numpy.arange(0,genotype_matrix.shape[0])[is_polymorphic]
+                # Loop over sites that were polymorphic, generate a "null" draw for them
                 for site_idx in polymorphic_idxs:
                     
                     genotypes = genotype_matrix[site_idx,:]
@@ -889,7 +1013,6 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
                     
                     permuted_idxs = numpy.arange(0,len(genotypes))
                     
-                
                     is_polymorphic = False
                     is_inconsistent = False
                     # loop until we find a polymorphic site
@@ -902,6 +1025,7 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
                         permuted_passed_sites = passed_sites[permuted_idxs]
                         
                         # loop through clusters
+                        is_inconsistent = False
                         for cluster_idxs,anticluster_idxs in zip(clusters,anticlusters):
              
                             
@@ -922,13 +1046,14 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
                     
                     if is_inconsistent:
                         null_inconsistent_freqs.append(population_freq)
+                        null_inconsistent_variant_types[variant_type] += 1
                         
-                
+    singleton_freqs = numpy.array(singleton_freqs)            
     polymorphic_freqs = numpy.array(polymorphic_freqs)
     inconsistent_freqs = numpy.array(inconsistent_freqs)
     null_inconsistent_freqs = numpy.array(null_inconsistent_freqs)
          
-    return polymorphic_freqs, inconsistent_freqs, null_inconsistent_freqs
+    return singleton_freqs, polymorphic_freqs, inconsistent_freqs, null_inconsistent_freqs, singleton_variant_types, polymorphic_variant_types, inconsistent_variant_types, null_inconsistent_variant_types
 
 #########################################
 
@@ -1274,6 +1399,57 @@ def is_polymorphic_truong(A,D):
     
     return alpha<0.05
 
+def calculate_haploid_samples(species_name, min_coverage=config.min_median_coverage, threshold_pi=config.threshold_pi, threshold_within_between_fraction=config.threshold_within_between_fraction,debug=False):
+    
+    # Load genomic coverage distributions
+    sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
+    median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
+    sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
+    samples = numpy.array(samples)
 
+    median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
+
+    # Only plot samples above a certain depth threshold
+    desired_samples = samples[(median_coverages>=min_coverage)]
+    desired_median_coverages = numpy.array([sample_coverage_map[sample] for sample in desired_samples])
+    
+    if len(desired_samples)==0:
+        return numpy.array([])
+    
+    # Old way, calculate pi_s
+    # Load pi information for species_name
+    # Load core gene set
+    #sys.stderr.write("Loading core genes...\n")
+    #core_genes = parse_midas_data.load_core_genes(species_name)
+    #sys.stderr.write("Done! Core genome consists of %d genes\n" % len(core_genes))
+
+    
+    #sys.stderr.write("Loading within-sample diversity for %s...\n" % species_name)
+    #samples, total_pis, total_pi_opportunities =     parse_midas_data.parse_within_sample_pi(species_name, allowed_genes=core_genes, debug=debug)
+    #sys.stderr.write("Done!\n")
+    #pis = total_pis/total_pi_opportunities
+
+    #median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
+
+    # Only plot samples above a certain depth threshold that are "haploids"
+    #haploid_samples = samples[(median_coverages>=min_coverage)*(pis<=threshold_pi)]
+
+    #return haploid_samples
+    
+    # New way with pre-computed SFS
+    # Load SFS information for species_name
+    import sfs_utils
+    sys.stderr.write("Loading SFSs for %s...\t" % species_name)
+    samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name,     allowed_variant_types=set(['4D'])) 
+    sys.stderr.write("Done!\n")
+    
+    haploid_samples = []
+    for sample in desired_samples:
+        within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample])
+    
+        if within_sites <= config.threshold_within_between_fraction*between_sites:
+            haploid_samples.append(sample)    
+            
+    return numpy.array(haploid_samples)
 
 

@@ -34,7 +34,6 @@ min_coverage = config.min_median_coverage
 species_name = "Bacteroides_vulgatus_57955"
 sample_1 = '700023337'
 sample_2 = '700116148'
-#sample_3 = 'SRR341626'
 sample_3 = '700023267'
 
 #could also do this one...
@@ -237,7 +236,7 @@ sfs_axis_3.set_ylim([0,pmax*3])
 #
 ###################################
 
-good_species_list = parse_midas_data.parse_good_species_list()[0:30]
+good_species_list = parse_midas_data.parse_good_species_list()
 
 species_names = []
 num_samples = []
@@ -280,10 +279,10 @@ for species_name in good_species_list:
     num_haploid_samples.append(n_haploids)
  
 # Sort by num haploids    
-#num_haploid_samples, num_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_haploid_samples, num_samples, species_names),reverse=True)))
+num_haploid_samples, num_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_haploid_samples, num_samples, species_names),reverse=True)))
 
 # Sort by num samples    
-num_samples, num_haploid_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_samples, num_haploid_samples, species_names),reverse=True)))
+#num_samples, num_haploid_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_samples, num_haploid_samples, species_names),reverse=True)))
     
     
 for species_idx in xrange(0,len(num_haploid_samples)):

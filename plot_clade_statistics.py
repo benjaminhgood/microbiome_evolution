@@ -64,27 +64,9 @@ sys.stderr.write("Loading core genes...\n")
 core_genes = parse_midas_data.load_core_genes(species_name)
 sys.stderr.write("Done! Core genome consists of %d genes\n" % len(core_genes))
  
-    
-# Load genomic coverage distributions
-sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
-median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
-sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
-
-# Load pi information for species_name
-sys.stderr.write("Loading within-sample diversity for %s...\n" % species_name)
-samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, allowed_genes=core_genes, debug=debug)
-sys.stderr.write("Done!\n")
-pis = total_pis/total_pi_opportunities
-
-median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
-
-# Only plot samples above a certain depth threshold that are "haploids"
-snp_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
-# Restrict to single timepoint single timepoints per person
-unique_subject_idxs = parse_midas_data.calculate_unique_samples(subject_sample_map, snp_samples)
-hmp_subject_idxs = parse_midas_data.calculate_country_samples(sample_country_map, snp_samples, allowed_countries=set(['United States']))
-snp_samples = snp_samples[unique_subject_idxs*hmp_subject_idxs]
-
+ # Only plot samples above a certain depth threshold that are "haploids"
+snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
+snp_samples = snp_samples[ diversity_utils.parse_midas_data.calculate_unique_samples(subject_sample_map, snp_samples)]
 
 # Analyze SNPs, looping over chunk sizes. 
 # Clunky, but necessary to limit memory usage on cluster

@@ -38,7 +38,10 @@ snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (parse_midas_data.d
     
 line = snp_file.readline() # header
 items = line.split()[1:]
-samples = parse_midas_data.parse_merged_sample_names(items)
+samples = numpy.array([item.strip() for item in items])
+
+# We shouldn't be doing this for raw data 
+#samples = parse_midas_data.parse_merged_sample_names(items)
     
 site_map = [{} for sample in samples]
 for sample_idx in xrange(0,len(samples)):

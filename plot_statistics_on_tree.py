@@ -63,24 +63,9 @@ core_genes = parse_midas_data.load_core_genes(species_name)
 sys.stderr.write("Done! Core genome consists of %d genes\n" % len(core_genes))
  
     
-# Load genomic coverage distributions
-sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
-median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
-sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
-
-# Load pi information for species_name
-sys.stderr.write("Loading within-sample diversity for %s...\n" % species_name)
-samples, total_pis, total_pi_opportunities = parse_midas_data.parse_within_sample_pi(species_name, allowed_genes=core_genes, debug=debug)
-sys.stderr.write("Done!\n")
-pis = total_pis/total_pi_opportunities
-
-median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
-
-# Only plot samples above a certain depth threshold that are "haploids"
-snp_samples = samples[(median_coverages>=min_coverage)*(pis<=1e-03)]
-# Restrict to single timepoint single timepoints per person
-unique_subject_idxs = parse_midas_data.calculate_unique_samples(subject_sample_map, snp_samples)
-snp_samples = snp_samples[unique_subject_idxs]
+ # Only plot samples above a certain depth threshold that are "haploids"
+snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
+snp_samples = snp_samples[ diversity_utils.parse_midas_data.calculate_unique_samples(subject_sample_map, snp_samples)]
 
 
 
@@ -112,40 +97,15 @@ while final_line_number >= 0:
     snp_difference_matrix += chunk_snp_difference_matrix
     snp_opportunity_matrix += chunk_snp_opportunity_matrix
     
+    snp_samples = dummy_samples
      
 substitution_rate = snp_difference_matrix*1.0/snp_opportunity_matrix 
 
+max_ds = numpy.array([1e-05, 1e-04, 1e-03, 1e-02])
 
-max_ds = numpy.logspace(-4,-1,19)
+#max_ds = numpy.logspace(-4,-1,19)
 fine_grained_idxs, fine_grained_cluster_list = diversity_utils.cluster_samples(substitution_rate, min_d=1e-07, max_ds=max_ds)
 
-
-# calculate compressed distance matrix suitable for agglomerative clustering
-#Y = []
-#for i in xrange(0,substitution_rate.shape[0]):
-#    for j in xrange(i+1,substitution_rate.shape[1]):
-#        Y.append(substitution_rate[i,j]) 
-#Y = numpy.array(Y) 
-    
-#Z = linkage(Y, method='average')        
-    
-#c, coph_dists = cophenet(Z, Y)
-#sys.stderr.write("cophenetic correlation: %g\n" % c)
-
-
-# Make a zoomed dendrogram
-#pylab.figure(2, figsize=(15, 5))
-#pylab.title('Zoomed hierarchical clustering dendrogram for %s' % species_name)
-#pylab.xlabel('sample index')
-#pylab.ylabel('distance')
-#dendrogram(
-#    Z,
-#    leaf_rotation=90.,  # rotates the x axis labels
-#    leaf_font_size=8.,  # font size for the x axis labels
-#)
-#pylab.ylim([0,5e-04])
-#pylab.savefig('%s/%s_zoomed_dendrogram.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
-#pylab.savefig('%s/%s_zoomed_dendrogram.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
 
 # Plot phylogenetic consistency vs time
 remapped_cluster_list = []
@@ -155,6 +115,13 @@ for cluster_idxss in fine_grained_cluster_list:
     remapped_cluster_list.append(remapped_cluster_idxss)
 
 fine_grained_samples = snp_samples[fine_grained_idxs]
+
+#maf_bins = numpy.arange(1,len(fine_grained_samples)+1)*1.0/len(fine_grained_samples)
+#maf_bins -= (maf_bins[1]-maf_bins[0])/2
+#maf_bins[0]=-0.1
+#maf_bins[-1] = 1.1
+#mafs = numpy.arange(1,len(fine_grained_samples))*1.0/len(fine_grained_samples) 
+
 
 if len(fine_grained_samples)>2:
 
@@ -166,9 +133,19 @@ if len(fine_grained_samples)>2:
     snp_difference_matrix = numpy.array([])
     snp_opportunity_matrix = numpy.array([])
 
+    total_singleton_sites = [0 for max_d in max_ds]
     total_polymorphic_sites = [0 for max_d in max_ds]
     total_inconsistent_sites = [0 for max_d in max_ds]
     total_null_inconsistent_sites = [0 for max_d in max_ds]
+ 
+    polymorphic_variant_types = [{'1D':0, '2D':0, '3D':0, '4D':0} for max_d in max_ds]
+    inconsistent_variant_types = [{'1D':0, '2D':0, '3D':0, '4D':0} for max_d in max_ds]
+ 
+    polymorphic_freqs = [[] for max_d in max_ds]
+    inconsistent_freqs = [[] for max_d in max_ds]
+ 
+    #polymorphic_sfs = [numpy.zeros_like(mafs) for max_d in max_ds]
+    #inconsistent_sfs = [numpy.zeros_like(mafs) for max_d in max_ds]
  
     final_line_number = 0
     while final_line_number >= 0:
@@ -194,12 +171,27 @@ if len(fine_grained_samples)>2:
         
             cluster_idxss = remapped_cluster_list[i]
         
-            chunk_polymorphic_freqs, chunk_inconsistent_freqs, chunk_null_inconsistent_freqs = diversity_utils.calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, cluster_idxss, allowed_genes=core_genes)    
+            chunk_singleton_freqs, chunk_polymorphic_freqs, chunk_inconsistent_freqs, chunk_null_inconsistent_freqs, chunk_singleton_variant_types, chunk_polymorphic_variant_types, chunk_inconsistent_variant_types, chunk_null_variant_types = diversity_utils.calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, cluster_idxss, allowed_genes=core_genes)    
         
+            total_singleton_sites[i] += len(chunk_singleton_freqs)
             total_polymorphic_sites[i] += len(chunk_polymorphic_freqs) 
             total_inconsistent_sites[i] += len(chunk_inconsistent_freqs)
             total_null_inconsistent_sites[i] += len(chunk_null_inconsistent_freqs)
     
+            polymorphic_freqs[i].extend(chunk_polymorphic_freqs)
+            inconsistent_freqs[i].extend(chunk_inconsistent_freqs)
+            
+            print "Singleton:", chunk_singleton_variant_types
+            print "Polymorphic:", chunk_polymorphic_variant_types
+            print "Inconsistent:", chunk_inconsistent_variant_types
+                
+            for variant_type in polymorphic_variant_types[i].keys():
+                singleton_variant_types[i][variant_type] += chunk_singleton_variant_types[variant_type]
+                polymorphic_variant_types[i][variant_type] += chunk_polymorphic_variant_types[variant_type]
+                inconsistent_variant_types[i][variant_type] += chunk_inconsistent_variant_types[variant_type]
+                
+            
+            
         sys.stderr.write("Done!\n")
     
     substitution_rate = snp_difference_matrix*1.0/snp_opportunity_matrix 
@@ -212,10 +204,12 @@ if len(fine_grained_samples)>2:
     fraction_inconsistent = total_inconsistent_sites*1.0/total_polymorphic_sites
     null_fraction_inconsistent = total_null_inconsistent_sites*1.0/total_polymorphic_sites
     
+    print total_singleton_sites
     print total_polymorphic_sites
     print total_inconsistent_sites
     print total_null_inconsistent_sites
     
+
     # Set up figure
     pylab.figure(3,figsize=(3.42,4))
     fig = pylab.gcf()
@@ -253,36 +247,42 @@ if len(fine_grained_samples)>2:
     pylab.savefig('%s/%s_phylogenetic_inconsistency.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
     pylab.savefig('%s/%s_phylogenetic_inconsistency.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
 
-    sys.exit(0)
+    for i in xrange(0,len(polymorphic_freqs)):
+        polymorphic_freqs[i] = numpy.array(polymorphic_freqs[i])
+        inconsistent_freqs[i] = numpy.array(inconsistent_freqs[i])
+        print "d=", max_ds[i]
+        print "Site", "Polymorphic", "Inconsistent"
+        for variant_type in sorted(polymorphic_variant_types[i].keys()):
+            variant_type, polymorphic_variant_types[i][variant_type], inconsistent_variant_types[i][variant_type] 
+        print ""
     
-    polymorphic_freqs = numpy.array(polymorphic_freqs)
-    inconsistent_freqs = numpy.array(inconsistent_freqs)
-    
-    total_polymorphic_sites = len(polymorphic_freqs)
-    total_inconsistent_sites = len(inconsistent_freqs)
-    null_inconsistent_sites = len(null_inconsistent_freqs)
-    
-    print total_polymorphic_sites, total_inconsistent_sites
-    
-    sys.stderr.write('%d SNPs, %d inconsistent (%g)\n' % (total_polymorphic_sites, total_inconsistent_sites, total_inconsistent_sites*1.0/total_polymorphic_sites))
-    sys.stderr.write('Null = %d (%g)\n' % (null_inconsistent_sites, null_inconsistent_sites*1.0/total_polymorphic_sites))
-    pylab.figure(3,figsize=(3.42,2))
+    pylab.figure(4,figsize=(3.42,2))
     pylab.suptitle(species_name)
 
-    xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(polymorphic_freqs)
-    pylab.step(xs,ns*1.0/ns[0],'b-',label='All polymorphisms')
-    if len(inconsistent_freqs)>0:
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(inconsistent_freqs)
-        pylab.step(xs,ns*1.0/ns[0],'r-',label=('Inconsistent ($d=%g$)' % max_clade_d))
+    for i in xrange(0,len(polymorphic_freqs)):
+    
+        if len(polymorphic_freqs[i])==0:
+            continue
+    
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(polymorphic_freqs[i])
+        pylab.step(xs,ns*1.0/ns[0],'-',label='Polymorphic ($d=%g$)' % max_ds[i])
+        print 'Polymorphic (d=%g), n=%g' % (max_ds[i], ns[0])
+    
+    if len(inconsistent_freqs[1])>0:
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(inconsistent_freqs[1])
+        pylab.step(xs,ns*1.0/ns[0],'r-',linewidth=2,label=('Inconsistent ($d=%g$)' % max_ds[1]))
+        
+        print "Inconsistent (d=%g), n=%g" %  (max_ds[1], ns[0])
+     
+        
     pylab.xlim([0,0.5])
     pylab.ylim([0,1])
-    pylab.xlabel('Within-clade MAF, $f$')
+    pylab.xlabel('Minor allele frequency, $f$')
     pylab.ylabel('SNPs $\geq f$')
     pylab.legend(loc='upper right', frameon=False,fontsize=6)
     
-    pylab.savefig('%s/%s_phylogenetic_inconsistency.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
-    pylab.savefig('%s/%s_phylogenetic_inconsistency.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
-
+    pylab.savefig('%s/%s_phylogenetic_inconsistency_sfs.pdf' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight')
+    
 
 
 else:

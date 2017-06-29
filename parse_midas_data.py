@@ -341,6 +341,62 @@ def calculate_subject_pairs(subject_sample_map, sample_list=[]):
     
     return same_sample_idxs, same_subject_idxs, diff_subject_idxs
 
+###############################################################################
+#
+# For a given list of samples, calculates which belong to different subjects
+# which belong to different timepoints in same subject, and which are the same
+# timepoint.
+#
+# Returns same_sample_idxs, same_subject_idxs, diff_subject_idxs, 
+# each of which is a tuple with idx1 and idx2. All pairs are included 
+# only once. 
+#
+###############################################################################
+def calculate_ordered_subject_pairs(sample_order_map, sample_list=[]):
+
+    same_sample_idx_lower = []
+    same_sample_idx_upper = []
+    same_subject_idx_lower = []
+    same_subject_idx_upper = []
+    diff_subject_idx_lower = []
+    diff_subject_idx_upper = []
+
+    for i in xrange(0,len(sample_list)):
+        for j in xrange(0,len(sample_list)):
+            # loop over all pairs of samples
+            
+            if i==j:
+                same_sample_idx_lower.append(i)
+                same_sample_idx_upper.append(j)
+            else:
+                
+                subject1, order1 = sample_order_map[sample_list[i]]
+                subject2, order2 = sample_order_map[sample_list[j]]
+                
+                if subject1==subject2:
+                    # same subject!
+                    if order2-order1==1:
+                        # consecutive samples
+                        same_subject_idx_lower.append(i)
+                        same_subject_idx_upper.append(j)
+                    else:
+                        # do not add
+                        pass
+                    
+                else:
+                    # different subjects!
+                    # Only take first one (to prevent multiple comparisons)
+                    if order1==1 and order2==1:
+                        diff_subject_idx_lower.append(i)
+                        diff_subject_idx_upper.append(j)
+        
+    same_sample_idxs = (numpy.array(same_sample_idx_lower,dtype=numpy.int32), numpy.array(same_sample_idx_upper,dtype=numpy.int32))
+    
+    same_subject_idxs = (numpy.array(same_subject_idx_lower,dtype=numpy.int32), numpy.array(same_subject_idx_upper,dtype=numpy.int32))
+    
+    diff_subject_idxs = (numpy.array(diff_subject_idx_lower,dtype=numpy.int32), numpy.array(diff_subject_idx_upper,dtype=numpy.int32))
+    
+    return same_sample_idxs, same_subject_idxs, diff_subject_idxs
 
 ###############################################################################
 #
@@ -684,7 +740,7 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
 # at least 2 independent people. 
     
     # Load genomic coverage distributions
-    sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name, remove_c=True)
+    sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name, remove_c=False)
     depth_threshold_map = calculate_relative_depth_threshold_map(sample_coverage_histograms, sample_list, min_nonzero_median_coverage, lower_factor, upper_factor)
     
    
@@ -705,7 +761,11 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
     # get list of samples
     depth_items = depth_line.split()
     samples = numpy.array(depth_items[1:])
-    samples= parse_merged_sample_names(samples) # NRG (06/06/17): I added this so that the keys in dictionary are compatible. 
+    
+    # BHG (06/24/17) removed this so that all "raw" data have "c"s. 
+    # All functions that write something keep them. 
+    # All loading functions strip them. 
+    #samples= parse_merged_sample_names(samples) # NRG (06/06/17): I added this so that the keys in dictionary are compatible. 
 
     # samples
     prevalence_threshold = min([min_samples*1.0/len(samples), 0.5])
@@ -860,6 +920,8 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
     allowed_genes = set(allowed_genes)
     allowed_variant_types = set(allowed_variant_types)
     
+    # This is a hack because there were some mistaken repeats in an old data file
+    # should be able to remove later
     seen_samples = set()
     desired_sample_idxs = []
     for sample in samples:
@@ -1119,7 +1181,8 @@ def parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','
     samples = []
     for line in sfs_file:
         items = line.split("\t")
-        sample = items[0].strip()
+        sample = parse_merged_sample_names([items[0].strip()])[0]
+        
         variant_type = items[1].strip()
         sfs_items = items[2:]
         
