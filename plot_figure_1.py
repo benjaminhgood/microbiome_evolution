@@ -1,6 +1,7 @@
 import matplotlib  
 matplotlib.use('Agg') 
 import parse_midas_data
+import parse_HMP_data
 import pylab
 import sys
 import numpy
@@ -36,8 +37,17 @@ sample_1 = '700023337'
 sample_2 = '700116148'
 sample_3 = '700023267'
 
+
 #could also do this one...
 #species_name = Bacteroides_uniformis_57318
+
+# Load subject and sample metadata
+sys.stderr.write("Loading sample metadata...\n")
+subject_sample_map = parse_HMP_data.parse_subject_sample_map()
+sample_country_map = parse_HMP_data.parse_sample_country_map()
+sample_order_map = parse_HMP_data.parse_sample_order_map()
+sys.stderr.write("Done!\n")
+ 
 
 # Load SNP information for species_name
 sys.stderr.write("Loading SFSs for %s...\t" % species_name)
@@ -134,8 +144,21 @@ fig.add_subplot(haploid_axis)
 
 haploid_axis.set_xlabel("Number of samples")
 
+####################################################
+#
+# Set up Suppplemental Fig (temporal haploid classification)
+#
+####################################################
+# This figure spreads them all out
 
+pylab.figure(2,figsize=(2,3))
+fig2 = pylab.gcf()
+# make three panels panels
+outer_grid2  = gridspec.GridSpec(1,1)
 
+temporal_haploid_axis = plt.Subplot(fig2, outer_grid2[0])
+fig2.add_subplot(temporal_haploid_axis)
+temporal_haploid_axis.set_xlabel('Timepoint pairs')
 
 ###################################
 #
@@ -241,9 +264,9 @@ good_species_list = parse_midas_data.parse_good_species_list()
 species_names = []
 num_samples = []
 num_haploid_samples = []
+ploidy_changes = []
 
 for species_name in good_species_list:
-    
     
     # Load genomic coverage distributions
     sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
@@ -268,15 +291,41 @@ for species_name in good_species_list:
     
     n_haploids = 0
     
+    sample_ploidy_map = {}
+    
     for sample in desired_samples:
         within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample])
     
         if within_sites <= config.threshold_within_between_fraction*between_sites:
+            
+            sample_ploidy_map[sample] = 'haploid'
             n_haploids += 1    
+        else:
+            sample_ploidy_map[sample] = 'polyploid'
+            
+    
+    ploidy_change_map = {'haploid->haploid':0, 'haploid->polyploid':0,'polyploid->haploid':0, 'polyploid->polyploid':0}     
 
+    # Calculate which pairs of idxs belong to the same sample, which to the same subject
+    # and which to different subjects
+    desired_same_sample_idxs, desired_same_subject_idxs, desired_diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, desired_samples)
+
+    for sample_pair_idx in xrange(0,len(desired_same_subject_idxs[0])):
+    
+        initial_sample = desired_samples[desired_same_subject_idxs[0][sample_pair_idx]]
+        final_sample = desired_samples[desired_same_subject_idxs[1][sample_pair_idx]]
+        
+        ploidy_change_str = ("%s->%s" % (sample_ploidy_map[initial_sample], sample_ploidy_map[final_sample])) 
+        
+        ploidy_change_map[ploidy_change_str] += 1
+        
+        
+        
+        
     species_names.append(species_name)
     num_samples.append(len(desired_samples))
     num_haploid_samples.append(n_haploids)
+    ploidy_changes.append(ploidy_change_map)
  
 # Sort by num haploids    
 num_haploid_samples, num_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_haploid_samples, num_samples, species_names),reverse=True)))
@@ -284,16 +333,34 @@ num_haploid_samples, num_samples, species_names = (numpy.array(x) for x in zip(*
 # Sort by num samples    
 #num_samples, num_haploid_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_samples, num_haploid_samples, species_names),reverse=True)))
     
+haploid_haploid_samples = []  
+haploid_polyploid_samples = []
+polyploid_polyploid_samples = []
+
     
 for species_idx in xrange(0,len(num_haploid_samples)):
         
     print species_names[species_idx], num_haploid_samples[species_idx], num_samples[species_idx]
+    print ploidy_changes[species_idx]
+    
+    haploid_haploid_samples.append( ploidy_changes[species_idx]['haploid->haploid'] )
+    haploid_polyploid_samples.append( ploidy_changes[species_idx]['haploid->polyploid'] + ploidy_changes[species_idx]['polyploid->haploid'] )
+    polyploid_polyploid_samples.append( ploidy_changes[species_idx]['polyploid->polyploid'] )
+    
     if species_idx==19:
         print "Top 20 ^"
+
+haploid_haploid_samples = numpy.array(haploid_haploid_samples)
+haploid_polyploid_samples = numpy.array(haploid_polyploid_samples)
+polyploid_polyploid_samples = numpy.array(polyploid_polyploid_samples)
 
 num_haploid_samples = num_haploid_samples[:25]
 num_samples = num_samples[:25]
 species_names = species_names[:25]
+haploid_haploid_samples = haploid_haploid_samples[:25]
+haploid_polyploid_samples = haploid_polyploid_samples[:25]
+polyploid_polyploid_samples = polyploid_polyploid_samples[:25]
+
 
 ys = 0-numpy.arange(0,len(num_haploid_samples))
 width=0.7
@@ -309,7 +376,23 @@ haploid_axis.set_yticks(ys+0.5)
 haploid_axis.set_yticklabels(species_names,fontsize=4)
 haploid_axis.set_ylim([-1*len(num_haploid_samples)+1,1])
 
+temporal_haploid_axis.barh(ys, haploid_haploid_samples+haploid_polyploid_samples+polyploid_polyploid_samples,color='r',linewidth=0,label='non/non')
+temporal_haploid_axis.barh(ys, haploid_haploid_samples+haploid_polyploid_samples,color='#8856a7',linewidth=0,label='CPS/non')
+temporal_haploid_axis.barh(ys, haploid_haploid_samples,color='b',linewidth=0,label='CPS/CPS')
+
+temporal_haploid_axis.yaxis.tick_right()
+temporal_haploid_axis.xaxis.tick_bottom()
+
+temporal_haploid_axis.set_yticks(ys+0.5)
+temporal_haploid_axis.set_yticklabels(species_names,fontsize=4)
+temporal_haploid_axis.set_ylim([-1*len(num_haploid_samples)+1,1])
+
+temporal_haploid_axis.legend(loc='lower right',frameon=False)
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_1.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
+sys.stderr.write("Done!\n")
+
+sys.stderr.write("Saving figure...\t")
+fig2.savefig('%s/supplemental_temporal_haploid.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
 sys.stderr.write("Done!\n")
