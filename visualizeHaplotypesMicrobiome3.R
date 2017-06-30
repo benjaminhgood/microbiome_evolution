@@ -27,7 +27,7 @@ names(haplotypes)<-paste("S_",genomicData$SNPloc[1:windowSize],sep="")
 haplotypes<-haplotypes[2:length(haplotypes[,1]),]
 
 anno=data.frame(t(annoFile[1:windowSize,1:(sampleSize+1)]))
-#names(anno)<-paste("S_",annoFile$SNPloc[1:windowSize],sep="")
+names(anno)<-paste("S_",annoFile$SNPloc[1:windowSize],sep="")
 anno<-anno[2:length(anno[,1]),]
 
 #haplotypes=anno
@@ -96,16 +96,6 @@ StrainWMostCommonHaplo = commonstrains[which.min(numNs)] # this is the reference
 ZeroOneHaplotypes=as.matrix(anno)
 
 	
-#print(haplotypes)
-#print(anno)
-#for (i in 1:length(haplotypes[,1])){
-#	for (j in 1:length(anno[1,])){
-#	    if (haplotypes[i,j]=="N"){ZeroOneHaplotypes[i,j]=1} # indicate missing data with a 0
-#	    else {if (haplotypes[i,j]==haplotypes[StrainWMostCommonHaplo,j])					    #                      {ZeroOneHaplotypes[i,j]=0} # indicate a match with the reference haplotype with a 2
-#	          else { 
-#		    ZeroOneHaplotypes[i,j]=anno[i,j]+2}} # indicate a mismatch with the reference haplotype with a 	     		
-#			}}
-
 # white  = same as ref allele
 # blue   = syn fixed 
 # green  = ns fixed
@@ -119,20 +109,12 @@ for (i in 1:length(haplotypes[,1])){
 		if (haplotypes[i,j]=="N"){ZeroOneHaplotypes[i,j]='black'} # indicate missing data with a 0
 			else {if (haplotypes[i,j]==haplotypes[StrainWMostCommonHaplo,j])					     {ZeroOneHaplotypes[i,j]='white'} # indicate a match with the reference haplotype with a 2
 			else { 
-			        
-				ZeroOneHaplotypes[i,j]=colorChart[as.numeric(anno[i,j])+1]}} # indicate a mismatch with the reference haplotype with a 1
-			
+				ZeroOneHaplotypes[i,j]=colorChart[as.numeric(as.character(anno[i,j]))+1]
+
+				}} # indicate a mismatch with the reference haplotype with a 1
 			
 			}}
-	
-#for (i in 1:length(haplotypes[,1])){
-#	for (j in 1:length(anno[1,])){
-#		if (haplotypes[i,j]=="N"){ZeroOneHaplotypes[i,j]='black'} # indicate missing data with a 0
-#			else {ZeroOneHaplotypes[i,j]=colorChart[anno[i,j]+1]}
-#			} }
 
-
-#print(ZeroOneHaplotypes)	
 
 	
 ClusterOrder<-unique(haplotypes$Cluster[sort(haplotypes$Cluster,index.return=TRUE, decreasing=TRUE)$ix])
