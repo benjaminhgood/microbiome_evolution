@@ -193,6 +193,55 @@ pylab.savefig('%s/core_vs_variable_genes_fraction_nonsyn_multispecies.png' % (pa
 
 
 ######################################################################
+# plot a comparison of fraction nonsyn for core vs variable genes for just A. putredinis and B. vulgatus
+#####################################################################
+
+fig=pylab.figure(figsize=(4,6))
+
+pylab.ylabel('Fraction nonsynonymous fixations')
+pylab.xlabel("Species/gene type")
+pylab.ylim(0,0.4)
+
+data=[]    
+labels=[]   
+colors=['#de2d26','#3182bd']
+
+ax = fig.add_subplot(111)
+ax.patch.set_facecolor('white')
+ax.patch.set_alpha(0)
+ 
+for species_name in ['Bacteroides_vulgatus_57955', 'Alistipes_putredinis_61533']:
+    if species_name in files.keys():
+#for species_name in sorted_species:
+        fraction_nonsynonymous_core=files[species_name]['fraction_nonsynonymous_core']
+        fraction_nonsynonymous_variable=files[species_name]['fraction_nonsynonymous_variable']
+        diff_subject_idxs=files[species_name]['diff_subject_idxs']
+        tmp1=numpy.array(diff_subject_idxs[0], dtype=numpy.int32)
+        tmp2=numpy.array(diff_subject_idxs[1], dtype=numpy.int32)
+        diff_subject_idxs=(tmp1,tmp2)
+        same_sample_idxs=files[species_name]['same_sample_idxs']
+        data.append(fraction_nonsynonymous_core[diff_subject_idxs]) 
+        labels.append(species_name + '_core, n=' + str(len(same_sample_idxs[0]))) 
+        data.append(fraction_nonsynonymous_variable[diff_subject_idxs]) 
+        labels.append(species_name + '_variable, n=' + str(len(same_sample_idxs[0]))) 
+
+bp=pylab.boxplot(data,patch_artist=True)
+k=0  
+for patch in bp['boxes']: 
+    patch.set_facecolor(colors[k%2])
+    k+=1
+
+locs, dummy_labels = pylab.xticks()  
+pylab.xticks(locs, labels, fontsize=9)   
+
+#fig.set_facecolor("white")
+
+fig.savefig('%s/core_vs_variable_genes_fraction_nonsyn_B_vul_A_put.png' % (parse_midas_data.analysis_directory),facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=300)
+
+
+
+
+######################################################################
 # plot a comparison of total fixations for core vs variable genes accross species
 #####################################################################
 
