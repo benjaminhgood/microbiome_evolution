@@ -94,6 +94,7 @@ fig.add_subplot(d_axis)
 #d_axis.set_xlabel('Synonymous divergence, $d_S$')
 d_axis.set_ylabel('Fraction 1D')
 d_axis.set_xlim([1e-04,1e-02])
+d_axis.set_ylim([0,1.1])
 
 singleton_axis = plt.Subplot(fig, outer_grid[1])
 fig.add_subplot(singleton_axis)
@@ -160,6 +161,7 @@ snp_substitution_rate = numpy.clip(snp_substitution_rate,1e-09,10)
 
 sys.stderr.write("Postprocessing vs and ds...\n")
 ds = []
+random_ds = []
 vs = []
 for idx, variant_type in singletons:
     
@@ -172,9 +174,14 @@ for idx, variant_type in singletons:
         
     d = snp_substitution_rate[idx,:].min()
     
+    random_idx = randint(0,snp_substitution_rate.shape[0])
+    random_d = snp_substitution_rate[random_idx,:].min()
+    
+    random_ds.append(random_d)
     ds.append(d)
     vs.append(v)
 
+random_ds = numpy.array(random_ds)
 ds = numpy.array(ds)
 vs = numpy.array(vs)
 
@@ -187,8 +194,13 @@ print (vs<0.5).sum(), "4D"
 
 # Now plot them. 
 
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(random_ds)
+d_axis.step(xs,1-ns*1.0/ns[0],'-',color='0.7')
+
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(ds)
-d_axis.step(xs,1-ns*1.0/ns[0],'-')
+d_axis.step(xs,1-ns*1.0/ns[0],'b-')
+
+d_axis.semilogx([1e-05,2e-05],[1,1])
 
 dstars = numpy.logspace(-4,-2,20)
 fraction_nonsynonymous = []
@@ -207,8 +219,12 @@ for dstar in dstars:
     else:
         fraction_nonsynonymous.append(-1)    
 
-d_axis.set_xticks([])
+
 singleton_axis.semilogx(dstars, fraction_nonsynonymous, 'k.-')
+
+d_axis.set_xlim([1e-04,1e-02])
+d_axis.set_xticklabels([])
+singleton_axis.set_xlim([1e-04,1e-02])
 
 
 sys.stderr.write("Saving figure...\t")

@@ -37,6 +37,9 @@ sample_1 = '700023337'
 sample_2 = '700116148'
 sample_3 = '700023267'
 
+haploid_color = '#08519c'
+diploid_color = '#de2d26' #'#fb6a4a' #
+transition_color = '#756bb1'
 
 #could also do this one...
 #species_name = Bacteroides_uniformis_57318
@@ -151,7 +154,7 @@ haploid_axis.set_xlabel("Number of samples")
 ####################################################
 # This figure spreads them all out
 
-pylab.figure(2,figsize=(2,3))
+pylab.figure(2,figsize=(2,5))
 fig2 = pylab.gcf()
 # make three panels panels
 outer_grid2  = gridspec.GridSpec(1,1)
@@ -188,7 +191,7 @@ within_rate_lowers = numpy.clip(within_rate_lowers, 1e-09,1)
     
 for rank_idx in xrange(0,len(within_rates)):
     
-    polymorphism_axis.semilogy([rank_idx,rank_idx], [within_rate_lowers[rank_idx],within_rate_uppers[rank_idx]],'b-',linewidth=0.25)
+    polymorphism_axis.semilogy([rank_idx,rank_idx], [within_rate_lowers[rank_idx],within_rate_uppers[rank_idx]],'-',color=haploid_color,linewidth=0.25)
 
 
 ###################################
@@ -211,7 +214,7 @@ print between_sites*1.0/total_sites
 sfs_axis_1.fill_between([0,20],[0,0],[1,1],color='0.8')
 
 #sfs_axis_1.fill_between([20,100],[0,0],[1,1],color='0.8')
-sfs_axis_1.bar((fs-df/2)*100,pfs,width=df,edgecolor='b',color='b')
+sfs_axis_1.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
 line, = sfs_axis_1.plot([20,100], [between_line,between_line], 'k-',linewidth=0.35)
 line.set_dashes((1.5,1))
 sfs_axis_1.set_ylim([0,pmax*3])
@@ -229,7 +232,7 @@ print between_sites*1.0/total_sites
 pmax = between_line
 sfs_axis_2.fill_between([0,20],[0,0],[1,1],color='0.8')
 
-sfs_axis_2.bar((fs-df/2)*100,pfs,width=df,edgecolor='b',color='b')
+sfs_axis_2.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
 line, = sfs_axis_2.plot([20,100], [between_line,between_line], 'k-',linewidth=0.35)
 line.set_dashes((1.5,1))
 
@@ -246,7 +249,7 @@ pmax = between_line
 print between_sites*1.0/total_sites
 sfs_axis_3.fill_between([0,20],[0,0],[1,1],color='0.8')
 
-sfs_axis_3.bar((fs-df/2)*100,pfs,width=df,edgecolor='b',color='b')
+sfs_axis_3.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
 line, = sfs_axis_3.plot([20,100], [between_line,between_line], 'k-',linewidth=0.35)
 line.set_dashes((1.5,1))
 
@@ -293,6 +296,7 @@ for species_name in good_species_list:
     
     sample_ploidy_map = {}
     
+    
     for sample in desired_samples:
         within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample])
     
@@ -328,7 +332,13 @@ for species_name in good_species_list:
     ploidy_changes.append(ploidy_change_map)
  
 # Sort by num haploids    
-num_haploid_samples, num_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_haploid_samples, num_samples, species_names),reverse=True)))
+num_haploid_samples, num_samples, ploidy_changes, species_names = zip(*sorted(zip(num_haploid_samples, num_samples, ploidy_changes, species_names),reverse=True))
+
+num_haploid_samples = numpy.array(num_haploid_samples)
+num_samples = numpy.array(num_samples)
+species_names = numpy.array(species_names)
+
+total_haploids = num_haploid_samples.sum()
 
 # Sort by num samples    
 #num_samples, num_haploid_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_samples, num_haploid_samples, species_names),reverse=True)))
@@ -356,38 +366,51 @@ polyploid_polyploid_samples = numpy.array(polyploid_polyploid_samples)
 
 num_haploid_samples = num_haploid_samples[:25]
 num_samples = num_samples[:25]
-species_names = species_names[:25]
-haploid_haploid_samples = haploid_haploid_samples[:25]
-haploid_polyploid_samples = haploid_polyploid_samples[:25]
-polyploid_polyploid_samples = polyploid_polyploid_samples[:25]
+haploid_species_names = species_names[:25]
 
+total_temporal_samples = haploid_haploid_samples+haploid_polyploid_samples+polyploid_polyploid_samples
+
+temporal_species_names = species_names[total_temporal_samples>0]
+haploid_haploid_samples = haploid_haploid_samples[total_temporal_samples>0]
+haploid_polyploid_samples = haploid_polyploid_samples[total_temporal_samples>0]
+polyploid_polyploid_samples = polyploid_polyploid_samples[total_temporal_samples>0]
 
 ys = 0-numpy.arange(0,len(num_haploid_samples))
 width=0.7
 
-haploid_axis.barh(ys, num_samples,color='0.7',linewidth=0)
-haploid_axis.barh(ys, num_haploid_samples,color='b',linewidth=0)
-haploid_axis.set_xlim([0,300])
+haploid_axis.barh(ys, num_haploid_samples,color=haploid_color,linewidth=0,label='CPS',zorder=1)
+haploid_axis.barh(ys, num_samples,color=haploid_color,linewidth=0,label='non-CPS',zorder=0,alpha=0.5)
+haploid_axis.set_xlim([0,325])
 
 haploid_axis.yaxis.tick_right()
 haploid_axis.xaxis.tick_bottom()
 
 haploid_axis.set_yticks(ys+0.5)
-haploid_axis.set_yticklabels(species_names,fontsize=4)
+haploid_axis.set_yticklabels(haploid_species_names,fontsize=4)
 haploid_axis.set_ylim([-1*len(num_haploid_samples)+1,1])
 
-temporal_haploid_axis.barh(ys, haploid_haploid_samples+haploid_polyploid_samples+polyploid_polyploid_samples,color='r',linewidth=0,label='non/non')
-temporal_haploid_axis.barh(ys, haploid_haploid_samples+haploid_polyploid_samples,color='#8856a7',linewidth=0,label='CPS/non')
-temporal_haploid_axis.barh(ys, haploid_haploid_samples,color='b',linewidth=0,label='CPS/CPS')
+haploid_axis.legend(loc='lower right',frameon=False)
+
+ys = 0-numpy.arange(0,len(temporal_species_names))
+
+temporal_haploid_axis.barh(ys, haploid_haploid_samples,color=haploid_color,linewidth=0,label='CPS/CPS',zorder=3)
+temporal_haploid_axis.barh(ys, haploid_haploid_samples+haploid_polyploid_samples,color=transition_color,linewidth=0,label='CPS/non',zorder=2)
+temporal_haploid_axis.barh(ys, haploid_haploid_samples+haploid_polyploid_samples+polyploid_polyploid_samples,color=diploid_color,linewidth=0,label='non/non',zorder=1)
+
+
+#'#8856a7'
+
 
 temporal_haploid_axis.yaxis.tick_right()
 temporal_haploid_axis.xaxis.tick_bottom()
 
 temporal_haploid_axis.set_yticks(ys+0.5)
-temporal_haploid_axis.set_yticklabels(species_names,fontsize=4)
-temporal_haploid_axis.set_ylim([-1*len(num_haploid_samples)+1,1])
+temporal_haploid_axis.set_yticklabels(temporal_species_names,fontsize=4)
+temporal_haploid_axis.set_ylim([-1*len(temporal_species_names)+1,1])
 
 temporal_haploid_axis.legend(loc='lower right',frameon=False)
+
+sys.stderr.write("%d haploid samples across species\n" % total_haploids)
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_1.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')

@@ -68,6 +68,8 @@ low_pi_threshold = 1e-03
 clade_divergence_threshold = 1e-02
 modification_divergence_threshold = 1e-03
 min_change = 0.8
+include_high_copynum = False
+#include_high_copynum = True
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
@@ -81,7 +83,7 @@ snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debu
 # Only use the subset from North America 
 # The only temporal samples are from here, best not contaminate the between-subject
 # comparisons with out of sample effects
-snp_samples = snp_samples[parse_HMP_data.calculate_country_samples(sample_country_map, sample_list=snp_samples, allowed_countries=set(["United States"]))]
+#snp_samples = snp_samples[parse_HMP_data.calculate_country_samples(sample_country_map, sample_list=snp_samples, allowed_countries=set(["United States"]))]
 
 ####################################################
 #
@@ -181,10 +183,10 @@ within_gene_axis.set_xlabel('Within-host')
 prevalence_axis = plt.Subplot(fig, gene_grid[0])
 fig.add_subplot(prevalence_axis)
 
-prevalence_axis.set_ylabel('Fraction gene changes $\geq p$')
+prevalence_axis.set_ylabel('Fraction gene changes ')
 prevalence_axis.set_xlabel('Gene prevalence, $p$')
 prevalence_axis.set_xlim([0,1])
-prevalence_axis.set_ylim([0,1.1])
+#prevalence_axis.set_ylim([0,1.1])
 
 prevalence_axis.spines['top'].set_visible(False)
 prevalence_axis.spines['right'].set_visible(False)
@@ -256,6 +258,8 @@ sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
 gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
 sys.stderr.write("Done!\n")
 
+sys.stderr.write("Loaded gene info for %d samples\n" % len(gene_samples))
+
 gene_copynum_matrix = gene_depth_matrix*1.0/(marker_coverages+(marker_coverages==0))
 
 prevalence_idxs = (parse_midas_data.calculate_unique_samples(subject_sample_map, gene_samples))*(marker_coverages>=min_coverage)
@@ -267,10 +271,11 @@ pangenome_prevalences.sort()
         
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculating matrix of gene differences...\n")
-gene_difference_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+gene_difference_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4, include_high_copynum=include_high_copynum)
 
 # Now need to make the gene samples and snp samples match up
-desired_samples = gene_samples[marker_coverages>min_coverage]      
+desired_samples = gene_samples
+
 
 num_haploids = len(desired_samples)
      
@@ -282,7 +287,7 @@ num_haploids = len(desired_samples)
 # and which to different subjects
 desired_same_sample_idxs, desired_same_subject_idxs, desired_diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, desired_samples)
 
-
+sys.stderr.write("%d temporal samples\n" % len(desired_same_subject_idxs[0]))
 
 snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)
 gene_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, gene_samples)
@@ -314,6 +319,11 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 #    
     snp_i = same_subject_snp_idxs[0][sample_pair_idx]
     snp_j = same_subject_snp_idxs[1][sample_pair_idx]
+    
+    print sample_order_map[snp_samples[snp_i]], sample_order_map[snp_samples[snp_j]]
+
+    
+    
 #   
     plower = snp_difference_matrix[snp_i,snp_j]
     pupper = plower*1.1
@@ -327,32 +337,42 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 #
     i = same_subject_gene_idxs[0][sample_pair_idx]
     j = same_subject_gene_idxs[1][sample_pair_idx]
-    gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages)
-
-    if snp_substitution_rate[snp_i,snp_j] < modification_divergence_threshold:
     
-        gene_idxs_i = numpy.nonzero( (gene_copynum_matrix[:,i]>0.5)*(gene_copynum_matrix[:,i]<2))[0]
-        gene_idxs_j = numpy.nonzero( (gene_copynum_matrix[:,j]>0.5)*(gene_copynum_matrix[:,j]<2))[0]
+    if marker_coverages[i]<min_coverage or marker_coverages[j]<min_coverage:
+        # can't look at gene changes!
+        plower = -1
+        pupper = -1
+    else:
+    
+    
+    
+        gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages)
+
+        if snp_substitution_rate[snp_i,snp_j] < modification_divergence_threshold:
+    
+            gene_idxs_i = numpy.nonzero( (gene_copynum_matrix[:,i]>0.5)*(gene_copynum_matrix[:,i]<2))[0]
+            gene_idxs_j = numpy.nonzero( (gene_copynum_matrix[:,j]>0.5)*(gene_copynum_matrix[:,j]<2))[0]
         
     
-        for gene_idx, depth_tuple_1, depth_tuple_2 in gene_differences:
-            within_host_gene_idxs.append(gene_idx)
+            for gene_idx, depth_tuple_1, depth_tuple_2 in gene_differences:
+                within_host_gene_idxs.append(gene_idx)
             
-            within_host_null_gene_idxs.append( choice(gene_idxs_i) )
-            within_host_null_gene_idxs.append( choice(gene_idxs_j) )
+                within_host_null_gene_idxs.append( choice(gene_idxs_i) )
+                within_host_null_gene_idxs.append( choice(gene_idxs_j) )
             
-            if gene_idx not in within_host_gene_idx_map:
-                within_host_gene_idx_map[gene_idx]=0
+                if gene_idx not in within_host_gene_idx_map:
+                    within_host_gene_idx_map[gene_idx]=0
 #            
-            within_host_gene_idx_map[gene_idx]+=1
+                within_host_gene_idx_map[gene_idx]+=1
 #
 
-    else:
-        print sample_order_map[snp_samples[snp_i]]
-        print sample_order_map[snp_samples[snp_j]]
+        else:
+            print "Potential modification"
+            print sample_order_map[snp_samples[snp_i]]
+            print sample_order_map[snp_samples[snp_j]]
 
-    plower = gene_difference_matrix[i,j]
-    pupper = plower*1.1
+        plower = gene_difference_matrix[i,j]
+        pupper = plower*1.1
     #plower,pupper = stats_utils.calculate_poisson_rate_interval(gene_difference_matrix[i,j], gene_opportunity_matrix[i,j])
 #    
     same_subject_gene_plowers.append(plower)
@@ -411,8 +431,13 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
             low_divergence_between_host_gene_idxs.append(gene_idx)
             low_divergence_between_host_gene_idx_map[gene_idx]+=1
     
-    plower = gene_difference_matrix[i,j]
-    pupper = plower*1.1
+    if marker_coverages[i]<min_coverage or marker_coverages[j]<min_coverage:
+        # can't look at gene changes!
+        plower = -1
+        pupper = -1
+    else:
+        plower = gene_difference_matrix[i,j]
+        pupper = plower*1.1
             
     #plower,pupper = stats_utils.calculate_poisson_rate_interval(gene_difference_matrix[i,j], gene_opportunity_matrix[i,j],alpha)
     
@@ -569,11 +594,11 @@ gene_axis.set_xticks([])
 prevalence_bins = numpy.linspace(0,1,11)
 prevalence_locations = prevalence_bins[:-1]+(prevalence_bins[1]-prevalence_bins[0])/2
 
-h = numpy.histogram(within_host_null_gene_prevalences,bins=prevalence_bins)[0]
-prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'k-',label='Random')
+#h = numpy.histogram(within_host_null_gene_prevalences,bins=prevalence_bins)[0]
+#prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'k-',label='Random')
 
 h = numpy.histogram(between_host_gene_prevalences,bins=prevalence_bins)[0]
-prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'r-',label='Between-host')
+prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'r.-',label='Between-host',markersize=3)
 
 if len(low_divergence_between_host_gene_prevalences) > 0:
     print low_divergence_between_host_gene_prevalences
@@ -581,11 +606,12 @@ if len(low_divergence_between_host_gene_prevalences) > 0:
     print len(low_divergence_between_host_gene_prevalences), len(between_host_gene_prevalences)
     
     h = numpy.histogram(low_divergence_between_host_gene_prevalences,bins=prevalence_bins)[0]
-    prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'r-',label=('d<%g' % modification_divergence_threshold), alpha=0.5)
+    prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'r.-',label=('d<%g' % modification_divergence_threshold), alpha=0.5,markersize=3)
 
 h = numpy.histogram(within_host_gene_prevalences,bins=prevalence_bins)[0]
-prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'g-',label='Within-host')
+prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'g.-',label='Within-host',markersize=3)
 
+print len(within_host_gene_prevalences), "within-host changes"
 
 prevalence_axis.legend(loc='upper right',frameon=False,fontsize=4)
 
@@ -608,7 +634,7 @@ parallelism_axis.bar(multiplicity_locs, between_host_multiplicity_histogram*1.0/
 
 parallelism_axis.bar(multiplicity_locs-0.3, within_host_multiplicity_histogram*1.0/within_host_multiplicity_histogram.sum(), width=0.3,color='g',linewidth=0)
 
-prevalence_axis.set_ylim([0,0.6])
+#prevalence_axis.set_ylim([0,0.6])
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_6%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')

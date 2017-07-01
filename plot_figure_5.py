@@ -85,10 +85,10 @@ snp_samples = snp_samples[ diversity_utils.parse_midas_data.calculate_unique_sam
 ####################################################
 # This figure spreads them all out
 
-pylab.figure(1,figsize=(5,2))
+pylab.figure(1,figsize=(5,1.7))
 fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(1,2, width_ratios=[2, 1], wspace=0.25)
+outer_grid  = gridspec.GridSpec(1,2, width_ratios=[2, 1], wspace=0.3)
 
 ##############################################################################
 #
@@ -116,9 +116,10 @@ sfs_axis.get_yaxis().tick_left()
 count_axis = plt.Subplot(fig, outer_grid[1])
 fig.add_subplot(count_axis)
 
-count_axis.set_ylabel('Fraction nonsynonymous (%)')
+count_axis.set_ylabel('pN/pS')
+count_axis.set_xlabel('Minor allele count')
 count_axis.set_xlim([-0.5,3.5])
-count_axis.set_ylim([0,100])
+count_axis.set_ylim([0,1])
 count_axis.set_xticks([0,1,2,3])
 count_axis.set_xticklabels(['1','2','3','4+'])
 count_axis.spines['top'].set_visible(False)
@@ -193,7 +194,13 @@ sys.stderr.write("Re-loading %s...\n" % species_name)
 
 snp_difference_matrix = numpy.array([])
 snp_opportunity_matrix = numpy.array([])
-    
+
+synonymous_difference_matrix = numpy.array([])
+synonymous_opportunity_matrix = numpy.array([])
+
+nonsynonymous_difference_matrix = numpy.array([])
+nonsynonymous_opportunity_matrix = numpy.array([])
+     
    
 maf_bins = numpy.arange(1,largest_clade_size+1)*1.0/largest_clade_size
 maf_bins -= (maf_bins[1]-maf_bins[0])/2
@@ -221,6 +228,13 @@ while final_line_number >= 0:
     dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_variant_types=allowed_variant_types, allowed_samples=coarse_grained_samples,allowed_genes=core_genes, chunk_size=chunk_size,initial_line_number=final_line_number)
     sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
     
+    
+    new_largest_clade_idxs = numpy.array([sample in largest_clade_samples for sample in dummy_samples])
+
+    if not (new_largest_clade_idxs==largest_clade_idxs).all():
+        print new_largest_clade_idxs
+        print largest_clade_idxs
+    
     # Calculate fixation matrix
     sys.stderr.write("Calculating matrix of snp differences...\n")
     chunk_snp_difference_matrix, chunk_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_genes=core_genes, min_change=min_change)    
@@ -229,10 +243,30 @@ while final_line_number >= 0:
     if snp_difference_matrix.shape[0]==0:
         snp_difference_matrix = numpy.zeros_like(chunk_snp_difference_matrix)*1.0
         snp_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)*1.0
-    
+        synonymous_difference_matrix = numpy.zeros_like(snp_difference_matrix)
+        synonymous_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)
+        nonsynonymous_difference_matrix = numpy.zeros_like(snp_difference_matrix)
+        nonsynonymous_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)
+
     snp_difference_matrix += chunk_snp_difference_matrix
     snp_opportunity_matrix += chunk_snp_opportunity_matrix
+
+    # Calculate fixation matrix
+    sys.stderr.write("Calculating matrix of 4D differences...\n")
+    chunk_synonymous_difference_matrix, chunk_synonymous_opportunity_matrix =    diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_genes=core_genes, min_change=min_change,allowed_variant_types=set(['4D']))    
+    sys.stderr.write("Done!\n")
     
+    synonymous_difference_matrix += chunk_synonymous_difference_matrix
+    synonymous_opportunity_matrix += chunk_synonymous_opportunity_matrix
+
+    # Calculate fixation matrix
+    sys.stderr.write("Calculating matrix of 1D differences...\n")
+    chunk_nonsynonymous_difference_matrix, chunk_nonsynonymous_opportunity_matrix =    diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_genes=core_genes, min_change=min_change,allowed_variant_types=set(['1D']))    
+    sys.stderr.write("Done!\n")
+    
+    nonsynonymous_difference_matrix += chunk_nonsynonymous_difference_matrix
+    nonsynonymous_opportunity_matrix += chunk_nonsynonymous_opportunity_matrix
+
         
     sys.stderr.write("Calculating the SFS...\n")
     chunk_synonymous_freqs = diversity_utils.calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_sample_idxs=largest_clade_idxs, allowed_variant_types = set(['4D']), allowed_genes=core_genes)
@@ -257,6 +291,29 @@ while final_line_number >= 0:
     synonymous_pi_weighted_counts += chunk_synonymous_weights
     nonsynonymous_pi_weighted_counts += chunk_nonsynonymous_weights
 
+
+    
+largest_clade_matrix_idxs_i = []
+largest_clade_matrix_idxs_j = []    
+nonzero_idxs = numpy.nonzero(largest_clade_idxs)[0]
+for i in xrange(0,len(nonzero_idxs)):
+    for j in xrange(i+1,len(nonzero_idxs)):
+        
+        largest_clade_matrix_idxs_i.append(nonzero_idxs[i])
+        largest_clade_matrix_idxs_j.append(nonzero_idxs[j])
+
+largest_clade_matrix_idxs = largest_clade_matrix_idxs_i, largest_clade_matrix_idxs_j
+    
+    
+opportunity_ratio = nonsynonymous_opportunity_matrix[largest_clade_matrix_idxs].sum()*1.0 / synonymous_opportunity_matrix[largest_clade_matrix_idxs].sum() 
+
+pi_ratio = nonsynonymous_difference_matrix[largest_clade_matrix_idxs].sum()*1.0 / synonymous_difference_matrix[largest_clade_matrix_idxs].sum() 
+
+piNpiS = pi_ratio/opportunity_ratio
+
+print "Opportunity ratio:", opportunity_ratio
+print "piN/piS:", piNpiS
+
 sys.stderr.write("%d singletons!\n" % (synonymous_count_sfs[0]+nonsynonymous_count_sfs[0]))
 sys.stderr.write("%d doubletons!\n" % (synonymous_count_sfs[1]+nonsynonymous_count_sfs[1]))
 sys.stderr.write("%d tripletons!\n" % (synonymous_count_sfs[2]+nonsynonymous_count_sfs[2]))
@@ -278,19 +335,20 @@ print nonsynonymous_count_sfs
 sfs_axis.plot(mafs, synonymous_sfs*mafs*(1-mafs)/(synonymous_sfs*mafs*(1-mafs)).sum(), 'b.-',label='4D')
 sfs_axis.plot(mafs, nonsynonymous_sfs*mafs*(1-mafs)/(nonsynonymous_sfs*mafs*(1-mafs)).sum(),'r.-',label='1D')
 
-singleton_fraction = nonsynonymous_count_sfs[0]*1.0/(synonymous_count_sfs[0]+nonsynonymous_count_sfs[0])
-doubleton_fraction =  nonsynonymous_count_sfs[1]*1.0/(synonymous_count_sfs[1]+nonsynonymous_count_sfs[1])
-tripleton_fraction =  nonsynonymous_count_sfs[2]*1.0/(synonymous_count_sfs[2]+nonsynonymous_count_sfs[2])
-restton_fraction =   nonsynonymous_count_sfs[3:].sum()*1.0/((synonymous_count_sfs[3:]+nonsynonymous_count_sfs[3:]).sum())
+singleton_fraction = nonsynonymous_count_sfs[0]*1.0/(synonymous_count_sfs[0])/opportunity_ratio
+doubleton_fraction =  nonsynonymous_count_sfs[1]*1.0/(synonymous_count_sfs[1])/opportunity_ratio
+tripleton_fraction =  nonsynonymous_count_sfs[2]*1.0/(synonymous_count_sfs[2])/opportunity_ratio
+restton_fraction =   nonsynonymous_count_sfs[3:].sum()*1.0/((synonymous_count_sfs[3:]).sum())/opportunity_ratio
 
+sfs_axis.legend(loc='upper right',frameon=False,numpoints=1)
 
-pi_weighted_fraction = nonsynonymous_pi_weighted_counts*1.0/(nonsynonymous_pi_weighted_counts+synonymous_pi_weighted_counts)
+pi_weighted_fraction = nonsynonymous_pi_weighted_counts*1.0/(synonymous_pi_weighted_counts)/opportunity_ratio
 
-count_axis.bar([-0.3],[singleton_fraction*100],width=0.6,color='r',linewidth=0)
-count_axis.bar([1-0.3],[doubleton_fraction*100],width=0.6,color='r',linewidth=0)
-count_axis.bar([2-0.3],[tripleton_fraction*100],width=0.6,color='r',linewidth=0)
-#count_axis.bar([3-0.3],[restton_fraction*100],width=0.6,color='r',linewidth=0)
-count_axis.bar([3-0.3],[pi_weighted_fraction*100],width=0.6,color='r',linewidth=0)
+count_axis.bar([-0.3],[singleton_fraction],width=0.6,color='r',linewidth=0)
+count_axis.bar([1-0.3],[doubleton_fraction],width=0.6,color='r',linewidth=0)
+count_axis.bar([2-0.3],[tripleton_fraction],width=0.6,color='r',linewidth=0)
+#count_axis.bar([3-0.3],[restton_fraction],width=0.6,color='r',linewidth=0)
+count_axis.bar([3-0.3],[pi_weighted_fraction],width=0.6,color='r',linewidth=0)
 
 
 sys.stderr.write("Saving figure...\t")

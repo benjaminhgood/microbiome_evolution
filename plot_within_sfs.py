@@ -103,7 +103,7 @@ for i in xrange(0,len(desired_samples)):
         #    A=D
         
         f = A*1.0/D
-        #f = min([f,1-f])
+        f = min([f,1-f])
         
         if is_polymorphic_truong:
             freqs.append(f)

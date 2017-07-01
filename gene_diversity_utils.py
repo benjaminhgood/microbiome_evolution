@@ -1,4 +1,5 @@
 import numpy
+import sys
 
 # For each gene in gene_depth_matrix, calculates # of samples 
 # in which it is "present". Returns vector of prevalences
@@ -26,13 +27,14 @@ def calculate_gene_numbers(gene_depth_matrix, marker_coverages, min_copynum=0.5)
 # Returns: matrix of # of gene differences
 #          matrix of # of opportunities 
 #          --> we should chat about what the denominator should be!
-def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4):
+def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4, include_high_copynum=True):
 
     marker_coverages = numpy.clip(marker_coverages,1,1e09)
     gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)*1.0/marker_coverages[None,:]
 
     # copynum is between 0.5 and 2
     is_good_copynum = (gene_copynum_matrix>0.5)*(gene_copynum_matrix<2)
+    is_low_copynum = (gene_copynum_matrix<2)
   
     # now size is about to get a lot bigger
     num_genes = gene_copynum_matrix.shape[0]
@@ -50,16 +52,18 @@ def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_cover
         upper_gene_idx = min([(i+1)*chunk_size, num_genes])
     
         sub_gene_copynum_matrix = gene_copynum_matrix[lower_gene_idx:upper_gene_idx,:] 
-        sub_is_good_copynum = is_good_copynum[lower_gene_idx:upper_gene_idx,:] 
+        sub_is_good_copynum = is_good_copynum[lower_gene_idx:upper_gene_idx,:]
+        sub_is_low_copynum = is_low_copynum[lower_gene_idx:upper_gene_idx,:]
     
         is_good_opportunity = numpy.logical_or(sub_is_good_copynum[:,:,None],sub_is_good_copynum[:,None,:])
+        if not include_high_copynum:
+            is_good_opportunity *= numpy.logical_and(sub_is_low_copynum[:,:,None],sub_is_low_copynum[:,None,:])
 
         fold_change_matrix = numpy.fabs( numpy.log2(sub_gene_copynum_matrix[:,:,None]/sub_gene_copynum_matrix[:,None,:]) ) * is_good_opportunity
         gene_hamming_matrix += (fold_change_matrix>=min_log2_fold_change).sum(axis=0)
         num_opportunities += is_good_opportunity.sum(axis=0)
     
     return gene_hamming_matrix, num_opportunities
-
 
 
 def calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages, min_log2_fold_change=4):

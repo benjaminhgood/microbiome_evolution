@@ -63,8 +63,8 @@ alpha = 0.5 # Confidence interval range for rate estimates
 low_pi_threshold = 1e-03
 low_divergence_threshold = 1e-03
 min_change = 0.8
-#allowed_variant_types = set(['1D','2D','3D','4D'])
-allowed_variant_types = set(['4D'])
+allowed_variant_types = set(['1D','2D','3D','4D'])
+#allowed_variant_types = set(['4D'])
 
 
 # Load subject and sample metadata
@@ -86,16 +86,16 @@ sys.stderr.write("Proceeding with %d haploid samples!\n" % len(snp_samples))
 #
 ####################################################
 
-pylab.figure(1,figsize=(7,2))
+pylab.figure(1,figsize=(6,2))
 fig = pylab.gcf()
 # make three panels panels
 outer_grid  = gridspec.GridSpec(2,1, height_ratios=[1,2], hspace=0.25)
 
-divergence_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[4,1],
-                subplot_spec=outer_grid[0], wspace=0.025)
-                
-dendrogram_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[6,1],
-                subplot_spec=outer_grid[1], wspace=0.025)
+divergence_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[4,1], subplot_spec=outer_grid[0], wspace=0.025)
+                 
+dendrogram_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[6,1], subplot_spec=outer_grid[1], wspace=0.025)
+
+
 
 ###################
 #
@@ -144,7 +144,9 @@ zoomed_snp_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-dendrogram_axis = plt.Subplot(fig, dendrogram_grid[0])
+#dendrogram_axis = plt.Subplot(fig, dendrogram_grid[0])
+dendrogram_axis = plt.Subplot(fig, outer_grid[1])
+
 fig.add_subplot(dendrogram_axis)
 
 dendrogram_axis.set_ylim([1e-06,1e-01])
@@ -166,16 +168,16 @@ dendrogram_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-inconsistency_axis = plt.Subplot(fig, dendrogram_grid[1])
-fig.add_subplot(inconsistency_axis)
+#inconsistency_axis = plt.Subplot(fig, dendrogram_grid[1])
+#fig.add_subplot(inconsistency_axis)
 
-inconsistency_axis.set_xlabel('% inconsistent SNPs')
-inconsistency_axis.set_yticklabels([])
+#inconsistency_axis.set_xlabel('% inconsistent SNPs')
+#inconsistency_axis.set_yticklabels([])
 
-inconsistency_axis.spines['top'].set_visible(False)
-inconsistency_axis.spines['right'].set_visible(False)
-inconsistency_axis.get_xaxis().tick_bottom()
-inconsistency_axis.get_yaxis().tick_left()
+#inconsistency_axis.spines['top'].set_visible(False)
+#inconsistency_axis.spines['right'].set_visible(False)
+#inconsistency_axis.get_xaxis().tick_bottom()
+#inconsistency_axis.get_yaxis().tick_left()
 
 ##############################################################################
 #
@@ -413,10 +415,10 @@ dendrogram_axis.set_xticks([])
 dendrogram_axis.set_xlim([xmin,xmax])
 dendrogram_axis.set_ylim([yplotmin/1.4,yplotmax])
 
-inconsistency_axis.semilogy([100,100],[yplotmin/1.4, yplotmax],'-',color='0.7', linewidth=0.25)
-inconsistency_axis.set_ylim([yplotmin/1.4,yplotmax])
-inconsistency_axis.set_yticklabels([])
-inconsistency_axis.set_xlim([0,105])
+#inconsistency_axis.semilogy([100,100],[yplotmin/1.4, yplotmax],'-',color='0.7', linewidth=0.25)
+#inconsistency_axis.set_ylim([yplotmin/1.4,yplotmax])
+#inconsistency_axis.set_yticklabels([])
+#inconsistency_axis.set_xlim([0,105])
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_2%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')

@@ -99,12 +99,13 @@ while final_line_number >= 0:
     
     snp_samples = dummy_samples
      
-substitution_rate = snp_difference_matrix*1.0/snp_opportunity_matrix 
+substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
+substitution_rate = numpy.clip(substitution_rate,1e-09,10)
 
 max_ds = numpy.array([1e-05, 1e-04, 1e-03, 1e-02])
 
 #max_ds = numpy.logspace(-4,-1,19)
-fine_grained_idxs, fine_grained_cluster_list = diversity_utils.cluster_samples(substitution_rate, min_d=1e-07, max_ds=max_ds)
+fine_grained_idxs, fine_grained_cluster_list = diversity_utils.cluster_samples(substitution_rate, min_d=1e-09, max_ds=max_ds)
 
 
 # Plot phylogenetic consistency vs time

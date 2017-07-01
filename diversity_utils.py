@@ -472,7 +472,7 @@ def calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_sample_i
     pooled_freqs = numpy.array(pooled_freqs)
     return pooled_freqs
 
-def calculate_pooled_counts(allele_counts_map, passed_sites_map, allowed_sample_idxs=[], allowed_variant_types = set(['1D','2D','3D','4D']), allowed_genes=set([]),pi_min_k=1):
+def calculate_pooled_counts(allele_counts_map, passed_sites_map, allowed_sample_idxs=[], allowed_variant_types = set(['1D','2D','3D','4D']), allowed_genes=set([]),pi_min_k=1,lower_threshold=0.2,upper_threshold=0.8):
 
     if len(allowed_sample_idxs)==0:
         # all samples are allowed
@@ -552,18 +552,28 @@ def calculate_singletons(allele_counts_map, passed_sites_map, allowed_sample_idx
             min_prevalences = 1
             max_prevalences = (passed_sites_matrix).sum(axis=1)-1
     
-            minor_sites = (prevalences==min_prevalences)
-            major_sites = (prevalences==max_prevalences)
+            minor_sites = numpy.isclose(prevalences, min_prevalences)
+            major_sites = numpy.isclose(prevalences, max_prevalences)
             
-            minor_singleton_idxs = numpy.nonzero(((genotype_matrix==1)*(passed_sites_matrix>0))[minor_sites])[1]
-
-            major_singleton_idxs = numpy.nonzero(((genotype_matrix==0)*(passed_sites_matrix>0))[major_sites])[1]
-
-            if len(minor_singleton_idxs) != minor_sites.sum():
-                print "Problem with minor sites:", len(minor_singleton_idxs), minor_sites.sum()
+            alt_genotypes = ((genotype_matrix>0.5)*(passed_sites_matrix>0))[minor_sites]
+            ref_genotypes = ((genotype_matrix<0.5)*(passed_sites_matrix>0))[major_sites]
             
-            if len(major_singleton_idxs) != major_sites.sum():
-                print "Problem with major sites:", len(major_singleton_idxs), major_sites.sum()
+            minor_singleton_idxs = numpy.nonzero(alt_genotypes)[1]
+            major_singleton_idxs = numpy.nonzero(ref_genotypes)[1]
+
+            #print "Alts:"
+            #print alt_genotypes
+            #print minor_singleton_idxs
+            #print "Refs:"
+            #print ref_genotypes
+            #print major_singleton_idxs
+            
+
+            #if len(minor_singleton_idxs) != minor_sites.sum():
+            #    print "Problem with minor sites:", len(minor_singleton_idxs), minor_sites.sum()
+            
+            #if len(major_singleton_idxs) != major_sites.sum():
+            #    print "Problem with major sites:", len(major_singleton_idxs), major_sites.sum()
                 
 
             for idx in minor_singleton_idxs:
@@ -575,7 +585,8 @@ def calculate_singletons(allele_counts_map, passed_sites_map, allowed_sample_idx
     return singletons
 
 
-def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=config.fixation_min_change):
+def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
+upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min_change):
 
     total_genes = set(passed_sites_map.keys())
 
@@ -603,19 +614,23 @@ def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_varia
             if len(allele_counts)==0:
                 continue
             
-
             depths = allele_counts.sum(axis=2)
-            alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
-            alt_freqs[alt_freqs<min_freq] = 0.0
-            alt_freqs[alt_freqs>=(1-min_freq)] = 1.0
+            freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
+            
+            intermediate_freq_sites = (freqs>lower_threshold)*(freqs<upper_threshold)
+   
             passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
-    
-            delta_freq = numpy.fabs(alt_freqs[:,:,None]-alt_freqs[:,None,:])
-            delta_freq[passed_depths==0] = 0
-            delta_freq[delta_freq<min_change] = 0
-        
-            fixation_matrix += delta_freq.sum(axis=0)
-        
+            
+            bad_sites = numpy.logical_or(intermediate_freq_sites[:,:,None],intermediate_freq_sites[:,None,:])*passed_depths
+            
+            delta_freqs = numpy.fabs(freqs[:,:,None]-freqs[:,None,:])*passed_depths
+            
+            fixations = (delta_freqs>=min_change)
+            
+            fixation_matrix += fixations.sum(axis=0) # sum over sites
+            
+            passed_sites -= bad_sites.sum(axis=0)
+            
     return fixation_matrix, passed_sites  
 
 ####
@@ -1451,7 +1466,7 @@ def calculate_haploid_samples(species_name, min_coverage=config.min_median_cover
     for sample in desired_samples:
         within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample])
     
-        if within_sites <= config.threshold_within_between_fraction*between_sites:
+        if within_sites <= threshold_within_between_fraction*between_sites:
             haploid_samples.append(sample)    
             
     return numpy.array(haploid_samples)
