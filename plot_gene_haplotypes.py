@@ -108,8 +108,8 @@ for gene_name in allele_counts_map.keys():
 
         # Cluster the haplotypes by identity
         num_samples=len(desired_samples)
-        os.system('python ~/ben_nandita_hmp_scripts/H12_H2H1_MIDAS.py ~/tmp_intermediate_files/tmp_consensus_'+ species_name +'.txt ' + str(num_samples) + ' -o tmp_cluster_'+ species_name +'.txt -g ' + gene_name)  
+        os.system('python ~/ben_nandita_hmp_scripts/H12_H2H1_MIDAS.py ~/tmp_intermediate_files/tmp_consensus_'+ species_name +'.txt ' + str(num_samples) + ' -o ~/tmp_intermediate_files/tmp_cluster_'+ species_name +'.txt -g ' + gene_name)  
 
         # Plot the haplotypes with R
         os.system('mkdir -p ~/ben_nandita_hmp_analysis/hap_plots/' + species_name)
-        os.system('Rscript ~/ben_nandita_hmp_scripts/visualizeHaplotypesMicrobiome3.R tmp_cluster_'+ species_name+'.txt '+ str(num_samples) + ' ' +  str(gene_length) + ' ~/tmp_intermediate_files/tmp_consensus_'+ species_name+'.txt ~/tmp_intermediate_files/tmp_anno_' + species_name +'.txt ~/ben_nandita_hmp_analysis/hap_plots/' + species_name +'/hap_plot_' + gene_name +'.pdf ' + gene_name)
+        os.system('Rscript ~/ben_nandita_hmp_scripts/visualizeHaplotypesMicrobiome3.R ~/tmp_intermediate_files/tmp_cluster_'+ species_name+'.txt '+ str(num_samples) + ' ' +  str(gene_length) + ' ~/tmp_intermediate_files/tmp_consensus_'+ species_name+'.txt ~/tmp_intermediate_files/tmp_anno_' + species_name +'.txt ~/ben_nandita_hmp_analysis/hap_plots/' + species_name +'/hap_plot_' + gene_name +'.pdf ' + gene_name)

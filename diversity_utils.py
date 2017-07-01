@@ -320,7 +320,7 @@ def generate_haplotype(allele_counts_4D, allele_counts_1D, location_dictionary, 
     #s_consensus='' # store the haplotypes in a string for printing out later
     #s_annotation=''
     outFile_consensus=open(os.path.expanduser('~/tmp_intermediate_files/tmp_consensus_%s.txt') % species_name ,'w')
-    outFile_anno=open(os.path.expanduser('tmp_anno_%s.txt') % species_name ,'w')
+    outFile_anno=open(os.path.expanduser('~/tmp_intermediate_files/tmp_anno_%s.txt') % species_name ,'w')
 
     for loc in range(0, len(locations)):
         location=str(int(locations[loc])) 
