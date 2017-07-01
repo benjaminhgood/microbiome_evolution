@@ -225,6 +225,8 @@ sys.stderr.write("(not just core genes...)\n")
 pi_matrix_syn = numpy.array([])
 avg_pi_matrix_syn = numpy.array([])
 snp_difference_matrix = numpy.array([])
+snp_difference_matrix_mutation = numpy.array([])
+snp_difference_matrix_reversion = numpy.array([])
 snp_opportunity_matrix = numpy.array([])
 final_line_number = 0
 
@@ -238,14 +240,20 @@ while final_line_number >= 0:
     
     # Calculate fixation matrix
     sys.stderr.write("Calculating matrix of snp differences...\n")
-    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix =     diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)   # 
+    chunk_snp_difference_matrix_mutation, chunk_snp_difference_matrix_reversion, chunk_snp_opportunity_matrix =     diversity_utils.calculate_fixation_matrix_mutation_reversion(allele_counts_map, passed_sites_map, min_change=min_change)   # 
     sys.stderr.write("Done!\n")
     
     if snp_difference_matrix.shape[0]==0:
-        snp_difference_matrix = numpy.zeros_like(chunk_snp_difference_matrix)*1.0
+        snp_difference_matrix = numpy.zeros_like(chunk_snp_difference_matrix_mutation)*1.0
+        snp_difference_matrix_mutation = numpy.zeros_like(snp_difference_matrix)*1.0
+        snp_difference_matrix_reversion = numpy.zeros_like(snp_difference_matrix)*1.0
         snp_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)*1.0
     
-    snp_difference_matrix += chunk_snp_difference_matrix
+    snp_difference_matrix += chunk_snp_difference_matrix_mutation+chunk_snp_difference_matrix_reversion
+    snp_difference_matrix_mutation += chunk_snp_difference_matrix_mutation
+    snp_difference_matrix_reversion += chunk_snp_difference_matrix_reversion
+    
+    
     snp_opportunity_matrix += chunk_snp_opportunity_matrix
 
     snp_samples = dummy_samples
@@ -271,7 +279,9 @@ pangenome_prevalences.sort()
         
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculating matrix of gene differences...\n")
-gene_difference_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4, include_high_copynum=include_high_copynum)
+gene_gain_matrix, gene_loss_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages, min_log2_fold_change=4, include_high_copynum=include_high_copynum)
+
+gene_difference_matrix = gene_gain_matrix + gene_loss_matrix
 
 # Now need to make the gene samples and snp samples match up
 desired_samples = gene_samples
@@ -291,9 +301,7 @@ sys.stderr.write("%d temporal samples\n" % len(desired_same_subject_idxs[0]))
 
 snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)
 gene_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, gene_samples)
-
-
-    
+  
 
 same_sample_snp_idxs  = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map,  desired_same_sample_idxs)  
 same_sample_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_same_sample_idxs)  
@@ -308,6 +316,15 @@ diff_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene
 
 same_subject_snp_plowers = []
 same_subject_snp_puppers = []
+
+same_subject_snp_changes = []
+same_subject_snp_mutations = []
+same_subject_snp_reversions = []
+
+same_subject_gene_changes = []
+same_subject_gene_gains = []
+same_subject_gene_losses = []
+
 same_subject_gene_plowers = []
 same_subject_gene_puppers = []
 within_host_gene_idx_map = {}
@@ -320,33 +337,29 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
     snp_i = same_subject_snp_idxs[0][sample_pair_idx]
     snp_j = same_subject_snp_idxs[1][sample_pair_idx]
     
-    print sample_order_map[snp_samples[snp_i]], sample_order_map[snp_samples[snp_j]]
+    snp_changes = snp_difference_matrix[snp_i,snp_j]
+    snp_mutations = snp_difference_matrix_mutation[snp_i,snp_j]
+    snp_reversions = snp_difference_matrix_reversion[snp_i,snp_j]
 
     
+    same_subject_snp_changes.append(snp_changes)
+    same_subject_snp_mutations.append(snp_mutations)
+    same_subject_snp_reversions.append(snp_reversions)
     
-#   
-    plower = snp_difference_matrix[snp_i,snp_j]
-    pupper = plower*1.1
- 
-    #plower,pupper = stats_utils.calculate_poisson_rate_interval(snp_difference_matrix[snp_i, snp_j], snp_opportunity_matrix[snp_i, snp_j],alpha)
-#    
-    same_subject_snp_plowers.append(plower)
-    same_subject_snp_puppers.append(pupper)
-#    
-    #snp_differences = diversity_utils.calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, min_change=min_change)
-#
     i = same_subject_gene_idxs[0][sample_pair_idx]
     j = same_subject_gene_idxs[1][sample_pair_idx]
     
     if marker_coverages[i]<min_coverage or marker_coverages[j]<min_coverage:
         # can't look at gene changes!
-        plower = -1
-        pupper = -1
+        gene_changes = -1
+        gene_gains = -1
+        gene_losses = -1
+        
     else:
     
     
     
-        gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages)
+        gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages,include_high_copynum=False)
 
         if snp_substitution_rate[snp_i,snp_j] < modification_divergence_threshold:
     
@@ -367,23 +380,23 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 #
 
         else:
-            print "Potential modification"
-            print sample_order_map[snp_samples[snp_i]]
-            print sample_order_map[snp_samples[snp_j]]
+            print "Potential modification:", sample_order_map[snp_samples[snp_i]], sample_order_map[snp_samples[snp_j]]
 
-        plower = gene_difference_matrix[i,j]
-        pupper = plower*1.1
-    #plower,pupper = stats_utils.calculate_poisson_rate_interval(gene_difference_matrix[i,j], gene_opportunity_matrix[i,j])
-#    
-    same_subject_gene_plowers.append(plower)
-    same_subject_gene_puppers.append(pupper)
-#
+        num_gene_changes = gene_difference_matrix[i,j]
+        num_gene_gains = gene_gain_matrix[i,j]
+        num_gene_losses = gene_loss_matrix[i,j]
+        
+    same_subject_gene_changes.append(num_gene_changes)
+    same_subject_gene_gains.append(num_gene_gains)
+    same_subject_gene_losses.append(num_gene_losses)
+    
 
 # clip lower bounds 
-same_subject_gene_plowers = numpy.clip(same_subject_gene_plowers,0.3,1e09)
-same_subject_snp_plowers = numpy.clip(same_subject_snp_plowers,0.3,1e09)
-# Sort all four lists by ascending lower bound on SNP changes, then gene changes
-same_subject_snp_plowers, same_subject_gene_plowers, same_subject_snp_puppers,  same_subject_gene_puppers = (numpy.array(x) for x in zip(*sorted(zip(same_subject_snp_plowers, same_subject_gene_plowers, same_subject_snp_puppers, same_subject_gene_puppers))))
+same_subject_gene_changes = numpy.clip(same_subject_gene_changes,0.3,1e09)
+same_subject_snp_changes = numpy.clip(same_subject_snp_changes,0.3,1e09)
+
+# Sort all lists by ascending lower bound on SNP changes, then gene changes
+same_subject_snp_changes, same_subject_gene_changes, same_subject_snp_reversions, same_subject_snp_mutations, same_subject_gene_gains, same_subject_gene_losses = (numpy.array(x) for x in zip(*sorted(zip(same_subject_snp_changes, same_subject_gene_changes, same_subject_snp_reversions, same_subject_snp_mutations, same_subject_gene_gains, same_subject_gene_losses))))
 
 
 diff_subject_snp_plowers = []
@@ -409,7 +422,7 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
         
     i = diff_subject_gene_idxs[0][sample_pair_idx]
     j = diff_subject_gene_idxs[1][sample_pair_idx]
-    gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages)
+    gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages,include_high_copynum=False)
 
     if snp_substitution_rate[snp_i,snp_j] < clade_divergence_threshold:
     
@@ -529,15 +542,17 @@ low_divergence_between_host_gene_prevalences = numpy.array(low_divergence_betwee
 
 
 y = 0
-for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(same_subject_snp_plowers, same_subject_snp_puppers, same_subject_gene_plowers, same_subject_gene_puppers):
+for snp_changes, snp_mutations, snp_reversions, gene_changes, gene_gains, gene_losses in zip(same_subject_snp_changes, same_subject_snp_mutations, same_subject_snp_reversions, same_subject_gene_changes, same_subject_gene_gains, same_subject_gene_losses):
 
     y-=2
     
     #within_snp_axis.semilogy([y,y], [snp_plower,snp_pupper],'g-',linewidth=0.25)
-    within_snp_axis.semilogy([y], [snp_plower],'g.',markersize=1.5)
+    within_snp_axis.semilogy([y], [snp_changes],'g.',markersize=1.5)
         
     #within_gene_axis.semilogy([y,y], [gene_plower,gene_pupper], 'g-',linewidth=0.25)
-    within_gene_axis.semilogy([y],[gene_plower],  'g.',markersize=1.5)
+    within_gene_axis.semilogy([y],[gene_changes],  'g.',markersize=1.5)
+
+    print "Mutations=%g, Reversions=%g, Gains=%g, Losses=%g" % (snp_mutations, snp_reversions, gene_gains, gene_losses)
 
 y-=4
 

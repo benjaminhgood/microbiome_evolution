@@ -632,6 +632,62 @@ upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min
             passed_sites -= bad_sites.sum(axis=0)
             
     return fixation_matrix, passed_sites  
+    
+    
+# same as above, but returns two matrices with counts of 
+# mutations (i->j away from consensus allele) and
+# reversion (i->j toward consensus allele)
+def calculate_fixation_matrix_mutation_reversion(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
+upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min_change):
+
+    total_genes = set(passed_sites_map.keys())
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+    
+    allowed_genes = (allowed_genes & total_genes)     
+    
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+                    
+    fixation_matrix_mutation = numpy.zeros_like(passed_sites_map.values()[0].values()[0]['sites'])*1.0 
+    fixation_matrix_reversion = numpy.zeros_like(fixation_matrix_mutation)*1.0
+     
+    passed_sites = numpy.zeros_like(fixation_matrix_mutation)*1.0
+    
+    for gene_name in allowed_genes:
+        
+        for variant_type in passed_sites_map[gene_name].keys():
+             
+            if variant_type not in allowed_variant_types:
+                continue
+        
+            passed_sites += passed_sites_map[gene_name][variant_type]['sites']
+   
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
+            if len(allele_counts)==0:
+                continue
+            
+            depths = allele_counts.sum(axis=2)
+            freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
+            
+            intermediate_freq_sites = (freqs>lower_threshold)*(freqs<upper_threshold)
+   
+            passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
+            
+            bad_sites = numpy.logical_or(intermediate_freq_sites[:,:,None],intermediate_freq_sites[:,None,:])*passed_depths
+            
+            delta_freqs = (freqs[:,:,None]-freqs[:,None,:])*passed_depths
+            
+            mutations = (delta_freqs>=min_change)
+            reversions = (delta_freqs<=(-1*min_change))
+            
+            fixation_matrix_mutation += mutations.sum(axis=0) # sum over sites
+            fixation_matrix_reversion += reversions.sum(axis=0) # sum over sites
+            
+            passed_sites -= bad_sites.sum(axis=0)
+            
+    return fixation_matrix_mutation, fixation_matrix_reversion, passed_sites  
 
 ####
 #
