@@ -20,6 +20,7 @@ import numpy
 
 import diversity_utils
 import gene_diversity_utils
+import sfs_utils
 import calculate_substitution_rates
 import calculate_temporal_changes
 
@@ -247,6 +248,11 @@ reference_genes = parse_midas_data.load_reference_genes(species_name)
 # Analyze SNPs, looping over chunk sizes. 
 # Clunky, but necessary to limit memory usage on cluster
 
+import sfs_utils
+sys.stderr.write("Loading SFSs for %s...\t" % species_name)
+samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])) 
+sys.stderr.write("Done!\n")
+
 
 sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
 substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
@@ -380,6 +386,9 @@ within_host_next_fold_changes = []
 within_host_null_next_fold_changes = []
 within_host_between_next_fold_changes = []
 
+total_modification_error_rate = 0
+total_modifications = 0
+
 for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 #    
     snp_i = same_subject_snp_idxs[0][sample_pair_idx]
@@ -391,17 +400,30 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
     
     mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
     
+        
+    
     num_mutations = len(mutations)
     num_reversions = len(reversions)
     num_snp_changes = num_mutations+num_reversions
     
+    perr = diversity_utils.calculate_fixation_error_rate(sfs_map, sample_i, sample_j)[0] * snp_opportunity_matrix[snp_i, snp_j]
+    
+    if perr>1:
+        num_mutations = 0
+        num_reversions = 0
+        num_snp_changes = -1
     
     same_subject_snp_changes.append(num_snp_changes)
     same_subject_snp_mutations.append(num_mutations)
     same_subject_snp_reversions.append(num_reversions)
     
-    if num_snp_changes>0:
-        print sample_i, sample_j, num_snp_changes, num_mutations, num_reversions
+    if snp_substitution_rate[snp_i, snp_j] < modification_divergence_threshold:
+        if perr<=1:
+            total_modification_error_rate += perr
+            total_modifications += num_snp_changes
+            
+    if num_snp_changes>-1:
+        print sample_i, sample_j, num_snp_changes, num_mutations, num_reversions, perr
     
     i = same_subject_gene_idxs[0][sample_pair_idx]
     j = same_subject_gene_idxs[1][sample_pair_idx]
@@ -526,13 +548,12 @@ within_host_next_fold_changes = numpy.power(2, within_host_next_fold_changes)
 within_host_between_next_fold_changes = numpy.power(2, within_host_between_next_fold_changes)
 within_host_null_next_fold_changes = numpy.power(2, within_host_null_next_fold_changes)
 
-
+print "%g modifications, %g expected" % (total_modifications, total_modification_error_rate)
 
 
 # Sort all lists by ascending lower bound on SNP changes, then gene changes
 same_subject_snp_changes, same_subject_gene_changes, same_subject_snp_reversions, same_subject_snp_mutations, same_subject_gene_gains, same_subject_gene_losses = (numpy.array(x) for x in zip(*sorted(zip(same_subject_snp_changes, same_subject_gene_changes, same_subject_snp_reversions, same_subject_snp_mutations, same_subject_gene_gains, same_subject_gene_losses))))
 
-print same_subject_snp_changes
 
 # Construct site frequency spectra
 

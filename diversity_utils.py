@@ -13,6 +13,7 @@ import parse_midas_data
 import parse_HMP_data
 import stats_utils
 import os.path
+import sfs_utils
 
 # Calls consensus genotypes from matrix of allele counts
 #
@@ -1624,7 +1625,10 @@ def calculate_temporal_samples(species_name, min_coverage=config.min_median_cove
 
 
 
-def calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=[0.6]):
+def calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=[0.6], frequency_bins = numpy.linspace(0,1,21)):
+    
+    
+    dfs = numpy.array(dfs)
 
     dummy_fs, pfs_i = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_i],bins=frequency_bins)
     dummy_fs, pfs_j = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_j],bins=frequency_bins)
@@ -1648,14 +1652,13 @@ def calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=[0.6]):
     pD2s = pD2s[pD2s>0]
     
     
-    perrs.append({df:0 for df in dfs})
+    perrs = {df:0 for df in dfs}
     for D1,pD1 in zip(D1s,pD1s):
         for D2,pD2 in zip(D2s,pD2s):
             for f,pf in zip(fs,pfs):
                 for df in dfs:
-                    perrs[-1][df] += binom.cdf(D1*(1-df)/2, D1, f)*binom.cdf(D2*(1-df)/2, D2, 1-f)*pD1*pD2*pf
+                    perrs[df] += binom.cdf(D1*(1-df)/2, D1, f)*binom.cdf(D2*(1-df)/2, D2, 1-f)*pD1*pD2*pf
     
-    if True: #ploidy_i=='haploid' and ploidy_j=='haploid':
-        print sample_i, D1s[len(D1s)/2], ploidy_i, sample_j, ploidy_j, D2s[len(D2s)/2], perrs[-1][0.6]*3e06    
-    
+    perrs = numpy.array([perrs[df] for df in dfs])
+    return perrs
 
