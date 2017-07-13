@@ -170,7 +170,7 @@ for species_idx in xrange(0,len(species_names)):
     median_pSs.append( numpy.median(pSs) )
     median_pNs.append( numpy.median(pNs) )
     
-    divergence_axis.loglog(pSs, pNs/pSs/(median_pNs/median_pSs), '.', markersize=2,alpha=0.5,markeredgewidth=0)
+    divergence_axis.loglog(pSs, pNs/pSs/(median_pNs[-1]/median_pSs[-1]), '.', markersize=2,alpha=0.5,markeredgewidth=0)
  
 median_pSs = numpy.array(median_pSs)
 median_pNs = numpy.array(median_pNs)   
