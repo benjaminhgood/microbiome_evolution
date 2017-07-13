@@ -1614,7 +1614,27 @@ def parse_subject_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp
     return subject_sample_time_map 
 
 
+###################################################################################
+# reformat the subject_sample_time_map so that the samples that have been combined (because of visno replicates) are now in the dictionary instead of old samples that were merged into one.
+##################################################################
 
+def collapse_visno_reps_subject_sample_time_map(subject_sample_time_map):
+
+    new_subject_sample_time_map={}
+    for subject in subject_sample_time_map:
+        new_subject_sample_time_map[subject]={}
+        for visno in subject_sample_time_map[subject].keys(): # loop over samples
+            new_subject_sample_time_map[subject][visno]=[]
+            if len(subject_sample_time_map[subject][visno]) >1:
+                sample_name=subject_sample_time_map[subject][visno][0][0] + 'c'
+                day=subject_sample_time_map[subject][visno][0][1]
+            else:
+                sample_name=subject_sample_time_map[subject][visno][0][0]
+                day =subject_sample_time_map[subject][visno][0][1]
+
+            new_subject_sample_time_map[subject][visno].append([sample_name,day])
+
+    return new_subject_sample_time_map
 ########################################################################################
 #
 # Prunes time data for HMP samples 
@@ -1797,6 +1817,27 @@ def get_ref_genome_ids(desired_species_name):
             genome_ids.append(genome_id)
     return genome_ids
 
+
+##########################################################
+#
+# Return a dictionary of all genome IDs and thier species id
+#
+#########################################################
+def genome_ids_dictionary():
+    
+    genome_ids={}
+    genome_info = open("%sgenome_info.txt" % midas_directory)
+    genome_info.readline() #header
+    for line in genome_info:
+        items = line.split("\t")
+        genome_id = items[0].strip()
+        species_id=items[5].strip() 
+        rep_genome=items[2]
+        genome_ids[genome_id]=[species_id, rep_genome]
+    return genome_ids
+
+
+
 ##########################################################
 #
 # parse the intermediate files of MIDAS to obtain CNV counts for 99% gene centroids
@@ -1851,6 +1892,23 @@ def parse_99_percent_genes(desired_species_name,samples, allowed_genes=[]):
                 
                 
 
+##########################################################
+#
+# parse the pre-merged species file to get a list of species at at least 3x coverage
+#
+#########################################################
+def parse_intermediate_species_file(sample_id):
+    inFN='/pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/%s/species/species_profile.txt' %sample_id
+    inFile=open(inFN,'r')
+
+    species_list=[]
+    for line in inFile:
+        items=line.strip().split('\t')
+        species_id=items[0]
+        coverage=float(items[2])
+        if coverage >=3.0: 
+            species_list.append(coverage)
+        
 
 #######################    
 
