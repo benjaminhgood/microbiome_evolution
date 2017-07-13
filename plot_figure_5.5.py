@@ -58,8 +58,14 @@ min_change = 0.8
 min_sample_size = 33 # 46 gives at least 1000 pairs
 allowed_variant_types = set(['1D','2D','3D','4D'])
 
-divergence_matrices = {}
+syn_differences = {}
+syn_opportunities = {}
+non_differences = {}
+non_opportunities = {}
+
 good_species_list = parse_midas_data.parse_good_species_list()
+if debug:
+    good_species_list = good_species_list[0:2]
 
 sys.stderr.write("Loading sample metadata...\n")
 subject_sample_map = parse_HMP_data.parse_subject_sample_map()
@@ -87,28 +93,41 @@ for species_name in good_species_list:
     # Load divergence matrices 
     sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
     substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
-    sys.stderr.write("Calculating matrix...\n")
-    dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'core', allowed_samples=snp_samples)
+    sys.stderr.write("Calculating matrices...\n")
+    dummy_samples, syn_difference_matrix, syn_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '4D', allowed_samples=snp_samples)
+    dummy_samples, non_difference_matrix, non_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '1D', allowed_samples=snp_samples)
     snp_samples = dummy_samples
-    sys.stderr.write("Done!\n")
-
-    snp_substitution_matrix = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
     
-    divergence_matrices[species_name] = snp_substitution_matrix
-
+    syn_differences[species_name] = []
+    syn_opportunities[species_name] = []
+    non_differences[species_name] = []
+    non_opportunities[species_name] = []
+    
+    for i in xrange(0, syn_difference_matrix.shape[0]):
+        for j in xrange(i+1, syn_difference_matrix.shape[0]):
+            
+            if syn_opportunity_matrix[i,j]>0 and non_opportunity_matrix[i,j]>0:
+            
+                syn_differences[species_name].append(syn_difference_matrix[i,j]+1)
+                syn_opportunities[species_name].append(syn_opportunity_matrix[i,j]+1)
+                
+                non_differences[species_name].append( non_difference_matrix[i,j] + non_opportunity_matrix[i,j]*1.0/syn_opportunity_matrix[i,j])
+                non_opportunities[species_name].append(non_opportunity_matrix[i,j] + non_opportunity_matrix[i,j]*1.0/syn_opportunity_matrix[i,j])
         
+                
+            
+    syn_differences[species_name] = numpy.array(syn_differences[species_name])
+    syn_opportunities[species_name] = numpy.array(syn_opportunities[species_name])
+    
+    non_differences[species_name] = numpy.array(non_differences[species_name])
+    non_opportunities[species_name] = numpy.array(non_opportunities[species_name])    
 
 species_names = []
-sample_sizes = []
 
-for species_name in divergence_matrices.keys():
+for species_name in syn_differences.keys():
     species_names.append(species_name)
-    sample_sizes.append( divergence_matrices[species_name].shape[0] )
     
-# sort in descending order of sample size
-# Sort by num haploids    
-sample_sizes, species_names = zip(*sorted(zip(sample_sizes, species_names),reverse=True))
-    
+        
 sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
         
 
@@ -120,7 +139,7 @@ sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(7,1))
+pylab.figure(1,figsize=(3.42,1.7))
 fig = pylab.gcf()
 # make three panels panels
 outer_grid  = gridspec.GridSpec(1,1)
@@ -128,69 +147,41 @@ outer_grid  = gridspec.GridSpec(1,1)
 divergence_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(divergence_axis)
 
-divergence_axis.set_ylabel('Divergence, $d$')
-divergence_axis.set_ylim([1e-06,1e-01])
-divergence_axis.set_xlim([-1,len(species_names)])
-
-xticks = numpy.arange(0,len(species_names))
-#xticklabels = ["%s (%d)" % (species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
-xticklabels = ["%s" % (species_names[i]) for i in xrange(0,len(sample_sizes))]
-
-divergence_axis.set_xticks(xticks)
-divergence_axis.set_xticklabels(xticklabels, rotation='vertical',fontsize=4)
+divergence_axis.set_ylabel('dN/dS')
+divergence_axis.set_xlabel('dS')
 
 divergence_axis.spines['top'].set_visible(False)
 divergence_axis.spines['right'].set_visible(False)
 divergence_axis.get_xaxis().tick_bottom()
 divergence_axis.get_yaxis().tick_left()
 
+median_pNs = []
+median_pSs = []
 
 # Plot percentiles of divergence distribution
 for species_idx in xrange(0,len(species_names)):
 
     species_name = species_names[species_idx]
 
-    sys.stderr.write("Postprocessing %s (%d samples)...\n" % (species_name, divergence_matrices[species_name].shape[0]))
-    divergence_matrix = divergence_matrices[species_name]
-    divergences = []
-    for i in xrange(0, divergence_matrix.shape[0]):
-        for j in xrange(i+1, divergence_matrix.shape[0]):
-            
-            if divergence_matrix[i,j] >= 0:
-                
-                divergences.append(divergence_matrix[i,j])
-    
-    divergences = numpy.array(divergences)
-    divergences = numpy.clip(divergences,1e-06,1)
-    divergences.sort() # ascending by default
-    
-    log_divergences = numpy.log(divergences)
-    
-    kernel = gaussian_kde(log_divergences)
-    
-    n = len(divergences)
+    pSs = syn_differences[species_name]*1.0/syn_opportunities[species_name]
+    pNs = non_differences[species_name]*1.0/non_opportunities[species_name]
     
     
+    median_pSs.append( numpy.median(pSs) )
+    median_pNs.append( numpy.median(pNs) )
     
-    #percentiles = numpy.array([0.001,0.01,0.1,0.25,0.5,0.75,0.9,0.99,0.999])
-    percentiles = numpy.array([0.001,0.01,0.1])
+    divergence_axis.loglog(pSs, pNs/pSs/(median_pNs/median_pSs), '.', markersize=2,alpha=0.5,markeredgewidth=0)
+ 
+median_pSs = numpy.array(median_pSs)
+median_pNs = numpy.array(median_pNs)   
     
-    quantiles = numpy.array([divergences[long(n*p)] for p in percentiles])
-    quantiles = numpy.clip(quantiles,1e-06,1)
-    
-    theory_log_divergences = numpy.linspace(log_divergences.min(), log_divergences.max()+1,100)
-    theory_divergences = numpy.exp(theory_log_divergences)
-    theory_pdf = kernel(theory_log_divergences)
-    theory_pdf = theory_pdf / theory_pdf.max() * 0.45
-    
-    
-    divergence_axis.fill_betweenx(theory_divergences, species_idx-theory_pdf, species_idx+theory_pdf,linewidth=0,facecolor='#de2d26')
-    divergence_axis.semilogy(numpy.ones_like(quantiles)*species_idx, quantiles,'k_',markersize=3)
+#divergence_axis.loglog(median_pSs, median_pNs*1.0/median_pSs, 'b.',markersize=3)
 
-    
+#divergence_axis.set_ylim([1e-02,5])    
+divergence_axis.set_xlim([1e-06,1e-01])
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_3.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig.savefig('%s/figure_5.5.png' % (parse_midas_data.analysis_directory),bbox_inches='tight', dpi=600)
 sys.stderr.write("Done!\n")
 
  

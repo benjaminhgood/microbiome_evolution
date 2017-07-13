@@ -59,8 +59,9 @@ def calculate_matrices_from_substitution_rate_map(substitution_rate_map, type, a
         sample_set.add(sample_2)
     
     allowed_sample_set = set(allowed_samples)    
-        
-    samples = list(sample_set & allowed_sample_set)
+    
+    sample_set = sample_set & allowed_sample_set
+    samples = list(sample_set)
     
     sample_idx_map = {samples[i]: i for i in xrange(0,len(samples))}
     
@@ -71,6 +72,9 @@ def calculate_matrices_from_substitution_rate_map(substitution_rate_map, type, a
         
         sample_i = sample_pair[0]
         sample_j = sample_pair[1]
+        
+        if not (sample_i in sample_set and sample_j in sample_set):
+            continue
         
         i = sample_idx_map[sample_i]
         j = sample_idx_map[sample_j]
