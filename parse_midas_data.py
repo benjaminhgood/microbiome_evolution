@@ -1902,6 +1902,7 @@ def parse_intermediate_species_file(sample_id):
     inFile=open(inFN,'r')
 
     species_list=[]
+    inFile.readline() #header 
     for line in inFile:
         items=line.strip().split('\t')
         species_id=items[0]
@@ -1909,6 +1910,7 @@ def parse_intermediate_species_file(sample_id):
         if coverage >=3.0: 
             species_list.append(coverage)
         
+    return set(species_list)
 
 #######################    
 
