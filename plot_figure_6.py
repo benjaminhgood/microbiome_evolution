@@ -20,6 +20,8 @@ import numpy
 
 import diversity_utils
 import gene_diversity_utils
+import calculate_substitution_rates
+import calculate_temporal_changes
 
 import stats_utils
 import matplotlib.colors as colors
@@ -63,13 +65,8 @@ else:
 ################################################################################
 
 min_coverage = config.min_median_coverage
-alpha = 0.5 # Confidence interval range for rate estimates
-low_pi_threshold = 1e-03
 clade_divergence_threshold = 1e-02
 modification_divergence_threshold = 1e-03
-min_change = 0.8
-include_high_copynum = False
-#include_high_copynum = True
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
@@ -80,10 +77,6 @@ sys.stderr.write("Done!\n")
        
 # Only plot samples above a certain depth threshold that are "haploids"
 snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
-# Only use the subset from North America 
-# The only temporal samples are from here, best not contaminate the between-subject
-# comparisons with out of sample effects
-#snp_samples = snp_samples[parse_HMP_data.calculate_country_samples(sample_country_map, sample_list=snp_samples, allowed_countries=set(["United States"]))]
 
 ####################################################
 #
@@ -93,6 +86,8 @@ snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debu
 
 pylab.figure(1,figsize=(5,2))
 fig = pylab.gcf()
+
+
 # make three panels panels
 outer_grid  = gridspec.GridSpec(1,2, width_ratios=[2,1], wspace=0.25)
 
@@ -101,6 +96,13 @@ differences_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[1,1],
                 
 gene_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[1,1],
                 subplot_spec=outer_grid[1], hspace=0.45)
+
+
+## Supp figure
+pylab.figure(2,figsize=(3,2))
+supplemental_fig = pylab.gcf()
+
+supplemental_outer_grid  = gridspec.GridSpec(1,1)
 
 ###################
 #
@@ -116,7 +118,7 @@ fig.add_subplot(snp_axis)
 snp_axis.set_ylabel('SNP changes')
 snp_axis.set_ylim([2e-01,1e05])
 
-snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'g-',label='Within host')
+snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'b-',label='Within host')
 snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'r-',label='Between host')
 
 snp_axis.spines['top'].set_visible(False)
@@ -196,67 +198,66 @@ prevalence_axis.get_yaxis().tick_left()
 
 ##############################################################################
 #
+# Gene change multiplicity panel
+#
+##############################################################################
+
+#multiplicity_axis = plt.Subplot(fig, gene_grid[1])
+#fig.add_subplot(multiplicity_axis)
+multiplicity_axis = plt.Subplot(supplemental_fig, supplemental_outer_grid[0])
+supplemental_fig.add_subplot(multiplicity_axis)
+
+
+multiplicity_axis.set_ylabel('Fraction gene changes')
+multiplicity_axis.set_xlabel('Gene multiplicity, $m$')
+multiplicity_axis.set_xlim([0.5,3.5])
+multiplicity_axis.set_ylim([0,1.05])
+
+multiplicity_axis.set_xticks([1,2,3])
+
+multiplicity_axis.spines['top'].set_visible(False)
+multiplicity_axis.spines['right'].set_visible(False)
+multiplicity_axis.get_xaxis().tick_bottom()
+multiplicity_axis.get_yaxis().tick_left()
+
+##############################################################################
+#
 # Gene change parallelism panel
 #
 ##############################################################################
 
 parallelism_axis = plt.Subplot(fig, gene_grid[1])
 fig.add_subplot(parallelism_axis)
+#parallelism_axis = plt.Subplot(supplemental_fig, supplemental_outer_grid[0])
+#supplemental_fig.add_subplot(parallelism_axis)
 
-parallelism_axis.set_ylabel('Fraction gene changes')
-parallelism_axis.set_xlabel('Gene multiplicity, $m$')
-parallelism_axis.set_xlim([0.5,3.5])
+
+parallelism_axis.set_ylabel('Fraction genes >= c')
+parallelism_axis.set_xlabel('Copynum foldchange, $c$')
+#parallelism_axis.set_xlim([0,5])
 parallelism_axis.set_ylim([0,1.05])
-
-parallelism_axis.set_xticks([1,2,3])
 
 parallelism_axis.spines['top'].set_visible(False)
 parallelism_axis.spines['right'].set_visible(False)
 parallelism_axis.get_xaxis().tick_bottom()
 parallelism_axis.get_yaxis().tick_left()
 
+reference_genes = parse_midas_data.load_reference_genes(species_name)
 
 # Analyze SNPs, looping over chunk sizes. 
 # Clunky, but necessary to limit memory usage on cluster
 
-# Load SNP information for species_name
-sys.stderr.write("Loading SNPs for %s...\n" % species_name)
-sys.stderr.write("(not just core genes...)\n")
-pi_matrix_syn = numpy.array([])
-avg_pi_matrix_syn = numpy.array([])
-snp_difference_matrix = numpy.array([])
-snp_difference_matrix_mutation = numpy.array([])
-snp_difference_matrix_reversion = numpy.array([])
-snp_opportunity_matrix = numpy.array([])
-final_line_number = 0
 
-while final_line_number >= 0:
-    
-    sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
-    dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number)
-    sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
-    
-    print len(dummy_samples), "dummy samples!"
-    
-    # Calculate fixation matrix
-    sys.stderr.write("Calculating matrix of snp differences...\n")
-    chunk_snp_difference_matrix_mutation, chunk_snp_difference_matrix_reversion, chunk_snp_opportunity_matrix =     diversity_utils.calculate_fixation_matrix_mutation_reversion(allele_counts_map, passed_sites_map, min_change=min_change)   # 
-    sys.stderr.write("Done!\n")
-    
-    if snp_difference_matrix.shape[0]==0:
-        snp_difference_matrix = numpy.zeros_like(chunk_snp_difference_matrix_mutation)*1.0
-        snp_difference_matrix_mutation = numpy.zeros_like(snp_difference_matrix)*1.0
-        snp_difference_matrix_reversion = numpy.zeros_like(snp_difference_matrix)*1.0
-        snp_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)*1.0
-    
-    snp_difference_matrix += chunk_snp_difference_matrix_mutation+chunk_snp_difference_matrix_reversion
-    snp_difference_matrix_mutation += chunk_snp_difference_matrix_mutation
-    snp_difference_matrix_reversion += chunk_snp_difference_matrix_reversion
-    
-    
-    snp_opportunity_matrix += chunk_snp_opportunity_matrix
+sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
+substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
+sys.stderr.write("Calculating matrix...\n")
+dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
+snp_samples = dummy_samples
+sys.stderr.write("Done!\n")
 
-    snp_samples = dummy_samples
+sys.stderr.write("Loading pre-computed temporal changes for %s...\n" % species_name)
+temporal_change_map = calculate_temporal_changes.load_temporal_change_map(species_name)
+sys.stderr.write("Done!\n")
 
 snp_substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
 sys.stderr.write("Done!\n")   
@@ -270,6 +271,11 @@ sys.stderr.write("Loaded gene info for %d samples\n" % len(gene_samples))
 
 gene_copynum_matrix = gene_depth_matrix*1.0/(marker_coverages+(marker_coverages==0))
 
+clipped_gene_copynum_matrix = numpy.clip(gene_depth_matrix,0.1,1e09)/(marker_coverages+0.1*(marker_coverages==0))
+
+low_copynum_matrix = (gene_copynum_matrix<=3)
+good_copynum_matrix = (gene_copynum_matrix>=0.5)*(gene_copynum_matrix<=3)
+
 prevalence_idxs = (parse_midas_data.calculate_unique_samples(subject_sample_map, gene_samples))*(marker_coverages>=min_coverage)
     
 prevalences = gene_diversity_utils.calculate_fractional_gene_prevalences(gene_depth_matrix[:,prevalence_idxs], marker_coverages[prevalence_idxs])
@@ -279,20 +285,15 @@ pangenome_prevalences.sort()
         
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculating matrix of gene differences...\n")
-gene_gain_matrix, gene_loss_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages, min_log2_fold_change=4, include_high_copynum=include_high_copynum)
+gene_gain_matrix, gene_loss_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages)
 
 gene_difference_matrix = gene_gain_matrix + gene_loss_matrix
 
 # Now need to make the gene samples and snp samples match up
 desired_samples = gene_samples
 
-
 num_haploids = len(desired_samples)
      
-# Calculate which pairs of idxs belong to the same sample, which to the same subject
-# and which to different subjects
-#desired_same_sample_idxs, desired_same_subject_idxs, desired_diff_subject_idxs = parse_midas_data.calculate_subject_pairs(subject_sample_map, desired_samples)
-
 # Calculate which pairs of idxs belong to the same sample, which to the same subject
 # and which to different subjects
 desired_same_sample_idxs, desired_same_subject_idxs, desired_diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, desired_samples)
@@ -302,20 +303,66 @@ sys.stderr.write("%d temporal samples\n" % len(desired_same_subject_idxs[0]))
 snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)
 gene_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, gene_samples)
   
-
-same_sample_snp_idxs  = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map,  desired_same_sample_idxs)  
-same_sample_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_same_sample_idxs)  
-
-
 same_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_same_subject_idxs)  
 same_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_same_subject_idxs)  
 
 diff_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_diff_subject_idxs)  
 diff_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_diff_subject_idxs)  
 
+# Calculate median between-host differences
+#modification_divergence_threshold = numpy.median(snp_substitution_rate[diff_subject_snp_idxs])/4.0
 
-same_subject_snp_plowers = []
-same_subject_snp_puppers = []
+# Calculate subset of "modification timepoints" 
+modification_pair_idxs = set([])
+
+for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
+#    
+    snp_i = same_subject_snp_idxs[0][sample_pair_idx]
+    snp_j = same_subject_snp_idxs[1][sample_pair_idx]
+
+    if snp_substitution_rate[snp_i, snp_j] < modification_divergence_threshold:
+        modification_pair_idxs.add( sample_pair_idx ) 
+
+
+
+between_host_gene_idxs = [] # indexes of genes that changed between hosts
+low_divergence_between_host_gene_idxs = [] # indexes of genes that changed between particularly low divergence hosts
+
+diff_subject_snp_changes = []
+diff_subject_gene_changes = []
+
+for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
+    
+    snp_i = diff_subject_snp_idxs[0][sample_pair_idx]
+    snp_j = diff_subject_snp_idxs[1][sample_pair_idx]
+
+    diff_subject_snp_changes.append( snp_difference_matrix[snp_i, snp_j] )
+    
+    # Now do genes
+    i = diff_subject_gene_idxs[0][sample_pair_idx]
+    j = diff_subject_gene_idxs[1][sample_pair_idx]
+    
+    if (marker_coverages[i]<min_coverage) or (marker_coverages[j]<min_coverage):
+        diff_subject_gene_changes.append( -1 )
+    else:
+        diff_subject_gene_changes.append( gene_difference_matrix[i,j] )
+        
+        
+        if snp_substitution_rate[snp_i, snp_j] < clade_divergence_threshold:
+        
+            # Now actually calculate genes that differ! 
+            gene_idxs = gene_diversity_utils.calculate_gene_differences_between_idxs(i,j,gene_depth_matrix, marker_coverages)
+        
+            between_host_gene_idxs.extend(gene_idxs)
+        
+            if snp_substitution_rate[snp_i, snp_j] < modification_divergence_threshold:
+                low_divergence_between_host_gene_idxs.extend(gene_idxs)
+
+diff_subject_snp_changes = numpy.array(diff_subject_snp_changes)
+diff_subject_gene_changes = numpy.array(diff_subject_gene_changes)
+
+diff_subject_snp_changes, diff_subject_gene_changes =  (numpy.array(x) for x in zip(*sorted(zip(diff_subject_snp_changes, diff_subject_gene_changes))))
+
 
 same_subject_snp_changes = []
 same_subject_snp_mutations = []
@@ -325,155 +372,185 @@ same_subject_gene_changes = []
 same_subject_gene_gains = []
 same_subject_gene_losses = []
 
-same_subject_gene_plowers = []
-same_subject_gene_puppers = []
-within_host_gene_idx_map = {}
 
 within_host_gene_idxs = [] # the indexes of genes that actually changed between samples
 within_host_null_gene_idxs = [] # a null distribution of gene indexes. chosen randomly from genes "present" in genome
+
+within_host_next_fold_changes = []
+within_host_null_next_fold_changes = []
+within_host_between_next_fold_changes = []
 
 for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 #    
     snp_i = same_subject_snp_idxs[0][sample_pair_idx]
     snp_j = same_subject_snp_idxs[1][sample_pair_idx]
     
-    snp_changes = snp_difference_matrix[snp_i,snp_j]
-    snp_mutations = snp_difference_matrix_mutation[snp_i,snp_j]
-    snp_reversions = snp_difference_matrix_reversion[snp_i,snp_j]
-
+    sample_i = snp_samples[snp_i]
+    sample_j = snp_samples[snp_j]
     
-    same_subject_snp_changes.append(snp_changes)
-    same_subject_snp_mutations.append(snp_mutations)
-    same_subject_snp_reversions.append(snp_reversions)
+    
+    mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+    
+    num_mutations = len(mutations)
+    num_reversions = len(reversions)
+    num_snp_changes = num_mutations+num_reversions
+    
+    
+    same_subject_snp_changes.append(num_snp_changes)
+    same_subject_snp_mutations.append(num_mutations)
+    same_subject_snp_reversions.append(num_reversions)
+    
+    if num_snp_changes>0:
+        print sample_i, sample_j, num_snp_changes, num_mutations, num_reversions
     
     i = same_subject_gene_idxs[0][sample_pair_idx]
     j = same_subject_gene_idxs[1][sample_pair_idx]
     
     if marker_coverages[i]<min_coverage or marker_coverages[j]<min_coverage:
         # can't look at gene changes!
-        gene_changes = -1
-        gene_gains = -1
-        gene_losses = -1
-        
+
+        same_subject_gene_changes.append(-1)
+        same_subject_gene_gains.append(-1)
+        same_subject_gene_losses.append(-1)
+    
     else:
+       
+        same_subject_gene_changes.append(gene_difference_matrix[i,j])
+        same_subject_gene_gains.append(gene_gain_matrix[i,j])
+        same_subject_gene_losses.append(gene_loss_matrix[i,j])
     
-    
-    
-        gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages,include_high_copynum=False)
-
-        if snp_substitution_rate[snp_i,snp_j] < modification_divergence_threshold:
-    
-            gene_idxs_i = numpy.nonzero( (gene_copynum_matrix[:,i]>0.5)*(gene_copynum_matrix[:,i]<2))[0]
-            gene_idxs_j = numpy.nonzero( (gene_copynum_matrix[:,j]>0.5)*(gene_copynum_matrix[:,j]<2))[0]
         
-    
-            for gene_idx, depth_tuple_1, depth_tuple_2 in gene_differences:
-                within_host_gene_idxs.append(gene_idx)
-            
-                within_host_null_gene_idxs.append( choice(gene_idxs_i) )
-                within_host_null_gene_idxs.append( choice(gene_idxs_j) )
-            
-                if gene_idx not in within_host_gene_idx_map:
-                    within_host_gene_idx_map[gene_idx]=0
-#            
-                within_host_gene_idx_map[gene_idx]+=1
-#
-
-        else:
-            print "Potential modification:", sample_order_map[snp_samples[snp_i]], sample_order_map[snp_samples[snp_j]]
-
-        num_gene_changes = gene_difference_matrix[i,j]
-        num_gene_gains = gene_gain_matrix[i,j]
-        num_gene_losses = gene_loss_matrix[i,j]
+        if sample_pair_idx in modification_pair_idxs:
         
-    same_subject_gene_changes.append(num_gene_changes)
-    same_subject_gene_gains.append(num_gene_gains)
-    same_subject_gene_losses.append(num_gene_losses)
-    
+        
+            # Calculate set of genes that are present in at least one sample
+            present_gene_idxs = []
+            present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,i]>0.5)*(gene_copynum_matrix[:,i]<2))[0] )
+            present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,j]>0.5)*(gene_copynum_matrix[:,j]<2))[0] )
+        
+            pair_specific_gene_idxs = gene_diversity_utils.calculate_gene_differences_between_idxs(i, j, gene_depth_matrix, marker_coverages)
 
-# clip lower bounds 
-same_subject_gene_changes = numpy.clip(same_subject_gene_changes,0.3,1e09)
-same_subject_snp_changes = numpy.clip(same_subject_snp_changes,0.3,1e09)
+            if len(pair_specific_gene_idxs)==0:
+                continue
+
+            pair_specific_null_gene_idxs = choice(present_gene_idxs, len(pair_specific_gene_idxs)*10 )
+            pair_specific_between_gene_idxs = choice(between_host_gene_idxs, len(pair_specific_gene_idxs)*10 )
+            
+            within_host_gene_idxs.extend(pair_specific_gene_idxs)
+            within_host_null_gene_idxs.extend(pair_specific_null_gene_idxs)            
+            
+            other_fold_changes = []
+            null_other_fold_changes = []
+            between_other_fold_changes = []
+            
+            for other_sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
+           
+                other_i = same_subject_gene_idxs[0][other_sample_pair_idx]
+                other_j = same_subject_gene_idxs[1][other_sample_pair_idx]
+     
+                # Make sure we don't count the same thing twice! 
+                if other_sample_pair_idx == sample_pair_idx:
+                    continue
+                
+                # Make sure it is not a replacement!    
+                if other_sample_pair_idx not in modification_pair_idxs:
+                    continue
+                    
+                if (marker_coverages[other_i]<min_coverage) or (marker_coverages[other_j]<min_coverage):
+                    continue     
+                
+                # calculate log-fold change
+                logfoldchanges = numpy.fabs( numpy.log2(clipped_gene_copynum_matrix[pair_specific_gene_idxs,other_j] / clipped_gene_copynum_matrix[pair_specific_gene_idxs,other_i] ) )
+                
+                good_idxs = numpy.logical_or( good_copynum_matrix[pair_specific_gene_idxs, other_i], good_copynum_matrix[pair_specific_gene_idxs, other_j] ) 
+                good_idxs *= numpy.logical_and( low_copynum_matrix[pair_specific_gene_idxs, other_i], low_copynum_matrix[pair_specific_gene_idxs, other_j] ) 
+                
+                bad_idxs = numpy.logical_not( good_idxs ) 
+                logfoldchanges[bad_idxs] = -1
+                
+                other_fold_changes.append(logfoldchanges)
+                
+                # calculate log-fold change
+                logfoldchanges = numpy.fabs( numpy.log2(clipped_gene_copynum_matrix[pair_specific_null_gene_idxs,other_j] / clipped_gene_copynum_matrix[pair_specific_null_gene_idxs,other_i] ) )
+                
+                # only include genes that are at low copynum at both timepoints
+                # and have a "good" copynum at at least one point
+                good_idxs = numpy.logical_or( good_copynum_matrix[pair_specific_null_gene_idxs, other_i], good_copynum_matrix[pair_specific_null_gene_idxs, other_j] ) 
+                good_idxs *= numpy.logical_and( low_copynum_matrix[pair_specific_null_gene_idxs, other_i], low_copynum_matrix[pair_specific_null_gene_idxs, other_j] ) 
+                bad_idxs = numpy.logical_not( good_idxs ) 
+                
+                logfoldchanges[bad_idxs] = -1
+                
+                null_other_fold_changes.append( logfoldchanges )
+                
+                # calculate log-fold change
+                logfoldchanges = numpy.fabs( numpy.log2(clipped_gene_copynum_matrix[pair_specific_between_gene_idxs,other_j] / clipped_gene_copynum_matrix[pair_specific_between_gene_idxs,other_i] ) )
+                good_idxs = numpy.logical_or( good_copynum_matrix[pair_specific_between_gene_idxs, other_i], good_copynum_matrix[pair_specific_between_gene_idxs, other_j] ) 
+                good_idxs *= numpy.logical_and( low_copynum_matrix[pair_specific_between_gene_idxs, other_i], low_copynum_matrix[pair_specific_between_gene_idxs, other_j] ) 
+                 
+                bad_idxs = numpy.logical_not( good_idxs ) 
+                logfoldchanges[bad_idxs] = -1
+                
+                between_other_fold_changes.append( logfoldchanges )
+                
+            other_fold_changes = numpy.array(other_fold_changes)
+            null_other_fold_changes = numpy.array(null_other_fold_changes)
+            between_other_fold_changes = numpy.array(between_other_fold_changes)
+            
+            for gene_idx in xrange(0,other_fold_changes.shape[1]):
+                fold_changes = other_fold_changes[:,gene_idx]
+                fold_changes = fold_changes[fold_changes>-0.5]
+                if len(fold_changes)>0:
+                    #print "Observed biggest change: %g, median change %g" % (fold_changes.max(), numpy.median(fold_changes))
+                    #print fold_changes
+                    within_host_next_fold_changes.append( (fold_changes).max() )
+
+            for gene_idx in xrange(0,null_other_fold_changes.shape[1]):
+                fold_changes = null_other_fold_changes[:,gene_idx]
+                fold_changes = fold_changes[fold_changes>-0.5]
+                if len(fold_changes)>0:
+                    within_host_null_next_fold_changes.append( (fold_changes).max() )
+                
+            for gene_idx in xrange(0, between_other_fold_changes.shape[1]):
+                fold_changes = between_other_fold_changes[:,gene_idx]
+                fold_changes = fold_changes[fold_changes>-0.5]
+                if len(fold_changes)>0:
+                    within_host_between_next_fold_changes.append( (fold_changes).max() )
+
+
+within_host_next_fold_changes = numpy.array(within_host_next_fold_changes)
+within_host_between_next_fold_changes = numpy.array(within_host_between_next_fold_changes)
+within_host_null_next_fold_changes = numpy.array(within_host_null_next_fold_changes)
+
+within_host_next_fold_changes = numpy.power(2, within_host_next_fold_changes)
+within_host_between_next_fold_changes = numpy.power(2, within_host_between_next_fold_changes)
+within_host_null_next_fold_changes = numpy.power(2, within_host_null_next_fold_changes)
+
+
+
 
 # Sort all lists by ascending lower bound on SNP changes, then gene changes
 same_subject_snp_changes, same_subject_gene_changes, same_subject_snp_reversions, same_subject_snp_mutations, same_subject_gene_gains, same_subject_gene_losses = (numpy.array(x) for x in zip(*sorted(zip(same_subject_snp_changes, same_subject_gene_changes, same_subject_snp_reversions, same_subject_snp_mutations, same_subject_gene_gains, same_subject_gene_losses))))
 
+print same_subject_snp_changes
 
-diff_subject_snp_plowers = []
-diff_subject_snp_puppers = []
-diff_subject_gene_plowers = []
-diff_subject_gene_puppers = []
-between_host_gene_idx_map = {}
-between_host_gene_idxs = []
-low_divergence_between_host_gene_idxs = []
-low_divergence_between_host_gene_idx_map = {}
-for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
-    
-    snp_i = diff_subject_snp_idxs[0][sample_pair_idx]
-    snp_j = diff_subject_snp_idxs[1][sample_pair_idx]
-    
-    plower = snp_difference_matrix[snp_i,snp_j]
-    pupper = plower*1.1
- 
-    #plower,pupper = stats_utils.calculate_poisson_rate_interval(snp_difference_matrix[snp_i,snp_j], snp_opportunity_matrix[snp_i, snp_j])
-    
-    diff_subject_snp_plowers.append(plower)
-    diff_subject_snp_puppers.append(pupper)
-        
-    i = diff_subject_gene_idxs[0][sample_pair_idx]
-    j = diff_subject_gene_idxs[1][sample_pair_idx]
-    gene_differences = gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages,include_high_copynum=False)
+# Construct site frequency spectra
 
-    if snp_substitution_rate[snp_i,snp_j] < clade_divergence_threshold:
-    
-        for gene_idx, depth_tuple_1, depth_tuple_2 in gene_differences:
-            if gene_idx not in between_host_gene_idx_map:
-                between_host_gene_idx_map[gene_idx]=0
-            
-            
-            between_host_gene_idxs.append(gene_idx)
-            
-            between_host_gene_idx_map[gene_idx]+=1
-    
-    if snp_substitution_rate[snp_i,snp_j] < modification_divergence_threshold:
-        # A modification, not a replacement!
-        for gene_idx, depth_tuple_1, depth_tuple_2 in gene_differences:
-            if gene_idx not in low_divergence_between_host_gene_idx_map:
-                low_divergence_between_host_gene_idx_map[gene_idx]=0
-            
-            low_divergence_between_host_gene_idxs.append(gene_idx)
-            low_divergence_between_host_gene_idx_map[gene_idx]+=1
-    
-    if marker_coverages[i]<min_coverage or marker_coverages[j]<min_coverage:
-        # can't look at gene changes!
-        plower = -1
-        pupper = -1
-    else:
-        plower = gene_difference_matrix[i,j]
-        pupper = plower*1.1
-            
-    #plower,pupper = stats_utils.calculate_poisson_rate_interval(gene_difference_matrix[i,j], gene_opportunity_matrix[i,j],alpha)
-    
-    diff_subject_gene_plowers.append(plower)
-    diff_subject_gene_puppers.append(pupper)
+within_host_gene_idx_counts = {}
+for gene_idx in within_host_gene_idxs:
+    if gene_idx not in within_host_gene_idx_counts:
+        within_host_gene_idx_counts[gene_idx] = 0
+    within_host_gene_idx_counts[gene_idx] += 1
 
-# clip lower bounds 
-diff_subject_gene_plowers = numpy.clip(diff_subject_gene_plowers,0.3,1e09)
-diff_subject_snp_plowers = numpy.clip(diff_subject_snp_plowers,0.3,1e09)
-# Sort all four lists by ascending lower bound on SNP changes, then gene changes
-diff_subject_snp_plowers, diff_subject_gene_plowers, diff_subject_snp_puppers,  diff_subject_gene_puppers = (numpy.array(x) for x in zip(*sorted(zip(diff_subject_snp_plowers, diff_subject_gene_plowers, diff_subject_snp_puppers, diff_subject_gene_puppers))))
+within_host_gene_sfs = list(within_host_gene_idx_counts.values())
 
-
-
-within_host_gene_sfs = []
-within_host_gene_multiplicities = []
 within_host_gene_prevalences = []
-for gene_idx in within_host_gene_idx_map.keys():
-    within_host_gene_sfs.append(within_host_gene_idx_map[gene_idx])
-    for i in xrange(0, within_host_gene_idx_map[gene_idx]):
-        within_host_gene_prevalences.append(prevalences[gene_idx])
-        within_host_gene_multiplicities.append(within_host_gene_idx_map[gene_idx])
+within_host_gene_multiplicities = []    
+for gene_idx in within_host_gene_idxs:    
+    within_host_gene_multiplicities.append( within_host_gene_idx_counts[gene_idx] )
+    within_host_gene_prevalences.append(prevalences[gene_idx])
 
+        
 within_host_null_gene_prevalences = []
 for gene_idx in within_host_null_gene_idxs:
     within_host_null_gene_prevalences.append(prevalences[gene_idx])    
@@ -488,23 +565,28 @@ within_host_null_gene_prevalences = numpy.array(within_host_null_gene_prevalence
 within_host_gene_multiplicities.sort()
 within_host_gene_multiplicities = numpy.array(within_host_gene_multiplicities)
 
-
 print within_host_gene_sfs.mean(), within_host_gene_sfs.std(), within_host_gene_sfs.max()
 
-between_host_gene_sfs = []
-between_host_gene_prevalences = []
-for gene_idx in between_host_gene_idx_map.keys():
-    between_host_gene_sfs.append(between_host_gene_idx_map[gene_idx])
-    for i in xrange(0, between_host_gene_idx_map[gene_idx]):
-        between_host_gene_prevalences.append(prevalences[gene_idx])
+# Calculate counts of between host gene changes
+between_host_gene_idx_counts = {}
+for gene_idx in between_host_gene_idxs:
+    if gene_idx not in between_host_gene_idx_counts:
+        between_host_gene_idx_counts[gene_idx] = 0
+    between_host_gene_idx_counts[gene_idx] += 1
 
-between_host_gene_sfs.sort()
-between_host_gene_sfs = numpy.array(between_host_gene_sfs)
+
+between_host_gene_sfs = list(between_host_gene_idx_counts.values())
+
+between_host_gene_prevalences = []
+for gene_idx in between_host_gene_idxs:
+    between_host_gene_prevalences.append(prevalences[gene_idx])
+    
 between_host_gene_prevalences.sort()
 between_host_gene_prevalences = numpy.array(between_host_gene_prevalences)
 
 # Bootstrap between-host multiplicities
 between_host_gene_multiplicities = []
+between_host_gene_sfs = []
 num_bootstraps = 1
 for i in xrange(0,num_bootstraps):
     
@@ -519,24 +601,20 @@ for i in xrange(0,num_bootstraps):
         bootstrapped_gene_idx_map[gene_idx]+=1
         
     for gene_idx in bootstrapped_gene_idxs:
-        between_host_gene_multiplicities.append(bootstrapped_gene_idx_map[gene_idx])
+        between_host_gene_multiplicities.append( bootstrapped_gene_idx_map[gene_idx] )
+    
+    between_host_gene_sfs.extend( bootstrapped_gene_idx_map.values() )    
+    
         
 between_host_gene_multiplicities.sort()
 between_host_gene_multiplicities = numpy.array(between_host_gene_multiplicities)
-    
 
-low_divergence_between_host_gene_sfs = []
 low_divergence_between_host_gene_prevalences = []
-for gene_idx in low_divergence_between_host_gene_idx_map.keys():
-    low_divergence_between_host_gene_sfs.append(low_divergence_between_host_gene_idx_map[gene_idx])
-    for i in xrange(0, low_divergence_between_host_gene_idx_map[gene_idx]):
-        low_divergence_between_host_gene_prevalences.append(prevalences[gene_idx])
+for gene_idx in low_divergence_between_host_gene_idxs:
+    low_divergence_between_host_gene_prevalences.append(prevalences[gene_idx])
 
-low_divergence_between_host_gene_sfs.sort()
-low_divergence_between_host_gene_sfs = numpy.array(low_divergence_between_host_gene_sfs)
 low_divergence_between_host_gene_prevalences.sort()
 low_divergence_between_host_gene_prevalences = numpy.array(low_divergence_between_host_gene_prevalences)
-
 
 # Done calculating... now plot figure!
 
@@ -544,13 +622,20 @@ low_divergence_between_host_gene_prevalences = numpy.array(low_divergence_betwee
 y = 0
 for snp_changes, snp_mutations, snp_reversions, gene_changes, gene_gains, gene_losses in zip(same_subject_snp_changes, same_subject_snp_mutations, same_subject_snp_reversions, same_subject_gene_changes, same_subject_gene_gains, same_subject_gene_losses):
 
+    if snp_changes>-0.5 and snp_changes<0.5:
+        snp_changes = 0.3
+    
+    if gene_changes>-0.5 and gene_changes<0.5:
+        gene_changes = 0.3
+    
+
     y-=2
     
     #within_snp_axis.semilogy([y,y], [snp_plower,snp_pupper],'g-',linewidth=0.25)
-    within_snp_axis.semilogy([y], [snp_changes],'g.',markersize=1.5)
+    within_snp_axis.semilogy([y], [snp_changes],'b.',markersize=1.5)
         
     #within_gene_axis.semilogy([y,y], [gene_plower,gene_pupper], 'g-',linewidth=0.25)
-    within_gene_axis.semilogy([y],[gene_changes],  'g.',markersize=1.5)
+    within_gene_axis.semilogy([y],[gene_changes],  'b.',markersize=1.5)
 
     print "Mutations=%g, Reversions=%g, Gains=%g, Losses=%g" % (snp_mutations, snp_reversions, gene_gains, gene_losses)
 
@@ -580,16 +665,20 @@ within_gene_axis.minorticks_off()
 
 y=0    
     
-for snp_plower, snp_pupper, gene_plower, gene_pupper in zip(diff_subject_snp_plowers, diff_subject_snp_puppers, diff_subject_gene_plowers, diff_subject_gene_puppers)[0:50]:
+for snp_changes, gene_changes in zip(diff_subject_snp_changes, diff_subject_gene_changes)[0:50]:
+
+    
+    if snp_changes>-0.5 and snp_changes<0.5:
+        snp_changes = 0.3
+    
+    if gene_changes>-0.5 and gene_changes<0.5:
+        gene_changes = 0.3
+    
 
     y-=1
     
-    snp_axis.semilogy([y],[snp_plower],'r.',linewidth=0.35,markersize=1.5)
-    gene_axis.semilogy([y],[gene_plower],'r.',linewidth=0.35,markersize=1.5)
-
-    
-    #snp_axis.semilogy([y,y],[snp_plower,snp_pupper],'r-',linewidth=0.35)
-    #gene_axis.semilogy([y,y],[gene_plower,gene_pupper],'r-',linewidth=0.35)
+    snp_axis.semilogy([y],[snp_changes],'r.',linewidth=0.35,markersize=1.5)
+    gene_axis.semilogy([y],[gene_changes],'r.',linewidth=0.35,markersize=1.5)
 
 y-=4
 
@@ -621,10 +710,10 @@ if len(low_divergence_between_host_gene_prevalences) > 0:
     print len(low_divergence_between_host_gene_prevalences), len(between_host_gene_prevalences)
     
     h = numpy.histogram(low_divergence_between_host_gene_prevalences,bins=prevalence_bins)[0]
-    prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'r.-',label=('d<%g' % modification_divergence_threshold), alpha=0.5,markersize=3)
+    #prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'r.-',label=('d<%g' % modification_divergence_threshold), alpha=0.5,markersize=3)
 
 h = numpy.histogram(within_host_gene_prevalences,bins=prevalence_bins)[0]
-prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'g.-',label='Within-host',markersize=3)
+prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'b.-',label='Within-host',markersize=3)
 
 print len(within_host_gene_prevalences), "within-host changes"
 
@@ -638,19 +727,25 @@ between_host_multiplicity_histogram = numpy.histogram(between_host_gene_multipli
 within_host_multiplicity_histogram = numpy.histogram(within_host_gene_multiplicities,bins=multiplicity_bins)[0]
 
 
-#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(between_host_gene_multiplicities)
-#parallelism_axis.step(xs+0.5,ns*1.0/ns[0],'r-',label='Between-host')
 
-#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_gene_multiplicities)
-#parallelism_axis.step(xs+0.5,ns*1.0/ns[0],'g-',label='Within-host')
+multiplicity_axis.bar(multiplicity_locs, between_host_multiplicity_histogram*1.0/between_host_multiplicity_histogram.sum(), width=0.3,color='r',linewidth=0)
 
+multiplicity_axis.bar(multiplicity_locs-0.3, within_host_multiplicity_histogram*1.0/within_host_multiplicity_histogram.sum(), width=0.3,color='g',linewidth=0)
 
-parallelism_axis.bar(multiplicity_locs, between_host_multiplicity_histogram*1.0/between_host_multiplicity_histogram.sum(), width=0.3,color='r',linewidth=0)
-
-parallelism_axis.bar(multiplicity_locs-0.3, within_host_multiplicity_histogram*1.0/within_host_multiplicity_histogram.sum(), width=0.3,color='g',linewidth=0)
 
 #prevalence_axis.set_ylim([0,0.6])
 
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_null_next_fold_changes)
+parallelism_axis.step(xs,ns*1.0/ns[0],'k-',label='Random')
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_between_next_fold_changes)
+parallelism_axis.step(xs,ns*1.0/ns[0],'r-',label='Between-host')
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_next_fold_changes)
+parallelism_axis.step(xs,ns*1.0/ns[0],'b-',label='Within-host')
+
+parallelism_axis.semilogx([1],[-1],'k.')
+parallelism_axis.set_xlim([1,10])
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_6%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
 sys.stderr.write("Done!\n")

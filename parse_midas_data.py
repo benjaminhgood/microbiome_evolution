@@ -1009,8 +1009,8 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
         
         # calculate whether SNP has passed
         alt_threshold = numpy.ceil(depths*0.05)+0.5 #at least one read above 5%.
-        alts = alts*((alts>alt_threshold))
-        snp_passed = (alts.sum()>0) and (pvalue<0.05)
+        #alts = alts*((alts>alt_threshold))
+        snp_passed = ((alts>alt_threshold).sum()>0) and (pvalue<0.05)
         
         # Criteria used in Schloissnig et al (Nature, 2013)
         #total_alts = alts.sum()

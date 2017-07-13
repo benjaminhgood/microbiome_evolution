@@ -27,20 +27,33 @@ def calculate_gene_numbers(gene_depth_matrix, marker_coverages, min_copynum=0.5)
 # Returns: matrix of # of gene differences
 #          matrix of # of opportunities 
 #          --> we should chat about what the denominator should be!
-def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4, include_high_copynum=True):
+def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2,min_log2_fold_change=4,include_high_copynum=True):
 
-    marker_coverages = numpy.clip(marker_coverages,1,1e09)
-    gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)*1.0/marker_coverages[None,:]
+    gene_hamming_matrix_gain, gene_hamming_matrix_loss, num_opportunities = calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages, absent_threshold=absent_threshold, present_lower_threshold=present_lower_threshold, present_upper_threshold=present_upper_threshold,min_log2_fold_change=min_log2_fold_change,include_high_copynum=include_high_copynum)
+    
+    gene_hamming_matrix = gene_hamming_matrix_gain + gene_hamming_matrix_loss 
+    return gene_hamming_matrix, num_opportunities
+
+
+def calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages, absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2,min_log2_fold_change=4,include_high_copynum=True):
+    # in this definition, we keep track of whether there was a gene 'gain' or 'loss' by removing numpy.fabs. This info will be used to plot the gain/loss events between two successive time pints. 
+
+    gene_copynum_matrix = gene_depth_matrix*1.0/marker_coverages[None,:]
+    #gene_copynum_matrix = numpy.clip(gene_copynum_matrix, 1e-09,1e09)
 
     # copynum is between 0.5 and 2
-    is_good_copynum = (gene_copynum_matrix>0.5)*(gene_copynum_matrix<2)
+    is_present_copynum = (gene_copynum_matrix>present_lower_threshold)*(gene_copynum_matrix<present_upper_threshold)
+    is_absent_copynum = (gene_copynum_matrix<=absent_threshold)
     is_low_copynum = (gene_copynum_matrix<2)
+  
+  
   
     # now size is about to get a lot bigger
     num_genes = gene_copynum_matrix.shape[0]
     num_samples = gene_copynum_matrix.shape[1]
     
-    gene_hamming_matrix = numpy.zeros((num_samples, num_samples))
+    gene_hamming_matrix_gain = numpy.zeros((num_samples, num_samples))
+    gene_hamming_matrix_loss = numpy.zeros((num_samples, num_samples))
     num_opportunities = numpy.zeros((num_samples, num_samples))
     
     # chunk it up into groups of 1000 genes
@@ -52,25 +65,28 @@ def calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_cover
         upper_gene_idx = min([(i+1)*chunk_size, num_genes])
     
         sub_gene_copynum_matrix = gene_copynum_matrix[lower_gene_idx:upper_gene_idx,:] 
-        sub_is_good_copynum = is_good_copynum[lower_gene_idx:upper_gene_idx,:]
+        sub_is_present_copynum = is_present_copynum[lower_gene_idx:upper_gene_idx,:] 
+        sub_is_absent_copynum = is_absent_copynum[lower_gene_idx:upper_gene_idx,:]
         sub_is_low_copynum = is_low_copynum[lower_gene_idx:upper_gene_idx,:]
     
-        is_good_opportunity = numpy.logical_or(sub_is_good_copynum[:,:,None],sub_is_good_copynum[:,None,:])
-        if not include_high_copynum:
-            is_good_opportunity *= numpy.logical_and(sub_is_low_copynum[:,:,None],sub_is_low_copynum[:,None,:])
-
-        fold_change_matrix = numpy.fabs( numpy.log2(sub_gene_copynum_matrix[:,:,None]/sub_gene_copynum_matrix[:,None,:]) ) * is_good_opportunity
-        gene_hamming_matrix += (fold_change_matrix>=min_log2_fold_change).sum(axis=0)
-        num_opportunities += is_good_opportunity.sum(axis=0)
+        present_present = numpy.logical_and(sub_is_present_copynum[:,:,None], sub_is_present_copynum[:,None,:])
+        
+        present_absent = numpy.logical_and(sub_is_present_copynum[:,:,None], sub_is_absent_copynum[:,None,:])
     
-    return gene_hamming_matrix, num_opportunities
+        absent_present = numpy.logical_and(sub_is_absent_copynum[:,:,None], sub_is_present_copynum[:,None,:])
+    
+        gene_hamming_matrix_gain += (absent_present).sum(axis=0)
+        gene_hamming_matrix_loss += (present_absent).sum(axis=0)
+        num_opportunities += (present_present+absent_present+present_absent).sum(axis=0)
+        
+    return gene_hamming_matrix_gain, gene_hamming_matrix_loss, num_opportunities
 
 
-def calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages, min_log2_fold_change=4,include_high_copynum=True):
+def calculate_coverage_based_gene_hamming_matrix_gain_loss_old(gene_depth_matrix, marker_coverages, min_log2_fold_change=4,include_high_copynum=True):
     # in this definition, we keep track of whether there was a gene 'gain' or 'loss' by removing numpy.fabs. This info will be used to plot the gain/loss events between two successive time pints. 
 
-    marker_coverages = numpy.clip(marker_coverages,1,1e09)
-    gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)*1.0/marker_coverages[None,:]
+    gene_copynum_matrix = gene_depth_matrix*1.0/marker_coverages[None,:]
+    gene_copynum_matrix = numpy.clip(gene_copynum_matrix, 1e-09,1e09)
 
     # copynum is between 0.5 and 2
     is_good_copynum = (gene_copynum_matrix>0.5)*(gene_copynum_matrix<2)
@@ -117,7 +133,55 @@ def calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, ma
 #
 # (gene_name, (cov_i, marker_cov_i), (cov_j, marker_cov_j))
 #
-def calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages, min_log2_fold_change=4,include_high_copynum=True):
+def calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages, min_log2_fold_change=4,include_high_copynum=False):
+
+    changed_genes = calculate_gene_differences_between_idxs(i, j, gene_depth_matrix, marker_coverages)
+
+    if len(changed_genes>0):
+    
+        # Look at these two samples
+        gene_depth_matrix = gene_depth_matrix[:,[i,j]]
+        marker_coverages = marker_coverages[[i,j]]
+    
+        for gene_idx in changed_genes:
+            
+            gene_differences.append( (gene_idx, (gene_depth_matrix[gene_idx,0], marker_coverages[0]), (gene_depth_matrix[gene_idx,1], marker_coverages[1])) )
+            
+    return gene_differences
+
+def calculate_gene_differences_between_idxs(i, j, gene_depth_matrix, marker_coverages):
+
+    # Look at these two samples
+    gene_depth_matrix = gene_depth_matrix[:,[i,j]]
+    marker_coverages = marker_coverages[[i,j]]
+    
+    #marker_coverages = numpy.clip(marker_coverages,1,1e09)
+    #gene_copynum_matrix = numpy.clip(gene_depth_matrix,1,1e09)*1.0/marker_coverages[None,:]
+
+    gene_copynum_matrix = gene_depth_matrix*1.0/marker_coverages[None,:]
+    gene_differences = []
+
+    # copynum is between 0.5 and 2
+    is_present_copynum = (gene_copynum_matrix>0.5)*(gene_copynum_matrix<2)
+    is_absent_copynum = (gene_copynum_matrix<=0.05)
+    is_low_copynum = (gene_copynum_matrix<2)
+  
+    present_present = numpy.logical_and(is_present_copynum[:,0], is_present_copynum[:,1])
+        
+    present_absent = numpy.logical_and(is_present_copynum[:,0], is_absent_copynum[:,1])
+    
+    absent_present = numpy.logical_and(is_absent_copynum[:,0], is_present_copynum[:,1])
+    
+    changed_genes = numpy.nonzero(numpy.logical_or(present_absent, absent_present))[0]
+
+    return changed_genes
+    
+# Calculate polarized gene copynum changes from i to j that exceed threshold 
+# Returns list of differences. Each difference is a tuple of form 
+#
+# (gene_name, (cov_i, marker_cov_i), (cov_j, marker_cov_j))
+#
+def calculate_gene_differences_between_old(i, j, gene_depth_matrix, marker_coverages, min_log2_fold_change=4,include_high_copynum=True):
 
     # Look at these two samples
     gene_depth_matrix = gene_depth_matrix[:,[i,j]]

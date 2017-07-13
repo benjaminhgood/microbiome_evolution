@@ -3,12 +3,14 @@ from scipy.linalg import eigh
 from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.cluster.hierarchy import cophenet
 from scipy.cluster.hierarchy import fcluster
-from numpy.random import shuffle
+from numpy.random import shuffle, normal
 import scipy.stats
+from scipy.stats import binom
 import config
 from scipy.special import betainc
 import sys
 import parse_midas_data
+import parse_HMP_data
 import stats_utils
 import os.path
 
@@ -22,7 +24,7 @@ def calculate_consensus_genotypes(allele_counts_matrix,lower_threshold=0.2,upper
     
     depths = allele_counts_matrix.sum(axis=2)
     freqs = allele_counts_matrix[:,:,0]*1.0/(depths+(depths==0))
-    passed_sites_matrix = (depths>0)*numpy.logical_or(freqs<=0.2,freqs>=0.8)
+    passed_sites_matrix = (depths>0)*numpy.logical_or(freqs<=lower_threshold,freqs>=upper_threshold)
     # consensus approximation
     genotype_matrix = numpy.around(freqs)*passed_sites_matrix
     
@@ -389,6 +391,54 @@ def calculate_sample_freqs(allele_counts_map, passed_sites_map, variant_type='4D
 
 ####################################
 
+
+def calculate_temporal_sample_freqs(allele_counts_map, passed_sites_map, initial_sample_idx, final_sample_idx, allowed_variant_types=set(['1D','2D','3D','4D']), allowed_genes=None):
+
+    desired_samples = numpy.array([initial_sample_idx, final_sample_idx])
+    
+    initial_freqs = []
+    final_freqs = []
+    
+    
+    if allowed_genes == None:
+        allowed_genes = set(passed_sites_map.keys())
+ 
+
+    for gene_name in allowed_genes:
+        for variant_type in allele_counts_map[gene_name].keys():
+            
+            if variant_type not in allowed_variant_types:
+                continue
+                
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+
+            if len(allele_counts)==0:
+                continue
+
+            allele_counts = allele_counts[:,desired_samples,:]            
+            depths = allele_counts.sum(axis=2)
+            freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
+            joint_passed_sites=(depths>0)[:,0]*(depths>0)[:,1]
+
+            unpolarized_initial_freqs = freqs[joint_passed_sites,0]
+            unpolarized_final_freqs = freqs[joint_passed_sites,1]
+        
+            unpolarized_dfs = unpolarized_final_freqs-unpolarized_initial_freqs+normal(0,1e-06,unpolarized_initial_freqs.shape)
+        
+            polarized_initial_freqs = unpolarized_initial_freqs + (1-2*unpolarized_initial_freqs)*(unpolarized_dfs<=0)
+            polarized_final_freqs = unpolarized_final_freqs + (1-2*unpolarized_final_freqs)*(unpolarized_dfs<=0)
+        
+        
+            #polarized_initial_freqs = unpolarized_initial_freqs + (1-2*unpolarized_initial_freqs)*(unpolarized_initial_freqs>0.5)
+            #polarized_final_freqs = unpolarized_final_freqs + (1-2*unpolarized_final_freqs)*(unpolarized_initial_freqs>0.5)
+        
+            initial_freqs.extend(polarized_initial_freqs)
+            final_freqs.extend(polarized_final_freqs)
+            
+    return numpy.array(initial_freqs), numpy.array(final_freqs)
+
+####################
+
 def calculate_sample_freqs_2D(allele_counts_map, passed_sites_map, desired_samples, variant_type='4D', allowed_genes=None, fold=True):
 
     
@@ -625,7 +675,14 @@ upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min
             
             delta_freqs = numpy.fabs(freqs[:,:,None]-freqs[:,None,:])*passed_depths
             
-            fixations = (delta_freqs>=min_change)
+            # one version 
+            #fixations = (delta_freqs>=min_change)
+            
+            # other version
+            mutations = ((freqs[:,:,None]<=lower_threshold)*(freqs[:,None,:]>=upper_threshold)*passed_depths)
+            reversions = ((freqs[:,:,None]>=upper_threshold)*(freqs[:,None,:]<=lower_threshold)*passed_depths)
+            
+            fixations = mutations+reversions
             
             fixation_matrix += fixations.sum(axis=0) # sum over sites
             
@@ -861,7 +918,8 @@ def estimate_sfs_downsampling(allele_counts, target_depth=10):
 #
 # (gene_name, (contig, location), (alt_i, depth_i), (alt_j, depth_j))
 #
-def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8):
+def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8, lower_threshold=config.consensus_lower_threshold, 
+upper_threshold=config.consensus_upper_threshold):
 
     if len(allowed_genes)==0:
         allowed_genes = set(passed_sites_map.keys())
@@ -889,8 +947,6 @@ def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, a
             allele_counts = allele_counts[:,[i,j],:]
             depths = allele_counts.sum(axis=2)
             alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
-            alt_freqs[alt_freqs<min_freq] = 0.0
-            alt_freqs[alt_freqs>=(1-min_freq)] = 1.0
             
             passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
     
@@ -898,15 +954,20 @@ def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, a
             
             delta_freqs = numpy.fabs(alt_freqs[:,1]-alt_freqs[:,0])
             delta_freqs[passed_depths==0] = 0
-            delta_freqs[delta_freqs<min_change] = 0
     
-            changed_sites = numpy.nonzero(delta_freqs)[0]
+            # old version
+            #changed_sites = numpy.nonzero(delta_freqs>=min_change)[0]
+            
+            mutations = (alt_freqs[:,0]<=lower_threshold)*(alt_freqs[:,1]>=upper_threshold)*passed_depths
+            reversions = (alt_freqs[:,0]>=upper_threshold)*(alt_freqs[:,1]<=lower_threshold)*passed_depths
+            
+            changed_sites = numpy.nonzero( numpy.logical_or(mutations, reversions) )[0]
             
             if len(changed_sites)>0:
                 # some fixations!
                 
                 for idx in changed_sites:
-                    snp_changes.append((gene_name, allele_counts_map[gene_name][variant_type]['locations'][idx], (allele_counts[idx,0], depths[idx,0]), (allele_counts[idx,1],depths[idx,1]) ))
+                    snp_changes.append((gene_name, allele_counts_map[gene_name][variant_type]['locations'][idx], variant_type, (allele_counts[idx,0,0], depths[idx,0]), (allele_counts[idx,1,0],depths[idx,1]) ))
                         
     return snp_changes
 
@@ -1474,7 +1535,7 @@ def is_polymorphic_truong(A,D):
     
     return alpha<0.05
 
-def calculate_haploid_samples(species_name, min_coverage=config.min_median_coverage, threshold_pi=config.threshold_pi, threshold_within_between_fraction=config.threshold_within_between_fraction,debug=False):
+def calculate_highcoverage_samples(species_name, min_coverage=config.min_median_coverage):
     
     # Load genomic coverage distributions
     sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
@@ -1486,7 +1547,14 @@ def calculate_haploid_samples(species_name, min_coverage=config.min_median_cover
 
     # Only plot samples above a certain depth threshold
     desired_samples = samples[(median_coverages>=min_coverage)]
-    desired_median_coverages = numpy.array([sample_coverage_map[sample] for sample in desired_samples])
+    
+    return desired_samples
+    
+    
+
+def calculate_haploid_samples(species_name, min_coverage=config.min_median_coverage, threshold_pi=config.threshold_pi, threshold_within_between_fraction=config.threshold_within_between_fraction,debug=False):
+    
+    desired_samples = calculate_highcoverage_samples(species_name, min_coverage)
     
     if len(desired_samples)==0:
         return numpy.array([])
@@ -1527,4 +1595,67 @@ def calculate_haploid_samples(species_name, min_coverage=config.min_median_cover
             
     return numpy.array(haploid_samples)
 
+# Returns all high coverage samples that are involved in a temporal pair
+def calculate_temporal_samples(species_name, min_coverage=config.min_median_coverage):
+
+    highcoverage_samples = calculate_highcoverage_samples(species_name, min_coverage)
+    
+    sample_order_map = parse_HMP_data.parse_sample_order_map()
+    
+    # Calculate which pairs of idxs belong to the same sample, which to the same subject
+    # and which to different subjects
+    same_sample_idxs, same_subject_idxs, diff_subject_idxs =     parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, highcoverage_samples)
+
+
+    temporal_samples = set()
+    for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
+   
+        i = same_subject_idxs[0][sample_pair_idx]
+        j = same_subject_idxs[1][sample_pair_idx]
+        temporal_samples.add(highcoverage_samples[i])
+        temporal_samples.add(highcoverage_samples[j])
+        
+    desired_samples = []
+    for sample in highcoverage_samples:
+        if sample in temporal_samples:
+            desired_samples.append(sample)
+            
+    return numpy.array(desired_samples)
+
+
+
+def calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=[0.6]):
+
+    dummy_fs, pfs_i = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_i],bins=frequency_bins)
+    dummy_fs, pfs_j = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_j],bins=frequency_bins)
+    
+    fs = frequency_bins[1:]-(frequency_bins[1]-frequency_bins[0])/2.0
+
+    pfs = (pfs_i+pfs_j)/2.0
+    # fold
+    pfs = (pfs+pfs[::-1])/2
+    
+    # Calculate depth distributions
+    D1s, pD1s = sfs_utils.calculate_binned_depth_distribution_from_sfs_map(sfs_map[sample_i])
+    D2s, pD2s = sfs_utils.calculate_binned_depth_distribution_from_sfs_map(sfs_map[sample_j])
+    
+    fs = fs[pfs>0]
+    pfs = pfs[pfs>0]
+    
+    D1s = D1s[pD1s>0]
+    pD1s = pD1s[pD1s>0]
+    D2s = D2s[pD2s>0]
+    pD2s = pD2s[pD2s>0]
+    
+    
+    perrs.append({df:0 for df in dfs})
+    for D1,pD1 in zip(D1s,pD1s):
+        for D2,pD2 in zip(D2s,pD2s):
+            for f,pf in zip(fs,pfs):
+                for df in dfs:
+                    perrs[-1][df] += binom.cdf(D1*(1-df)/2, D1, f)*binom.cdf(D2*(1-df)/2, D2, 1-f)*pD1*pD2*pf
+    
+    if True: #ploidy_i=='haploid' and ploidy_j=='haploid':
+        print sample_i, D1s[len(D1s)/2], ploidy_i, sample_j, ploidy_j, D2s[len(D2s)/2], perrs[-1][0.6]*3e06    
+    
 
