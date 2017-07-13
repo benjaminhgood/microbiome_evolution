@@ -672,6 +672,8 @@ for genome in 1235787.3 1339348.3 457393.3 585543.3 700037453 997889.3 997890.3;
     nohup nice samtools index genomes.bam  genomes.bam.bai &
 done
 
+nohup nice samtools sort pangenomes.bam pangenomes.sorted.bam &
+nohup nice samtools index pangenomes.sorted.bam.bam pangenomes.sorted.bam.bam.bai &
 ##################################### 
 # Test the read stealing hypothesis #
 #####################################  
@@ -904,6 +906,68 @@ makeblastdb -in ~/tmp_intermediate_files/all_species_pan_genomes_genes.fasta -ou
 #########################################################################################################
 # Do genes that get lost within hosts for the full HMP data set  not get lost when run on only B. unif?
 ######################################################################################################### 
+# rerun this code, but compare the list with the new changes found in the new data set. 
+nohup nice python ~/ben_nandita_hmp_scripts/gene_differences_kegg_annotations.py $species --chunk-size 100000 &
+
+# which genes are changing between the two runs? 
+Bacteroides_uniformis_57318_within_host_gene_changes_B_unif_only.txt
+Bacteroides_uniformis_57318_within_host_gene_changes.txt
+
+Alistipes_putredinis_61533_within_host_gene_changes_A_put_only.txt
+Alistipes_putredinis_61533_within_host_gene_changes.txt
+
+
+# For those genes that are changing, visualize them in IGV if they share the same reference genome
+
+python ~/ben_nandita_hmp_scripts/gene_differences_reference_genome_change.py $species
+
+# see this file:
+~/ben_nandita_hmp_analysis/${species}_within_host_gene_changes_database_diffs.txt
 
 
 
+#############################################################################################
+#
+# July 12, 2017
+# Change the MIDAS database
+# if there is any genome from the HMP project, swap the MIDAS ref genome with the HMP one. 
+#
+#############################################################################################
+
+# 1. Get the species genome IDS from the MIDAS DB genome_info.txt file
+~/midas_db/genome_info.txt
+
+# 2. Look up the source of each genome in the PATRIC genome_metadata file on Pollard server (downloaded by Stephen Nayfach on Nov 14  2015). Determine if genome is HMP reference.
+/pollard/shattuck0/snayfach/databases/PATRIC/metadata/genome_metadata
+
+# list of HMP reference genomes (313, not always for unique species). 
+/pollard/home/ngarud/ben_nandita_hmp_analysis/list_of_HMP_reference_genomes.txt
+
+cat /pollard/shattuck0/snayfach/databases/PATRIC/metadata/genome_metadata | grep 'Reference genome for the Human Microbiome Project' | cut -f2
+
+python replace_rep_genome_with_HMP.py
+
+# also update genome_info.txt with the refdb used (this will be helpful for the supplement)
+
+#############################################################################################
+#
+# July 12, 2017
+# Time pairs: run the SNP and gene module using the union of species in time pairs
+#
+#############################################################################################
+
+# 1: get the time pairs
+# 2: Get the species list for each time pair in the MIDAS output
+# 3: Write a comma-delimited list of species for each sample
+# 4: set up commands for running MIDAS with this comma-delimited list
+
+time_pair_species_list_for_midas.py
+
+#parse_midas_data changes:
+
+def parse_intermediate_species_file(sample_id):
+def genome_ids_dictionary():
+def parse_midas_data.collapse_visno_reps_subject_sample_time_map
+
+# parse patric changes:
+def get_HMP_reference_genomes():
