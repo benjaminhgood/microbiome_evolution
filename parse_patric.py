@@ -101,10 +101,13 @@ def load_virulence_factors(species_name):
 # Create a new genome.features.gz file for running MIDAS on a different representative genome for SNP calling. 
 #
 ####################################################################################
-def new_genome_features_file(genome_id):
+def new_genome_features_file(genome_id, outFN):
     
     pollard_patric_dir='/pollard/shattuck0/snayfach/databases/PATRIC/genomes'
-    outFile=gzip.open('/pollard/home/ngarud/BenNanditaProject/MIDAS_ref_genome_test/genome_features_files/%s_features.gz' % genome_id,"w")
+
+    #outFile=gzip.open('/pollard/home/ngarud/BenNanditaProject/MIDAS_ref_genome_test/genome_features_files/%s_features.gz' % genome_id,"w")
+
+    outFile=gzip.open(outFN, "w")    
     outFile.write("gene_id\tscaffold_id\tstart\tend\tstrand\tgene_type\tfunctions\n")
     
     for genome_part in ['cds','rna']:
@@ -124,6 +127,31 @@ def new_genome_features_file(genome_id):
             else:
                 functions=''
             outFile.write(gene_id +'\t' +scaffold_id +'\t'+start +'\t' + end +'\t' +strand +'\t' +gene_type +'\t' +functions +'\n')
+
+######################################################################################
+# 
+# Read in the genome_metadata file. This tells you where genomes in PATRIC came from 
+# for example, if we want genomes that are part of the HMP reference panel, this is the file to look into
+#
+####################################################################################
+def get_HMP_reference_genomes():
+    
+    genome_metadata = open("/pollard/shattuck0/snayfach/databases/PATRIC/metadata/genome_metadata")
+    HMP_genomes={}
+    for line in genome_metadata:
+        items=line.strip().split('\t')
+        if len(items) == 65: # sometimes a line is shorter, this creates problems
+            genome_id=items[0]
+            species=items[1]
+            annotation=items[64]
+            contigs=items[27]
+            genome_length=items[29]
+            body_part = items[35]
+            host = items[45]
+            if 'Reference genome for the Human Microbiome Project' in annotation:
+                HMP_genomes[genome_id] = [int(contigs), int(genome_length), body_part, host]
+        
+    return HMP_genomes
 
 #######################    
 
