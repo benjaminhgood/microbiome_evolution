@@ -212,7 +212,7 @@ if __name__=='__main__':
         
         # Calculate matrix of number of genes that differ
         sys.stderr.write("Calculating matrix of gene differences...\n")
-        gene_difference_matrix, gene_opportunity_matrix =     gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_depth_matrix, marker_coverages, min_log2_fold_change=4)
+        gene_difference_matrix, gene_opportunity_matrix =     gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix(gene_reads_matrix, gene_depth_matrix, marker_coverages)
 
         good_marker_coverages = (marker_coverages>=min_coverage)
 

@@ -11,6 +11,7 @@ import numpy
 
 import diversity_utils
 import gene_diversity_utils
+import calculate_substitution_rates
 
 import stats_utils
 import matplotlib.colors as colors
@@ -151,7 +152,7 @@ fig.add_subplot(dendrogram_axis)
 
 dendrogram_axis.set_ylim([1e-06,1e-01])
 dendrogram_axis.set_ylabel('Divergence, $d$')
-dendrogram_axis.set_xlabel('Subjects')
+dendrogram_axis.set_xlabel('Hosts')
 
 dendrogram_axis.set_xticks([])
 
@@ -185,43 +186,12 @@ dendrogram_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-sys.stderr.write("Loading core genes...\n")
-core_genes = parse_midas_data.load_core_genes(species_name)
-sys.stderr.write("Done! Core genome consists of %d genes\n" % len(core_genes))
-
-# Analyze SNPs, looping over chunk sizes. 
-# Clunky, but necessary to limit memory usage on cluster
-
-# Load SNP information for species_name
-sys.stderr.write("Loading SNPs for %s...\n" % species_name)
-sys.stderr.write("(core genes only...)\n")
-pi_matrix_syn = numpy.array([])
-avg_pi_matrix_syn = numpy.array([])
-snp_difference_matrix = numpy.array([])
-snp_opportunity_matrix = numpy.array([])
-final_line_number = 0
-
-while final_line_number >= 0:
-    
-    sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
-    dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,allowed_genes=core_genes,allowed_variant_types=allowed_variant_types, chunk_size=chunk_size,initial_line_number=final_line_number)
-    sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
-    
-    print len(dummy_samples), "dummy samples!"
-    
-    # Calculate fixation matrix
-    sys.stderr.write("Calculating matrix of snp differences...\n")
-    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix =     diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)   # 
-    sys.stderr.write("Done!\n")
-    
-    if snp_difference_matrix.shape[0]==0:
-        snp_difference_matrix = numpy.zeros_like(chunk_snp_difference_matrix)*1.0
-        snp_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)*1.0
-    
-    snp_difference_matrix += chunk_snp_difference_matrix
-    snp_opportunity_matrix += chunk_snp_opportunity_matrix
-
-    snp_samples = dummy_samples
+sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
+substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
+sys.stderr.write("Calculating matrix...\n")
+dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
+snp_samples = dummy_samples
+sys.stderr.write("Done!\n")
 
 snp_substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
 snp_substitution_rate = numpy.clip(snp_substitution_rate,1e-09,10)

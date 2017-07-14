@@ -18,4 +18,7 @@ print Nmins
 perrs = poisson.cdf(Nmins, Navg)
 
 pylab.semilogy(fold_changes, perrs,'b.-')
+
+print poisson.cdf(10,100), poisson.cdf(5,50), poisson.cdf(2,20), poisson.cdf(1,10)
+
 pylab.show()

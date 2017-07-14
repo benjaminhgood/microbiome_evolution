@@ -1583,9 +1583,7 @@ def calculate_haploid_samples(species_name, min_coverage=config.min_median_cover
     # New way with pre-computed SFS
     # Load SFS information for species_name
     import sfs_utils
-    sys.stderr.write("Loading SFSs for %s...\t" % species_name)
     samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name,     allowed_variant_types=set(['4D'])) 
-    sys.stderr.write("Done!\n")
     
     haploid_samples = []
     for sample in desired_samples:
@@ -1657,7 +1655,7 @@ def calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=[0.6], frequen
         for D2,pD2 in zip(D2s,pD2s):
             for f,pf in zip(fs,pfs):
                 for df in dfs:
-                    perrs[df] += binom.cdf(D1*(1-df)/2, D1, f)*binom.cdf(D2*(1-df)/2, D2, 1-f)*pD1*pD2*pf
+                    perrs[df] += 2*binom.cdf(D1*(1-df)/2, D1, f)*binom.cdf(D2*(1-df)/2, D2, 1-f)*pD1*pD2*pf
     
     perrs = numpy.array([perrs[df] for df in dfs])
     return perrs
