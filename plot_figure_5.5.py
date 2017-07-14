@@ -170,14 +170,17 @@ for species_idx in xrange(0,len(species_names)):
     median_pSs.append( numpy.median(pSs) )
     median_pNs.append( numpy.median(pNs) )
     
-    divergence_axis.loglog(pSs, pNs/pSs/(median_pNs[-1]/median_pSs[-1]), '.', markersize=2,alpha=0.5,markeredgewidth=0)
+    if species_name.startswith('Bacteroides_vulgatus'):
+        divergence_axis.loglog(pSs, pNs/pSs, 'r.', markersize=2,alpha=0.5,markeredgewidth=0,zorder=1)
+    else:
+        divergence_axis.loglog(pSs, pNs/pSs, '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0)
  
 median_pSs = numpy.array(median_pSs)
 median_pNs = numpy.array(median_pNs)   
     
-#divergence_axis.loglog(median_pSs, median_pNs*1.0/median_pSs, 'b.',markersize=3)
+divergence_axis.loglog(median_pSs, median_pNs*1.0/median_pSs, 'k.',markersize=3)
 
-#divergence_axis.set_ylim([1e-02,5])    
+divergence_axis.set_ylim([1e-02,5])    
 divergence_axis.set_xlim([1e-06,1e-01])
 
 sys.stderr.write("Saving figure...\t")
