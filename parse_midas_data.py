@@ -1897,19 +1897,19 @@ def parse_99_percent_genes(desired_species_name,samples, allowed_genes=[]):
 # parse the pre-merged species file to get a list of species at at least 3x coverage
 #
 #########################################################
-def parse_intermediate_species_file(sample_id):
-    inFN='/pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/%s/species/species_profile.txt' %sample_id
+
+def parse_intermediate_species_file(sample_id, inFN):
     inFile=open(inFN,'r')
 
     species_list=[]
-    inFile.readline() #header 
+    inFile.readline() #header
     for line in inFile:
         items=line.strip().split('\t')
         species_id=items[0]
         coverage=float(items[2])
         if coverage >=3.0: 
-            species_list.append(coverage)
-        
+            species_list.append(species_id)
+
     return set(species_list)
 
 #######################    
