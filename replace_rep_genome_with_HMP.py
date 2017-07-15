@@ -71,6 +71,10 @@ outFN='/pollard/home/ngarud/midas_db_HMP_refs/genome_info_new.txt'
 outFile=open(outFN,'w')
 
 header=inFile.readline()
+outFile.write(header)
+
+# write in the crassphage genome:
+outFile.write("NC_024711\tcrassphage\t1\t97000\t1\tcrassphage\n")
 
 for line in inFile:
     items=line.strip().split('\t')
@@ -79,8 +83,7 @@ for line in inFile:
     rep_genome=items[2]
     length=items[3]
     contigs=items[4]
-    species_id=items[5]
- 
+    species_id=items[5] 
     if species_id in genome_choice:
         if genome_id == genome_choice[species_id]:
             rep_genome='1'
