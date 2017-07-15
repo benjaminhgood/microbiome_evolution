@@ -7,6 +7,8 @@ import os.path
 import pylab
 import sys
 import numpy
+import sfs_utils
+        
 
 import diversity_utils
 import gene_diversity_utils
@@ -38,15 +40,16 @@ def load_temporal_change_map(species_name):
         sample_1 = items[1].strip()
         sample_2 = items[2].strip()
         type = items[3].strip()
+        perr = float(items[4])
         sample_pair = (sample_1, sample_2)
         if sample_pair not in temporal_change_map:
             temporal_change_map[sample_pair] = {}
         
         changes = []
-        if len(items)<5:
+        if len(items)<6:
             pass
         else:
-            change_strs = items[4:]
+            change_strs = items[5:]
             for change_str in change_strs:
             
                 subitems = change_str.split(";")
@@ -71,7 +74,7 @@ def load_temporal_change_map(species_name):
                     Dm2 = float(subitems[4])
                     changes.append( (gene_name, D1, Dm1, D2, Dm2) )
                 
-        temporal_change_map[sample_pair][type] = changes
+        temporal_change_map[sample_pair][type] = perr, changes
     
     return temporal_change_map
 
@@ -80,13 +83,13 @@ upper_threshold=config.consensus_upper_threshold):
 
     sample_pair = sample_1, sample_2
     if sample_pair not in temporal_change_map:
-        return [], []
+        return -1, None, None
         
     if 'snps' not in temporal_change_map[sample_pair]:
-        return [], []
+        return -1, None, None
         
     # otherwise, some hope! 
-    snp_changes = temporal_change_map[sample_pair]['snps']
+    snp_perr, snp_changes = temporal_change_map[sample_pair]['snps']
     
     mutations = []
     reversions = []
@@ -103,20 +106,20 @@ upper_threshold=config.consensus_upper_threshold):
             reversions.append(snp_change)
             
     
-    return mutations, reversions
+    return snp_perr, mutations, reversions
 
 
 def calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_1, sample_2, lower_threshold=0.05):
 
     sample_pair = sample_1, sample_2
     if sample_pair not in temporal_change_map:
-        return [], []
+        return -1, None, None
         
     if 'genes' not in temporal_change_map[sample_pair]:
-        return [], []
+        return -1, None, None
         
     # otherwise, some hope! 
-    gene_changes = temporal_change_map[sample_pair]['genes']
+    gene_perr, gene_changes = temporal_change_map[sample_pair]['genes']
     
     gains = []
     losses = []
@@ -133,7 +136,7 @@ def calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_
             losses.append(gene_change)
             
     
-    return gains, losses
+    return gene_perr, gains, losses
 
 
 if __name__=='__main__':
@@ -158,9 +161,14 @@ if __name__=='__main__':
     if debug:
         good_species_list = good_species_list[:3]
 
-    record_strs = [", ".join(['Species', 'Sample1', 'Sample2', 'Type', 'Change1', '...'])]
+    record_strs = [", ".join(['Species', 'Sample1', 'Sample2', 'Type', 'FalsePositives', 'Change1', '...'])]
 
     for species_name in good_species_list:
+
+        sys.stderr.write("Loading SFSs for %s...\t" % species_name)
+        samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])) 
+        sys.stderr.write("Done!\n")
+
 
         sys.stderr.write("Loading temporal samples...\n")
         # Only plot samples above a certain depth threshold that are involved in timecourse
@@ -183,7 +191,13 @@ if __name__=='__main__':
         sys.stderr.write("Loading SNPs for %s...\n" % species_name)    
         snp_changes = {}
         gene_changes = {}
-
+        
+        snp_perrs = {}
+        gene_perrs = {}
+        
+        snp_difference_matrix = numpy.array([]) # all sites in all genes
+        snp_opportunity_matrix = numpy.array([])
+    
         final_line_number = 0
 
         while final_line_number >= 0:
@@ -192,6 +206,18 @@ if __name__=='__main__':
             dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples, chunk_size=chunk_size,initial_line_number=final_line_number)
             sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
             snp_samples = dummy_samples
+        
+            # All
+            chunk_snp_difference_matrix, chunk_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)   # 
+    
+            if snp_difference_matrix.shape[0]==0:
+                snp_difference_matrix = numpy.zeros_like(chunk_snp_difference_matrix)*1.0
+                snp_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)*1.0
+                
+            # Add all
+            snp_difference_matrix += chunk_snp_difference_matrix
+            snp_opportunity_matrix += chunk_snp_opportunity_matrix
+
         
             same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
         
@@ -209,8 +235,25 @@ if __name__=='__main__':
                 if sample_pair not in snp_changes:
                     snp_changes[sample_pair] = []
                     gene_changes[sample_pair] = []
+                    snp_perrs[sample_pair] = -1
+                    gene_perrs[sample_pair] = -1
             
                 snp_changes[sample_pair].extend(chunk_snp_changes)
+    
+        # Calculate SNP error rate
+        same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, snp_samples)   
+        for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
+    
+            i = same_subject_idxs[0][sample_pair_idx]
+            j = same_subject_idxs[1][sample_pair_idx]
+
+            sample_i = snp_samples[i]
+            sample_j = snp_samples[j]
+            sample_pair = (sample_i, sample_j)
+        
+            perr = diversity_utils.calculate_fixation_error_rate(sfs_map, sample_i, sample_j)[0] * snp_opportunity_matrix[i, j]
+            
+            snp_perrs[sample_pair] = perr
     
         # Now calculate gene differences
         # Load gene coverage information for species_name
@@ -238,7 +281,11 @@ if __name__=='__main__':
                 snp_changes[sample_pair] = []
                 gene_changes[sample_pair] = []
     
-            gene_changes[sample_pair].extend( gene_diversity_utils.calculate_gene_differences_between(i, j, gene_depth_matrix, marker_coverages) )
+            gene_changes[sample_pair].extend( gene_diversity_utils.calculate_gene_differences_between(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages) )
+            
+            gene_perr = gene_diversity_utils.calculate_gene_error_rate(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages)[0]
+            
+            gene_perrs[sample_pair] = gene_perr
     
         sys.stderr.write("Done!\n") 
     
@@ -272,10 +319,10 @@ if __name__=='__main__':
             
         
         
-            record_str_items = [species_name, sample_i, sample_j, 'snps'] + snp_strs
+            record_str_items = [species_name, sample_i, sample_j, 'snps', "%g" % snp_perrs[(sample_i, sample_j)]] + snp_strs
             record_strs.append(", ".join(record_str_items))
         
-            record_str_items = [species_name, sample_i, sample_j, 'genes'] + gene_strs
+            record_str_items = [species_name, sample_i, sample_j, 'genes', "%g" % gene_perrs[(sample_i, sample_j)]] + gene_strs
             record_strs.append(", ".join(record_str_items))
     
         sys.stderr.write("Done with %s!\n" % species_name) 

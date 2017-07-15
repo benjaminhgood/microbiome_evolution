@@ -291,7 +291,7 @@ pangenome_prevalences.sort()
         
 # Calculate matrix of number of genes that differ
 sys.stderr.write("Calculating matrix of gene differences...\n")
-gene_gain_matrix, gene_loss_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_depth_matrix, marker_coverages)
+gene_gain_matrix, gene_loss_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_reads_matrix, gene_depth_matrix, marker_coverages)
 
 gene_difference_matrix = gene_gain_matrix + gene_loss_matrix
 
@@ -357,7 +357,7 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
         if snp_substitution_rate[snp_i, snp_j] < clade_divergence_threshold:
         
             # Now actually calculate genes that differ! 
-            gene_idxs = gene_diversity_utils.calculate_gene_differences_between_idxs(i,j,gene_depth_matrix, marker_coverages)
+            gene_idxs = gene_diversity_utils.calculate_gene_differences_between_idxs(i,j, gene_reads_matrix, gene_depth_matrix, marker_coverages)
         
             between_host_gene_idxs.extend(gene_idxs)
         
@@ -398,15 +398,11 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
     sample_j = snp_samples[snp_j]
     
     
-    mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-    
-        
+    perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)    
     
     num_mutations = len(mutations)
     num_reversions = len(reversions)
     num_snp_changes = num_mutations+num_reversions
-    
-    perr = diversity_utils.calculate_fixation_error_rate(sfs_map, sample_i, sample_j)[0] * snp_opportunity_matrix[snp_i, snp_j]
     
     if perr>1:
         num_mutations = 0
@@ -434,23 +430,25 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
         same_subject_gene_changes.append(-1)
         same_subject_gene_gains.append(-1)
         same_subject_gene_losses.append(-1)
-    
+        gene_perr = 1
     else:
+       
+        gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        
+        print sample_i, sample_j, gene_difference_matrix[i,j], gene_gain_matrix[i,j], gene_loss_matrix[i,j], gene_perr
        
         same_subject_gene_changes.append(gene_difference_matrix[i,j])
         same_subject_gene_gains.append(gene_gain_matrix[i,j])
         same_subject_gene_losses.append(gene_loss_matrix[i,j])
-    
         
         if sample_pair_idx in modification_pair_idxs:
-        
         
             # Calculate set of genes that are present in at least one sample
             present_gene_idxs = []
             present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,i]>0.5)*(gene_copynum_matrix[:,i]<2))[0] )
             present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,j]>0.5)*(gene_copynum_matrix[:,j]<2))[0] )
         
-            pair_specific_gene_idxs = gene_diversity_utils.calculate_gene_differences_between_idxs(i, j, gene_depth_matrix, marker_coverages)
+            pair_specific_gene_idxs = gene_diversity_utils.calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages)
 
             if len(pair_specific_gene_idxs)==0:
                 continue
