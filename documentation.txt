@@ -971,3 +971,14 @@ def parse_midas_data.collapse_visno_reps_subject_sample_time_map
 
 # parse patric changes:
 def get_HMP_reference_genomes():
+
+
+# so far I have been editing 
+# run MIDAS (SNPs and Genes):
+
+#combined tech reps
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_snps_tech_combined_newDB_timepts_matched
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_genes_tech_combined_newDB_timepts_matched
+# combined samples
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_snps_samples_combined_newDB_timepts_matched
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_genes_samples_combined_newDB_timepts_matched
