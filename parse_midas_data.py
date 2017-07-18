@@ -362,7 +362,7 @@ def calculate_ordered_subject_pairs(sample_order_map, sample_list=[]):
     diff_subject_idx_upper = []
 
     for i in xrange(0,len(sample_list)):
-        for j in xrange(0,len(sample_list)):
+        for j in xrange(i,len(sample_list)):
             # loop over all pairs of samples
             
             if i==j:
@@ -379,6 +379,10 @@ def calculate_ordered_subject_pairs(sample_order_map, sample_list=[]):
                         # consecutive samples
                         same_subject_idx_lower.append(i)
                         same_subject_idx_upper.append(j)
+                    elif order1-order2==1:
+                        # consecutive samples
+                        same_subject_idx_lower.append(j)
+                        same_subject_idx_upper.append(i)
                     else:
                         # do not add
                         pass
@@ -397,6 +401,32 @@ def calculate_ordered_subject_pairs(sample_order_map, sample_list=[]):
     diff_subject_idxs = (numpy.array(diff_subject_idx_lower,dtype=numpy.int32), numpy.array(diff_subject_idx_upper,dtype=numpy.int32))
     
     return same_sample_idxs, same_subject_idxs, diff_subject_idxs
+
+###############################################################################
+#
+# Calculates the subset that are sampled three times
+#
+###############################################################################
+def calculate_triple_samples(sample_order_map, sample_list=[]):
+
+    sample_idx_map = {}
+    
+    
+    for i in xrange(0,len(sample_list)):
+        subject, order = sample_order_map[sample_list[i]]
+        
+        if subject not in sample_idx_map:
+            sample_idx_map[subject] = {}
+            
+        sample_idx_map[subject][order] = i
+        
+    triple_samples = []
+    for subject in sample_idx_map.keys():
+        if len(sample_idx_map[subject].keys()) > 2:
+            triple_samples.append(numpy.array([sample_idx_map[subject][order] for order in sorted(sample_idx_map[subject].keys())]))
+            
+    return triple_samples
+
 
 ###############################################################################
 #

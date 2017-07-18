@@ -24,7 +24,7 @@ low_divergence_threshold = 1e-03
 min_change = 0.8
 min_sample_size = 5
 
-intermediate_filename = '%stemporal_changes.txt' % (parse_midas_data.analysis_directory)
+intermediate_filename = '%stemporal_changes.txt' % (parse_midas_data.data_directory)
 
 def load_temporal_change_map(species_name):
     

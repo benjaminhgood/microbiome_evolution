@@ -28,7 +28,8 @@ import numpy
 
 import diversity_utils
 import gene_diversity_utils
-
+import calculate_substitution_rates
+import clade_utils
 import stats_utils
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
@@ -54,10 +55,20 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
 parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
+parser.add_argument('--other-species', type=str, help='Run the script for a different species')
+
 args = parser.parse_args()
 
 debug = args.debug
 chunk_size = args.chunk_size
+other_species = args.other_species
+
+if other_species:
+    species_name = other_species
+    other_species_str = "_%s" % species_name
+else:
+    other_species_str = ""
+    
 ################################################################################
 
 min_coverage = config.min_median_coverage
@@ -65,7 +76,7 @@ alpha = 0.5 # Confidence interval range for rate estimates
 low_divergence_threshold = 5e-04
 min_change = 0.8
 allowed_variant_types = set(['1D','2D','3D','4D'])
-max_clade_d = 1e-02
+#max_clade_d = 1e-02
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
@@ -133,64 +144,48 @@ count_axis.get_yaxis().tick_left()
 #
 ###############
 
+sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
+substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
+sys.stderr.write("Calculating matrix...\n")
+dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'core', allowed_samples=snp_samples)
+snp_samples = numpy.array(dummy_samples)
+substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
+sys.stderr.write("Done!\n")   
+
+#################
+#
+# Cluster samples into clades based on distance matrix
+#
+#################
+sys.stderr.write("Clustering samples with low divergence...\n")
+coarse_grained_idxs, coarse_grained_cluster_list = clade_utils.cluster_samples(substitution_rate, min_d=low_divergence_threshold)
+
+coarse_grained_samples = snp_samples[coarse_grained_idxs]
+clade_sets = clade_utils.load_manual_clades(species_name)
+
+clade_idxss = clade_utils.calculate_clade_idxs_from_clade_sets(coarse_grained_samples, clade_sets)
+
+clade_sizes = numpy.array([clade_idxs.sum() for clade_idxs in clade_idxss])
+
+largest_clade_samples = coarse_grained_samples[ clade_idxss[clade_sizes.argmax()] ]
+
+
+sys.stderr.write("Top level: %d clades, %s\n" % (len(clade_sets), str(clade_sizes)))
+sys.stderr.write("Max: %d\n" % len(largest_clade_samples))
+ 
+if len(largest_clade_samples)<3:
+    sys.stderr.write("Too few samples! Quitting...\n")
+    sys.exit(1)
+    
+sys.stderr.write("Continuing with %d samples...\n" % len(largest_clade_samples))
+
+# Load SNP information for species_name
+sys.stderr.write("Re-loading %s...\n" % species_name)
+
 sys.stderr.write("Loading core genes...\n")
 core_genes = parse_midas_data.load_core_genes(species_name)
 sys.stderr.write("Done! Core genome consists of %d genes\n" % len(core_genes))
 
-
-# Analyze SNPs, looping over chunk sizes. 
-# Clunky, but necessary to limit memory usage on cluster
-
-# Load SNP information for species_name
-sys.stderr.write("Loading %d samples for %s...\n" % (len(snp_samples), species_name))
-
-snp_difference_matrix = numpy.array([])
-snp_opportunity_matrix = numpy.array([])
-
-final_line_number = 0
-while final_line_number >= 0:
-    
-    sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
-    dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_variant_types=allowed_variant_types, allowed_genes=core_genes, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number)
-    sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
-    
-    # Calculate fixation matrix
-    sys.stderr.write("Calculating matrix of snp differences...\n")
-    chunk_snp_difference_matrix, chunk_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=allowed_variant_types, allowed_genes=core_genes, min_change=min_change)    
-    sys.stderr.write("Done!\n")
-    
-    if snp_difference_matrix.shape[0]==0:
-        snp_difference_matrix = numpy.zeros_like(chunk_snp_difference_matrix)*1.0
-        snp_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)*1.0
-    
-    snp_difference_matrix += chunk_snp_difference_matrix
-    snp_opportunity_matrix += chunk_snp_opportunity_matrix
-    
-     
-substitution_rate = snp_difference_matrix*1.0/snp_opportunity_matrix 
-
-coarse_grained_idxs, coarse_grained_cluster_list = diversity_utils.cluster_samples(substitution_rate, min_d=low_divergence_threshold, max_ds=[max_clade_d])
-coarse_grained_cluster_idxss = coarse_grained_cluster_list[0] 
-coarse_grained_cluster_sizes = numpy.array([cluster_idxs.sum() for cluster_idxs in coarse_grained_cluster_idxss])
-
-print "Top level:", len(coarse_grained_cluster_idxss), coarse_grained_cluster_sizes
-
-# only focus on the members of the largest clade
-remapped_cluster_idxss = [cluster_idxs[coarse_grained_idxs] for cluster_idxs in coarse_grained_cluster_idxss]
-largest_clade_idxs = remapped_cluster_idxss[0]
-largest_clade_size = largest_clade_idxs.sum()
-
-coarse_grained_samples = snp_samples[coarse_grained_idxs]
-largest_clade_samples = set(coarse_grained_samples[largest_clade_idxs])
-
-if len(coarse_grained_samples)<3:
-    sys.stderr.write("Too few samples! Quitting...\n")
-    sys.exit(1)
-    
-sys.stderr.write("Continuing with %d samples...\n" % len(coarse_grained_samples))
-
-# Load SNP information for species_name
-sys.stderr.write("Re-loading %s...\n" % species_name)
 
 snp_difference_matrix = numpy.array([])
 snp_opportunity_matrix = numpy.array([])
@@ -199,23 +194,19 @@ synonymous_difference_matrix = numpy.array([])
 synonymous_opportunity_matrix = numpy.array([])
 
 nonsynonymous_difference_matrix = numpy.array([])
-nonsynonymous_opportunity_matrix = numpy.array([])
-     
+nonsynonymous_opportunity_matrix = numpy.array([])    
    
-maf_bins = numpy.arange(1,largest_clade_size+1)*1.0/largest_clade_size
-maf_bins -= (maf_bins[1]-maf_bins[0])/2
-maf_bins[0]=-0.1
-maf_bins[-1] = 1.1
-mafs = numpy.arange(1,largest_clade_size)*1.0/largest_clade_size
-    
-count_bins = numpy.arange(1,largest_clade_size+1)-0.5
-count_locations = numpy.arange(1,largest_clade_size)    
-    
-synonymous_sfs = numpy.zeros_like(mafs)
-nonsynonymous_sfs = numpy.zeros_like(mafs)
+maf_bins = []
+mafs = []
 
-synonymous_count_sfs = numpy.zeros_like(count_locations)
-nonsynonymous_count_sfs = numpy.zeros_like(count_locations)
+count_bins = []
+count_locations = []
+
+synonymous_sfs = []
+nonsynonymous_sfs = []
+
+synonymous_count_sfs = []
+nonsynonymous_count_sfs = []
 
 synonymous_pi_weighted_counts = 0
 nonsynonymous_pi_weighted_counts = 0
@@ -225,15 +216,8 @@ final_line_number = 0
 while final_line_number >= 0:
     
     sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
-    dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_variant_types=allowed_variant_types, allowed_samples=coarse_grained_samples,allowed_genes=core_genes, chunk_size=chunk_size,initial_line_number=final_line_number)
+    snp_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_variant_types=allowed_variant_types, allowed_samples=largest_clade_samples,allowed_genes=core_genes, chunk_size=chunk_size,initial_line_number=final_line_number)
     sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
-    
-    
-    new_largest_clade_idxs = numpy.array([sample in largest_clade_samples for sample in dummy_samples])
-
-    if not (new_largest_clade_idxs==largest_clade_idxs).all():
-        print new_largest_clade_idxs
-        print largest_clade_idxs
     
     # Calculate fixation matrix
     sys.stderr.write("Calculating matrix of snp differences...\n")
@@ -248,6 +232,24 @@ while final_line_number >= 0:
         nonsynonymous_difference_matrix = numpy.zeros_like(snp_difference_matrix)
         nonsynonymous_opportunity_matrix = numpy.zeros_like(snp_difference_matrix)
 
+        n = len(snp_samples)
+        
+        maf_bins = numpy.arange(1,n+1)*1.0/n
+        maf_bins -= (maf_bins[1]-maf_bins[0])/2
+        maf_bins[0]=-0.1
+        maf_bins[-1] = 1.1
+        mafs = numpy.arange(1,n)*1.0/n
+    
+        count_bins = numpy.arange(1,n+1)-0.5
+        count_locations = numpy.arange(1,n)    
+    
+        synonymous_sfs = numpy.zeros_like(mafs)
+        nonsynonymous_sfs = numpy.zeros_like(mafs)
+
+        synonymous_count_sfs = numpy.zeros_like(count_locations)
+        nonsynonymous_count_sfs = numpy.zeros_like(count_locations)
+
+    
     snp_difference_matrix += chunk_snp_difference_matrix
     snp_opportunity_matrix += chunk_snp_opportunity_matrix
 
@@ -266,11 +268,10 @@ while final_line_number >= 0:
     
     nonsynonymous_difference_matrix += chunk_nonsynonymous_difference_matrix
     nonsynonymous_opportunity_matrix += chunk_nonsynonymous_opportunity_matrix
-
-        
+  
     sys.stderr.write("Calculating the SFS...\n")
-    chunk_synonymous_freqs = diversity_utils.calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_sample_idxs=largest_clade_idxs, allowed_variant_types = set(['4D']), allowed_genes=core_genes)
-    chunk_nonsynonymous_freqs = diversity_utils.calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_sample_idxs=largest_clade_idxs, allowed_variant_types = set(['1D']), allowed_genes=core_genes)
+    chunk_synonymous_freqs = diversity_utils.calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_variant_types = set(['4D']), allowed_genes=core_genes)
+    chunk_nonsynonymous_freqs = diversity_utils.calculate_pooled_freqs(allele_counts_map, passed_sites_map, allowed_variant_types = set(['1D']), allowed_genes=core_genes)
         
     chunk_synonymous_sfs, dummy = numpy.histogram(chunk_synonymous_freqs, bins=maf_bins) 
     synonymous_sfs += chunk_synonymous_sfs
@@ -279,8 +280,8 @@ while final_line_number >= 0:
     nonsynonymous_sfs += chunk_nonsynonymous_sfs
     
     sys.stderr.write("Calculating count SFS...\n")
-    chunk_synonymous_counts, chunk_synonymous_weights = diversity_utils.calculate_pooled_counts(allele_counts_map, passed_sites_map, allowed_sample_idxs=largest_clade_idxs, allowed_variant_types = set(['4D']), allowed_genes=core_genes,pi_min_k=4)
-    chunk_nonsynonymous_counts, chunk_nonsynonymous_weights = diversity_utils.calculate_pooled_counts(allele_counts_map, passed_sites_map, allowed_sample_idxs=largest_clade_idxs, allowed_variant_types = set(['1D']), allowed_genes=core_genes,pi_min_k=4)
+    chunk_synonymous_counts, chunk_synonymous_weights = diversity_utils.calculate_pooled_counts(allele_counts_map, passed_sites_map, allowed_variant_types = set(['4D']), allowed_genes=core_genes,pi_min_k=4)
+    chunk_nonsynonymous_counts, chunk_nonsynonymous_weights = diversity_utils.calculate_pooled_counts(allele_counts_map, passed_sites_map, allowed_variant_types = set(['1D']), allowed_genes=core_genes,pi_min_k=4)
         
     chunk_synonymous_count_sfs, dummy = numpy.histogram(chunk_synonymous_counts, bins=count_bins) 
     synonymous_count_sfs += chunk_synonymous_count_sfs
@@ -292,15 +293,13 @@ while final_line_number >= 0:
     nonsynonymous_pi_weighted_counts += chunk_nonsynonymous_weights
 
 
-    
 largest_clade_matrix_idxs_i = []
-largest_clade_matrix_idxs_j = []    
-nonzero_idxs = numpy.nonzero(largest_clade_idxs)[0]
-for i in xrange(0,len(nonzero_idxs)):
-    for j in xrange(i+1,len(nonzero_idxs)):
+largest_clade_matrix_idxs_j = []
+for i in xrange(0, snp_difference_matrix.shape[0]):
+    for j in xrange(i+1, snp_difference_matrix.shape[0]):
         
-        largest_clade_matrix_idxs_i.append(nonzero_idxs[i])
-        largest_clade_matrix_idxs_j.append(nonzero_idxs[j])
+        largest_clade_matrix_idxs_i.append(i)
+        largest_clade_matrix_idxs_j.append(j)
 
 largest_clade_matrix_idxs = largest_clade_matrix_idxs_i, largest_clade_matrix_idxs_j
     
@@ -352,5 +351,6 @@ count_axis.bar([3-0.3],[pi_weighted_fraction],width=0.6,color='r',linewidth=0)
 
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_5.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig.savefig('%s/figure_5%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
 sys.stderr.write("Done!\n")
+

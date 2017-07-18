@@ -4,13 +4,7 @@ import matplotlib
 matplotlib.use('Agg') 
 import config
 import parse_midas_data
-###
-#
-# For today while the new data processes
-#
 import os
-#parse_midas_data.data_directory = os.path.expanduser("~/ben_nandita_hmp_data_062517/")
-#########################################
 import parse_HMP_data
 
 
@@ -96,7 +90,7 @@ differences_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[1,1],
                 subplot_spec=outer_grid[0], hspace=0.05, width_ratios=[1,1], wspace=0.025)
                 
 gene_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[1,1],
-                subplot_spec=outer_grid[1], hspace=0.45)
+                subplot_spec=outer_grid[1], hspace=0.5)
 
 
 ## Supp figure
@@ -186,9 +180,9 @@ within_gene_axis.set_xlabel('Within-host')
 prevalence_axis = plt.Subplot(fig, gene_grid[0])
 fig.add_subplot(prevalence_axis)
 
-prevalence_axis.set_ylabel('Fraction gene changes ')
-prevalence_axis.set_xlabel('Gene prevalence, $p$')
-prevalence_axis.set_xlim([0,1])
+prevalence_axis.set_ylabel('Fraction genes $\leq p$')
+prevalence_axis.set_xlabel('Prevalence, $p$')
+prevalence_axis.set_xlim([0,1.05])
 #prevalence_axis.set_ylim([0,1.1])
 
 prevalence_axis.spines['top'].set_visible(False)
@@ -233,10 +227,10 @@ fig.add_subplot(parallelism_axis)
 #supplemental_fig.add_subplot(parallelism_axis)
 
 
-parallelism_axis.set_ylabel('Fraction genes >= c')
-parallelism_axis.set_xlabel('Copynum foldchange, $c$')
+parallelism_axis.set_ylabel('Fraction genes $\geq c$')
+parallelism_axis.set_xlabel('Largest parallel fold-change, $c$')
 #parallelism_axis.set_xlim([0,5])
-parallelism_axis.set_ylim([0,1.05])
+parallelism_axis.set_ylim([0,1.1])
 
 parallelism_axis.spines['top'].set_visible(False)
 parallelism_axis.spines['right'].set_visible(False)
@@ -721,7 +715,7 @@ prevalence_locations = prevalence_bins[:-1]+(prevalence_bins[1]-prevalence_bins[
 #prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'k-',label='Random')
 
 h = numpy.histogram(between_host_gene_prevalences,bins=prevalence_bins)[0]
-prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'r.-',label='Between-host',markersize=3)
+#prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'r.-',label='Between-host',markersize=3)
 
 if len(low_divergence_between_host_gene_prevalences) > 0:
     print low_divergence_between_host_gene_prevalences
@@ -732,11 +726,25 @@ if len(low_divergence_between_host_gene_prevalences) > 0:
     #prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'r.-',label=('d<%g' % modification_divergence_threshold), alpha=0.5,markersize=3)
 
 h = numpy.histogram(within_host_gene_prevalences,bins=prevalence_bins)[0]
-prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'b.-',label='Within-host',markersize=3)
+#prevalence_axis.plot(prevalence_locations, h*1.0/h.sum(),'b.-',label='Within-host',markersize=3)
 
 print len(within_host_gene_prevalences), "within-host changes"
 
-prevalence_axis.legend(loc='upper right',frameon=False,fontsize=4)
+# CDF version
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_gene_prevalences)
+prevalence_axis.step(xs,1-ns*1.0/ns[0],'b-',label='Within-host',zorder=2)
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(between_host_gene_prevalences)
+prevalence_axis.step(xs,1-ns*1.0/ns[0],'r-',label='Between-host',zorder=1)
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_null_gene_prevalences)
+prevalence_axis.step(xs,1-ns*1.0/ns[0],'k-',label='Random',zorder=0)
+
+prevalence_axis.set_ylim([0,1.1])
+prevalence_axis.set_xlim([0,1.05])
+
+
 
 multiplicity_bins = numpy.arange(0,5)+0.5
 multiplicity_locs = numpy.arange(1,5)
@@ -754,14 +762,18 @@ multiplicity_axis.bar(multiplicity_locs-0.3, within_host_multiplicity_histogram*
 
 #prevalence_axis.set_ylim([0,0.6])
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_null_next_fold_changes)
-parallelism_axis.step(xs,ns*1.0/ns[0],'k-',label='Random')
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_next_fold_changes)
+parallelism_axis.step(xs,ns*1.0/ns[0],'b-',label='Within-host',zorder=2)
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_between_next_fold_changes)
-parallelism_axis.step(xs,ns*1.0/ns[0],'r-',label='Between-host')
+parallelism_axis.step(xs,ns*1.0/ns[0],'r-',label='Between-host',zorder=1)
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_next_fold_changes)
-parallelism_axis.step(xs,ns*1.0/ns[0],'b-',label='Within-host')
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_null_next_fold_changes)
+parallelism_axis.step(xs,ns*1.0/ns[0],'k-',label='Random',zorder=0)
+
+
+parallelism_axis.legend(loc='upper right',frameon=False,fontsize=4)
+
 
 parallelism_axis.semilogx([1],[-1],'k.')
 parallelism_axis.set_xlim([1,10])

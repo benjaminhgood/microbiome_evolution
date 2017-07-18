@@ -269,3 +269,4 @@ def parse_sample_phenotype_map():
             sample_phenotype_map[sample] = -1    
     
     return sample_phenotype_map
+

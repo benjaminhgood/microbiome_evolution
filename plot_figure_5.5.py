@@ -20,6 +20,8 @@ from math import log10,ceil
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid.inset_locator import inset_axes
+
 from numpy.random import randint, binomial
 from scipy.stats import poisson as poisson_distribution
 from scipy.cluster.hierarchy import dendrogram, linkage
@@ -152,7 +154,7 @@ sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(3.42,1.7))
+pylab.figure(1,figsize=(3.42,2))
 fig = pylab.gcf()
 # make three panels panels
 outer_grid  = gridspec.GridSpec(1,1)
@@ -168,22 +170,21 @@ divergence_axis.spines['right'].set_visible(False)
 divergence_axis.get_xaxis().tick_bottom()
 divergence_axis.get_yaxis().tick_left()
 
-pylab.figure(2,figsize=(3,2))
-fig2 = pylab.gcf()
-# make three panels panels
-outer_grid2  = gridspec.GridSpec(1,1)
 
-short_divergence_axis = plt.Subplot(fig2, outer_grid2[0])
-fig2.add_subplot(short_divergence_axis)
+cumulative_axis = inset_axes(divergence_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=divergence_axis.transAxes)
+#-0.025
 
-short_divergence_axis.plot([0,1e-04],[0,1e-04],'k:')
+cumulative_axis.spines['top'].set_visible(False)
+cumulative_axis.spines['right'].set_visible(False)
+cumulative_axis.get_xaxis().tick_bottom()
+cumulative_axis.get_yaxis().tick_left()
 
+cumulative_axis.set_ylabel('Cumulative')
 
-all_syn_thinned_differences = []
-all_syn_thinned_opportunities = []
+all_syn_differences = []
+all_syn_opportunities = []
 all_non_differences = []
 all_non_opportunities = []
-all_pSs = []
 
 median_pNs = []
 median_pSs = []
@@ -213,48 +214,59 @@ for species_idx in xrange(0,len(species_names)):
     median_pSs.append( numpy.median(pSs) )
     median_pNs.append( numpy.median(pNs) )
     
-    all_syn_thinned_differences.extend( thinned_syn_differences_1 )
-    all_syn_thinned_opportunities.extend( syn_opportunities[species_name]/2.0 )
+    all_syn_differences.extend( syn_differences[species_name] )
+    all_syn_opportunities.extend( syn_opportunities[species_name] )
     all_non_differences.extend( non_differences[species_name] )
     all_non_opportunities.extend( non_opportunities[species_name] )
-    all_pSs.extend(pS2s)
     
     if species_name.startswith('Bacteroides_vulgatus'):
         divergence_axis.loglog(pS2s, pNpSs, 'r.', markersize=2,markeredgewidth=0,zorder=1,label=("%s" % species_name))
     
     divergence_axis.loglog(pSs, pNpSs, '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0)
     
-    short_divergence_axis.plot(pNs, pSs, '.', color='b', markersize=3,alpha=0.5,markeredgewidth=0,zorder=0)
-    
-all_syn_thinned_differences = numpy.array(all_syn_thinned_differences)
-all_syn_thinned_opportunities = numpy.array(all_syn_thinned_opportunities)
-all_non_differences = numpy.array(all_non_differences)
-all_non_opportunities = numpy.array(all_non_opportunities)
-all_pSs = numpy.array(all_pSs)
+all_syn_differences = numpy.array(all_syn_differences,dtype=numpy.int32)
+all_syn_opportunities = numpy.array(all_syn_opportunities,dtype=numpy.int32)
+all_non_differences = numpy.array(all_non_differences,dtype=numpy.int32)
+all_non_opportunities = numpy.array(all_non_opportunities,dtype=numpy.int32)
 
+pS_thresholds = numpy.logspace(-5,-1,20)
+ratios = []
+num_bootstraps = 100
+for bootstrap_idx in xrange(0,num_bootstraps):
     
+    all_syn_differences_1 = binomial(all_syn_differences,0.5)
+    all_syn_differences_2 = all_syn_differences-all_syn_differences_1
+    
+    all_syn_opportunities_1 = all_syn_opportunities/2.0
+    all_syn_opportunities_2 = all_syn_opportunities/2.0
+    
+    all_pSs = all_syn_differences_2*1.0/all_syn_opportunities_2
+    
+    big_all_syn_differences_1 = numpy.outer(all_syn_differences_1, numpy.ones_like(pS_thresholds))
+    big_all_syn_opportunities_1 = numpy.outer(all_syn_opportunities_1, numpy.ones_like(pS_thresholds))
+     
+    big_all_non_differences = numpy.outer(all_non_differences, numpy.ones_like(pS_thresholds))
+    big_all_non_opportunities = numpy.outer(all_non_opportunities, numpy.ones_like(pS_thresholds))
+    
+    
+    good_idxs = (all_pSs[:,None] <= pS_thresholds[None,:])
 
-# Calculate pvalues
-pvalues = []
-pS_thresholds = numpy.logspace(-6,-1,20)
-for pSstar in pS_thresholds:
+    cumulative_pNs = (big_all_non_differences*good_idxs).sum(axis=0)*1.0/(big_all_non_opportunities*good_idxs).sum(axis=0)
+    
+    cumulative_pSs = (big_all_syn_differences_1*good_idxs).sum(axis=0)*1.0/(big_all_syn_opportunities_1*good_idxs).sum(axis=0)
+    
+    cumulative_pNpSs = cumulative_pNs/cumulative_pSs
+    
+    ratios.append(cumulative_pNpSs)
 
-    good_idxs = (all_pSs<=pSstar)
+ratios = numpy.array(ratios)
 
-    if not good_idxs.any():
-        pvalues.append(1)
-        continue
+avg_ratios = ratios.mean(axis=0)
+std_ratios = ratios.std(axis=0)
 
-    nobs = all_non_differences[good_idxs].sum()
-    lam = (all_non_opportunities[good_idxs].sum())*1.0/(all_syn_thinned_opportunities[good_idxs].sum())*(all_syn_thinned_differences[good_idxs].sum())
-    
-    pNpS = nobs/lam
-    
-    pvalue = 1-poisson_distribution.cdf(nobs-1, lam)
-    
-    print pNpS, nobs, lam, pvalue
-    pvalues.append( pvalue )
-    
+cumulative_axis.fill_between(pS_thresholds, avg_ratios-2*std_ratios, avg_ratios+2*std_ratios,color='0.7',linewidth=0)
+cumulative_axis.loglog(pS_thresholds, avg_ratios,'k-')
+
       
 median_pSs = numpy.array(median_pSs)
 median_pNs = numpy.array(median_pNs)   
@@ -263,7 +275,7 @@ divergence_axis.plot([1e-09],[100], '.', color='0.7', markersize=2,alpha=0.5,mar
        
 divergence_axis.loglog(median_pSs, median_pNs*1.0/median_pSs, 'kx',markersize=2,label='Species median',alpha=0.5)
 
-divergence_axis.legend(loc='upper right',frameon=False,numpoints=1)
+divergence_axis.legend(loc='lower left',frameon=False,numpoints=1)
 
 divergence_axis.set_ylim([1e-02,10])    
 divergence_axis.set_xlim([1e-06,1e-01])
@@ -279,12 +291,11 @@ theory_dNdSs = asymptotic_dNdS+(1-asymptotic_dNdS)*(1-numpy.exp(-sbymu*theory_ds
 
 divergence_axis.loglog(theory_ds, theory_dNdSs,'k-')
 
-short_divergence_axis.set_xlim([-1e-06,3e-05])
-short_divergence_axis.set_ylim([-1e-06,4e-05])
+cumulative_axis.set_xlim([1e-05,1e-02])
+cumulative_axis.set_ylim([1e-01,1])
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_5.5.png' % (parse_midas_data.analysis_directory),bbox_inches='tight', dpi=600)
-fig2.savefig('%s/figure_5.5.2.png' % (parse_midas_data.analysis_directory),bbox_inches='tight', dpi=600)
 
 sys.stderr.write("Done!\n")
 

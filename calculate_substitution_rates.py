@@ -13,7 +13,7 @@ import stats_utils
 from math import log10,ceil
 from numpy.random import randint
 
-intermediate_filename = '%ssubstitution_rates.txt' % (parse_midas_data.analysis_directory)
+intermediate_filename = '%ssubstitution_rates.txt' % (parse_midas_data.data_directory)
     
 
 min_coverage = config.min_median_coverage

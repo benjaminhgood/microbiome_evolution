@@ -83,6 +83,11 @@ total_null_snp_modification_map = {}
 total_gene_modification_map = {}
 total_null_gene_modification_map = {}
 
+total_syn_snps = 0
+total_non_snps = 0
+total_syn_opportunities = 0
+total_non_opportunities = 0
+
 for species_name in good_species_list:
 
     # Only plot samples above a certain depth threshold that are "haploids"
@@ -125,7 +130,12 @@ for species_name in good_species_list:
     substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
     sys.stderr.write("Calculating matrix...\n")
     dummy_samples, snp_difference_matrix, snp_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
+    
+    dummy_samples, non_difference_matrix, non_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '1D', allowed_samples=snp_samples)
+    dummy_samples, syn_difference_matrix, syn_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '4D', allowed_samples=snp_samples)
     snp_samples = dummy_samples
+    
+    
     snp_substitution_rate =     snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
     sys.stderr.write("Done!\n")
 
@@ -207,6 +217,25 @@ for species_name in good_species_list:
             total_snp_modification_map[species_name] += num_snp_changes
             total_null_snp_modification_map[species_name] += perr
             
+            total_syn_opportunities += syn_opportunity_matrix[i,j]
+            total_non_opportunities += non_opportunity_matrix[i,j]
+            
+            for snp_change in mutations:
+                if snp_change[3]=='4D':
+                    total_syn_snps += 1
+                elif snp_change[3]=='1D':
+                    total_non_snps += 1
+                else:
+                    pass
+        
+            for snp_change in reversions:
+                if snp_change[3]=='4D':
+                    total_syn_snps += 1
+                elif snp_change[3]=='1D':
+                    total_non_snps += 1
+                else:
+                    pass
+            
             if num_gene_changes > -0.5:
             
                 
@@ -225,6 +254,8 @@ for species_name in good_species_list:
     
 sys.stderr.write("Done looping over species!\n")    
 
+print total_syn_snps*1.0/total_syn_opportunities, total_syn_snps, total_syn_opportunities
+print total_non_snps*1.0/total_non_opportunities, total_non_snps, total_non_opportunities
 
 species_names = []
 sample_sizes = []

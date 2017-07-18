@@ -13,6 +13,8 @@ import diversity_utils
 import gene_diversity_utils
 import calculate_substitution_rates
 
+import clade_utils
+
 import stats_utils
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
@@ -94,7 +96,7 @@ outer_grid  = gridspec.GridSpec(2,1, height_ratios=[1,2], hspace=0.25)
 
 divergence_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[4,1], subplot_spec=outer_grid[0], wspace=0.025)
                  
-dendrogram_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[6,1], subplot_spec=outer_grid[1], wspace=0.025)
+dendrogram_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[8,1], subplot_spec=outer_grid[1], wspace=0.025)
 
 
 
@@ -110,7 +112,7 @@ fig.add_subplot(snp_axis)
 #snp_axis.set_title("%s %s (%s)" % tuple(species_name.split("_")),fontsize=7)
 
 snp_axis.set_ylabel('Divergence, $d$')
-snp_axis.set_xlabel('Ranked subject pairs')
+snp_axis.set_xlabel('Ranked host pairs')
 snp_axis.set_ylim([1e-06,1e-01])
 snp_axis.set_xlim([-512,5])
 snp_axis.set_xticks([])
@@ -145,8 +147,8 @@ zoomed_snp_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-#dendrogram_axis = plt.Subplot(fig, dendrogram_grid[0])
-dendrogram_axis = plt.Subplot(fig, outer_grid[1])
+dendrogram_axis = plt.Subplot(fig, dendrogram_grid[0])
+#dendrogram_axis = plt.Subplot(fig, outer_grid[1])
 
 fig.add_subplot(dendrogram_axis)
 
@@ -169,16 +171,16 @@ dendrogram_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-#inconsistency_axis = plt.Subplot(fig, dendrogram_grid[1])
-#fig.add_subplot(inconsistency_axis)
+inconsistency_axis = plt.Subplot(fig, dendrogram_grid[1])
+fig.add_subplot(inconsistency_axis)
 
-#inconsistency_axis.set_xlabel('% inconsistent SNPs')
-#inconsistency_axis.set_yticklabels([])
+inconsistency_axis.set_xlabel('% inconsistent')
+inconsistency_axis.set_yticklabels([])
 
-#inconsistency_axis.spines['top'].set_visible(False)
-#inconsistency_axis.spines['right'].set_visible(False)
-#inconsistency_axis.get_xaxis().tick_bottom()
-#inconsistency_axis.get_yaxis().tick_left()
+inconsistency_axis.spines['top'].set_visible(False)
+inconsistency_axis.spines['right'].set_visible(False)
+inconsistency_axis.get_xaxis().tick_bottom()
+inconsistency_axis.get_yaxis().tick_left()
 
 ##############################################################################
 #
@@ -210,6 +212,8 @@ Z = linkage(Y, method='average')
 c, coph_dists = cophenet(Z, Y)
 ddata = dendrogram(Z, no_plot=True)
 sys.stderr.write("Done! cophenetic correlation: %g\n" % c)
+
+
 
 
 # Calculate which pairs of idxs belong to the same sample, which to the same subject
@@ -383,12 +387,147 @@ dendrogram_axis.legend(loc='upper right',ncol=3,frameon=False,fontsize=5,numpoin
     
 dendrogram_axis.set_xticks([])
 dendrogram_axis.set_xlim([xmin,xmax])
+
+#dendrogram_axis.plot([xmin,xmax],[7.3e-03,7.3e-03],'k-',linewidth=0.25)
+
 dendrogram_axis.set_ylim([yplotmin/1.4,yplotmax])
 
-#inconsistency_axis.semilogy([100,100],[yplotmin/1.4, yplotmax],'-',color='0.7', linewidth=0.25)
-#inconsistency_axis.set_ylim([yplotmin/1.4,yplotmax])
-#inconsistency_axis.set_yticklabels([])
-#inconsistency_axis.set_xlim([0,105])
+snp_samples = numpy.array(snp_samples)
+
+ds = numpy.logspace(log10(2e-05),log10(2e-02),15)
+clade_setss = []
+sys.stderr.write("Assessing phylogenetic consistency...\n")
+sys.stderr.write("Clustering samples at different divergence thresholds...\n")
+for d in ds:
+    clade_idx_sets = clade_utils.cluster_samples_within_clades(snp_substitution_rate, d=d)
+    clade_sets = [snp_samples[numpy.array(list(clade_idxs))] for clade_idxs in clade_idx_sets]
+    
+    clade_setss.append(clade_sets)
+
+dstar = 2e-04
+
+manual_clade_sets = clade_utils.load_manual_clades(species_name)
+manual_clade_idxss = clade_utils.calculate_clade_idxs_from_clade_sets(snp_samples, clade_sets)
+
+clade_idx_sets = clade_utils.cluster_samples_within_clades(snp_substitution_rate, clade_idxss=manual_clade_idxss, d=dstar)
+fine_clade_sets = [snp_samples[numpy.array(list(clade_idxs))] for clade_idxs in clade_idx_sets]
+
+num_bootstraps = 10
+bootstrapped_fine_clade_idxsss = []
+
+sys.stderr.write("Loading core genes...\n")
+core_genes = parse_midas_data.load_core_genes(species_name)
+sys.stderr.write("Done! Core genome consists of %d genes\n" % len(core_genes))
+
+
+# Load SNP information for species_name
+sys.stderr.write("Loading SNPs for %s...\n" % species_name)
+
+
+total_singleton_sites = [0 for d in ds]
+total_polymorphic_sites = [0 for d in ds]
+total_inconsistent_sites = [0 for d in ds]
+total_null_inconsistent_sites = [0 for d in ds]
+
+total_dstar_singleton_sites = 0
+total_dstar_polymorphic_sites = 0
+total_bootstrapped_singleton_sites = 0
+total_bootstrapped_polymorphic_sites = 0
+ 
+singleton_variant_types = [{'1D':0, '2D':0, '3D':0, '4D':0} for d in ds]
+polymorphic_variant_types = [{'1D':0, '2D':0, '3D':0, '4D':0} for d in ds]
+inconsistent_variant_types = [{'1D':0, '2D':0, '3D':0, '4D':0} for d in ds]
+ 
+polymorphic_freqs = [[] for d in ds]
+inconsistent_freqs = [[] for d in ds]
+ 
+
+final_line_number = 0
+while final_line_number >= 0:
+    
+    sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
+    dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_variant_types=allowed_variant_types, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number, allowed_genes=core_genes)
+    snp_samples = dummy_samples
+    
+    sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
+    
+    sys.stderr.write("Calculating phylogenetic consistency...\n")
+    for i in xrange(0,len(ds)):
+        
+        clade_sets = clade_setss[i]
+        cluster_idxss = clade_utils.calculate_clade_idxs_from_clade_sets(snp_samples, clade_sets)
+        
+        #print cluster_idxss
+        
+        chunk_singleton_freqs, chunk_polymorphic_freqs, chunk_inconsistent_freqs, chunk_null_inconsistent_freqs, chunk_singleton_variant_types, chunk_polymorphic_variant_types, chunk_inconsistent_variant_types, chunk_null_variant_types = clade_utils.calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, cluster_idxss, allowed_genes=core_genes)    
+        
+        total_singleton_sites[i] += len(chunk_singleton_freqs)
+        total_polymorphic_sites[i] += len(chunk_polymorphic_freqs)+len(chunk_singleton_freqs) 
+        total_inconsistent_sites[i] += len(chunk_inconsistent_freqs)
+        total_null_inconsistent_sites[i] += len(chunk_null_inconsistent_freqs)
+    
+        polymorphic_freqs[i].extend(chunk_polymorphic_freqs)
+        inconsistent_freqs[i].extend(chunk_inconsistent_freqs)
+            
+        print "Singleton:", chunk_singleton_variant_types
+        print "Polymorphic:", chunk_polymorphic_variant_types
+        print "Inconsistent:", chunk_inconsistent_variant_types
+                
+        for variant_type in polymorphic_variant_types[i].keys():
+            singleton_variant_types[i][variant_type] += chunk_singleton_variant_types[variant_type]
+            polymorphic_variant_types[i][variant_type] += chunk_polymorphic_variant_types[variant_type]
+            inconsistent_variant_types[i][variant_type] += chunk_inconsistent_variant_types[variant_type]
+    
+    sys.stderr.write("Calculating singleton fractions...\n")
+    if len(bootstrapped_fine_clade_idxsss)==0:
+        
+        manual_clade_idxss = clade_utils.calculate_clade_idxs_from_clade_sets(snp_samples, clade_sets)
+
+        fine_clade_idxss = clade_utils.calculate_clade_idxs_from_clade_sets(snp_samples, fine_clade_sets)
+        
+        for bootstrap_idx in xrange(0,num_bootstraps):
+            
+            permuted_idxs = clade_utils.permute_idxs_within_clades(manual_clade_idxss)
+        
+            bootstrapped_fine_clade_idxss = []
+            for clade_idxs in fine_clade_idxss:
+                bootstrapped_fine_clade_idxss.append( numpy.array(clade_idxs[permuted_idxs],copy=True) )
+            bootstrapped_fine_clade_idxsss.append( bootstrapped_fine_clade_idxss )
+            
+    chunk_singleton_freqs, chunk_polymorphic_freqs, chunk_inconsistent_freqs, chunk_null_inconsistent_freqs, chunk_singleton_variant_types, chunk_polymorphic_variant_types, chunk_inconsistent_variant_types, chunk_null_variant_types = clade_utils.calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, fine_clade_idxss, allowed_genes=core_genes)    
+        
+    total_dstar_singleton_sites += len(chunk_singleton_freqs)
+    total_dstar_polymorphic_sites += len(chunk_polymorphic_freqs)+len(chunk_singleton_freqs)    
+        
+    for bootstrap_idx in xrange(0,num_bootstraps):
+
+        chunk_singleton_freqs, chunk_polymorphic_freqs, chunk_inconsistent_freqs, chunk_null_inconsistent_freqs, chunk_singleton_variant_types, chunk_polymorphic_variant_types, chunk_inconsistent_variant_types, chunk_null_variant_types = clade_utils.calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, bootstrapped_fine_clade_idxsss[bootstrap_idx], allowed_genes=core_genes)    
+        
+        total_bootstrapped_singleton_sites += len(chunk_singleton_freqs)
+        total_bootstrapped_polymorphic_sites += len(chunk_polymorphic_freqs)+len(chunk_singleton_freqs)       
+    
+    sys.stderr.write("Done!\n")
+        
+total_polymorphic_sites = numpy.array(total_polymorphic_sites)
+total_inconsistent_sites = numpy.array(total_inconsistent_sites)
+total_null_inconsistent_sites = numpy.array(total_null_inconsistent_sites)
+  
+fraction_inconsistent = total_inconsistent_sites*1.0/total_polymorphic_sites
+null_fraction_inconsistent = total_null_inconsistent_sites*1.0/total_polymorphic_sites
+    
+sys.stderr.write("Done!\n")
+
+sys.stderr.write("Observed singletons at %g: %d/%d (%g), Expected: %d/%d (%g)\n" % (dstar, total_dstar_singleton_sites, total_dstar_polymorphic_sites, total_dstar_singleton_sites*1.0/total_dstar_polymorphic_sites, total_bootstrapped_singleton_sites, total_bootstrapped_polymorphic_sites, total_bootstrapped_singleton_sites*1.0/total_bootstrapped_polymorphic_sites))
+
+inconsistency_axis.semilogy([2,2],[yplotmin/1.4, yplotmax],'-',color='0.7', linewidth=0.25)
+inconsistency_axis.set_ylim([yplotmin/1.4,yplotmax])
+inconsistency_axis.set_xlim([0,1])
+inconsistency_axis.set_yticklabels([])
+inconsistency_axis.set_xticks([0,0.5,1])
+inconsistency_axis.plot(fraction_inconsistent, ds, 'r.-',markersize=2,zorder=1,label='Observed')
+inconsistency_axis.plot(null_fraction_inconsistent, ds, '.-',color='0.7',markersize=2,zorder=0,label='Unlinked')
+
+inconsistency_axis.legend(loc='lower right',frameon=False,numpoints=1,fontsize=4)
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_2%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')

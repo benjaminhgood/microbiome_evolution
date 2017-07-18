@@ -119,10 +119,10 @@ snp_samples = list(snp_samples)
 #
 ####################################################
 
-pylab.figure(1,figsize=(6,1.7))
+pylab.figure(1,figsize=(3.42,1.5))
 fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(1,3, width_ratios=[1,1,1], wspace=0.05)
+outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1], wspace=0.05)
 
 sfs_axes = []
 
@@ -160,22 +160,22 @@ sfs_axis_2.get_xaxis().tick_bottom()
 sfs_axis_2.get_yaxis().tick_left()
 sfs_axes.append(sfs_axis_2)
 
-sfs_axis_3 = plt.Subplot(fig, outer_grid[2])
-fig.add_subplot(sfs_axis_3)
-sfs_axis_3.set_xlabel('Initial frequency')
-sfs_axis_3.set_xlim([-0.05,0.51])
-sfs_axis_3.set_ylim([-0.05,1.05])
-sfs_axis_3.plot([0,1],[1,1],'k-')
-sfs_axis_3.plot([0,0],[0,1],'k-')
-sfs_axis_3.plot([0,0.2],[0.8,1.0],'k-')
-sfs_axis_3.plot([0,1],[0,1.0],'k-')
+#sfs_axis_3 = plt.Subplot(fig, outer_grid[2])
+#fig.add_subplot(sfs_axis_3)
+#sfs_axis_3.set_xlabel('Initial frequency')
+#sfs_axis_3.set_xlim([-0.05,0.51])
+#sfs_axis_3.set_ylim([-0.05,1.05])
+#sfs_axis_3.plot([0,1],[1,1],'k-')
+#sfs_axis_3.plot([0,0],[0,1],'k-')
+#sfs_axis_3.plot([0,0.2],[0.8,1.0],'k-')
+#sfs_axis_3.plot([0,1],[0,1.0],'k-')
 
-sfs_axis_3.set_yticklabels([])
-sfs_axis_3.spines['top'].set_visible(False)
-sfs_axis_3.spines['right'].set_visible(False)
-sfs_axis_3.get_xaxis().tick_bottom()
-sfs_axis_3.get_yaxis().tick_left()
-sfs_axes.append(sfs_axis_3)
+#sfs_axis_3.set_yticklabels([])
+#sfs_axis_3.spines['top'].set_visible(False)
+#sfs_axis_3.spines['right'].set_visible(False)
+#sfs_axis_3.get_xaxis().tick_bottom()
+#sfs_axis_3.get_yaxis().tick_left()
+#sfs_axes.append(sfs_axis_3)
 
 initial_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
 final_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
@@ -233,7 +233,7 @@ sys.stderr.write("Done!\n")
 
 # Plot joint SFS!
 
-for pair_idx in xrange(0,len(desired_sample_pairs)):
+for pair_idx in xrange(1,len(desired_sample_pairs)):
 
     initial_sample, final_sample = desired_sample_pairs[pair_idx]
 
@@ -255,10 +255,10 @@ for pair_idx in xrange(0,len(desired_sample_pairs)):
     #sfs_axes[pair_idx].plot(f0s[good_sites],f1s[good_sites],'b.',alpha=0.1,markersize=2,markeredgewidth=0)
     #sfs_axes[pair_idx].plot(f0s[fixed_sites],f1s[fixed_sites],'b.',alpha=1,markersize=3,markeredgewidth=0)
     
-    sfs_axes[pair_idx].plot(f0s[good_sites],f1s[good_sites],'b.',alpha=0.1,markersize=2,markeredgewidth=0)
-    sfs_axes[pair_idx].plot(f0s[fixed_sites],f1s[fixed_sites],'b.',alpha=1,markersize=3,markeredgewidth=0)
-    sfs_axes[pair_idx].set_xlim([0,1])
-    sfs_axes[pair_idx].set_ylim([0,1])
+    sfs_axes[pair_idx-1].plot(f0s[good_sites],f1s[good_sites],'b.',alpha=0.1,markersize=2,markeredgewidth=0)
+    sfs_axes[pair_idx-1].plot(f0s[fixed_sites],f1s[fixed_sites],'b.',alpha=1,markersize=3,markeredgewidth=0)
+    sfs_axes[pair_idx-1].set_xlim([0,1])
+    sfs_axes[pair_idx-1].set_ylim([0,1])
     
 
 sys.stderr.write("Saving figure...\t")
