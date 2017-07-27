@@ -982,3 +982,16 @@ qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_genes_tech_com
 # combined samples
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_snps_samples_combined_newDB_timepts_matched
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_genes_samples_combined_newDB_timepts_matched
+
+#############################################################################################
+#
+# July 27, 2017
+# How to run post-midas analysis code
+#
+#############################################################################################
+
+# First postprocess the midas data (takes a 2-3 days on my desktop)
+python postprocess_all_midas_data_serial.py 
+
+# Then generate the figures included in the paper
+python generate_all_figures.py 
