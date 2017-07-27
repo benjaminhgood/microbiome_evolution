@@ -8,6 +8,7 @@ import pylab
 import sys
 import numpy
 
+import species_phylogeny_utils
 import diversity_utils
 import gene_diversity_utils
 import calculate_substitution_rates
@@ -101,13 +102,13 @@ for species_name in good_species_list:
 species_names = []
 sample_sizes = []
 
-for species_name in divergence_matrices.keys():
+for species_name in species_phylogeny_utils.sort_phylogenetically(divergence_matrices.keys()):
     species_names.append(species_name)
     sample_sizes.append( divergence_matrices[species_name].shape[0] )
     
 # sort in descending order of sample size
 # Sort by num haploids    
-sample_sizes, species_names = zip(*sorted(zip(sample_sizes, species_names),reverse=True))
+#sample_sizes, species_names = zip(*sorted(zip(sample_sizes, species_names),reverse=True))
     
 sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
         
@@ -133,8 +134,8 @@ divergence_axis.set_ylim([1e-06,1e-01])
 divergence_axis.set_xlim([-1,len(species_names)])
 
 xticks = numpy.arange(0,len(species_names))
-#xticklabels = ["%s (%d)" % (species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
-xticklabels = ["%s" % (species_names[i]) for i in xrange(0,len(sample_sizes))]
+xticklabels = ["%s (%d)" % (species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
+#xticklabels = ["%s" % (species_names[i]) for i in xrange(0,len(sample_sizes))]
 
 divergence_axis.set_xticks(xticks)
 divergence_axis.set_xticklabels(xticklabels, rotation='vertical',fontsize=4)
@@ -149,7 +150,7 @@ divergence_axis.get_yaxis().tick_left()
 for species_idx in xrange(0,len(species_names)):
 
     species_name = species_names[species_idx]
-
+    
     sys.stderr.write("Postprocessing %s (%d samples)...\n" % (species_name, divergence_matrices[species_name].shape[0]))
     divergence_matrix = divergence_matrices[species_name]
     divergences = []
