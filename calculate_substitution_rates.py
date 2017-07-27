@@ -58,8 +58,11 @@ def calculate_matrices_from_substitution_rate_map(substitution_rate_map, type, a
         sample_set.add(sample_1)
         sample_set.add(sample_2)
     
-    allowed_sample_set = set(allowed_samples)    
-    
+    if len(allowed_samples)>0:
+        allowed_sample_set = set(allowed_samples)    
+    else:
+        allowed_sample_set = sample_set
+        
     sample_set = sample_set & allowed_sample_set
     samples = list(sample_set)
     

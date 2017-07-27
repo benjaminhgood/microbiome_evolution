@@ -1,36 +1,36 @@
+# Within-snp gene changes
+
 import matplotlib  
 matplotlib.use('Agg') 
 import config
 import parse_midas_data
+###
+#
+# For today while the new data processes
+#
+import os
+#parse_midas_data.data_directory = os.path.expanduser("~/ben_nandita_hmp_data_062517/")
+#########################################
 import parse_HMP_data
-import os.path
+
+
 import pylab
 import sys
 import numpy
 
 import diversity_utils
 import gene_diversity_utils
-import calculate_temporal_changes
-import calculate_substitution_rates
+
 import stats_utils
-import sfs_utils
-    
-    
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 from math import log10,ceil
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from numpy.random import randint
-import matplotlib.colors as mcolors
+from numpy.random import randint, choice
 
-from scipy.cluster.hierarchy import dendrogram, linkage
-from scipy.cluster.hierarchy import cophenet
-from scipy.cluster.hierarchy import fcluster
-
-
-mpl.rcParams['font.size'] = 6
+mpl.rcParams['font.size'] = 5
 mpl.rcParams['lines.linewidth'] = 0.5
 mpl.rcParams['legend.frameon']  = False
 mpl.rcParams['legend.fontsize']  = 'small'
@@ -45,377 +45,235 @@ species_name = "Bacteroides_vulgatus_57955"
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
-parser.add_argument("--memoize", help="Loads stuff from disk", action="store_true")
 parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
+parser.add_argument('--other-species', type=str, help='Run the script for a different species')
 
 args = parser.parse_args()
 
 debug = args.debug
 chunk_size = args.chunk_size
-memoize = args.memoize
+other_species = args.other_species
 
+if other_species:
+    species_name = other_species
+    other_species_str = "_%s" % species_name
+else:
+    other_species_str = ""
+    
 ################################################################################
 
 min_coverage = config.min_median_coverage
-min_sample_size = 5
+alpha = 0.5 # Confidence interval range for rate estimates
+low_pi_threshold = 1e-03
+clade_divergence_threshold = 1e-02
+modification_divergence_threshold = 1e-03
+min_change = 0.8
+include_high_copynum = False
+#include_high_copynum = True
 
-modification_difference_threshold = 100
-
-# Must compete divergence matrix on the fly! 
-            
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
 subject_sample_map = parse_HMP_data.parse_subject_sample_map()
+sample_country_map = parse_HMP_data.parse_sample_country_map()
 sample_order_map = parse_HMP_data.parse_sample_order_map()
 sys.stderr.write("Done!\n")
+  
+  
+desired_sample_pairs = {}
+desired_sample_pairs['Bacteroides_vulgatus_57955'] = []
+#desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700016765', '700100312')) # haploid->haploid example
+#desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700016960', '700101581')) # haploid->diploid example
+#desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700014837', '700098561')) # diploid->diploid example
+desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700024318', '700105372')) # diploid->diploid example
+desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700016960', '700101581')) # diploid->diploid example
+desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700014837', '700098561')) # diploid->diploid example
+
+
+desired_sample_pairs['Eubacterium_rectale_56927'] = []
+desired_sample_pairs['Eubacterium_rectale_56927'].append(('700098429', '700110812')) # haploid->haploid example
+desired_sample_pairs['Eubacterium_rectale_56927'].append(('700098429', '700110812')) # haploid->haploid example 2
+desired_sample_pairs['Eubacterium_rectale_56927'].append(('700021306', '700037632')) # diploid->haploid example
+
+desired_sample_pairs['Bacteroides_uniformis_57318'] = []
+desired_sample_pairs['Bacteroides_uniformis_57318'].append(('700021902', '700105210')) # haploid->haploid example
+desired_sample_pairs['Bacteroides_uniformis_57318'].append(('700023113', '700023720')) # diploid->haploid example
+desired_sample_pairs['Bacteroides_uniformis_57318'].append(('700015415', '700101243')) # diploid->diploid example
+
+desired_sample_pairs['Bacteroides_ovatus_58035'] = []
+desired_sample_pairs['Bacteroides_ovatus_58035'].append(('700037042', '700103621')) # haploid->haploid example
+desired_sample_pairs['Bacteroides_ovatus_58035'].append(('700023578', '700103446')) # diploid->diploid example1
+desired_sample_pairs['Bacteroides_ovatus_58035'].append(('700024615', '700105306')) # diploid->diploid example2
+
+
+desired_sample_pairs = desired_sample_pairs[species_name]
+snp_samples = set()
+for initial_sample, final_sample in desired_sample_pairs:
+    snp_samples.add(initial_sample)
+    snp_samples.add(final_sample)
     
-good_species_list = parse_midas_data.parse_good_species_list()
-if debug:
-    good_species_list = good_species_list[0:2]
-
-num_passed_species = 0
-
-num_temporal_change_map = {}
-
-total_snp_modification_map = {}
-total_null_snp_modification_map = {}
-
-total_gene_modification_map = {}
-total_null_gene_modification_map = {}
-
-total_syn_snps = 0
-total_non_snps = 0
-total_syn_opportunities = 0
-total_non_opportunities = 0
-
-for species_name in good_species_list:
-
-    # Only plot samples above a certain depth threshold that are "haploids"
-    haploid_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
-
-    if len(haploid_samples) < min_sample_size:
-        continue
-
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, haploid_samples)
-
-    snp_samples = set()
-    sample_size = 0        
-    for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
-   
-        i = same_subject_idxs[0][sample_pair_idx]
-        j = same_subject_idxs[1][sample_pair_idx]
-
-        snp_samples.add(haploid_samples[i])
-        snp_samples.add(haploid_samples[j])
-            
-        sample_size += 1
-            
-    snp_samples = list(snp_samples)
-
-
-
-    allowed_sample_set = set(snp_samples)
-
-    if sample_size < min_sample_size:
-        continue
-    
-    
-    sys.stderr.write("Proceeding with %d longitudinal comparisons in %d samples!\n" % (sample_size, len(snp_samples)))
-    
-    sys.stderr.write("Loading SFSs for %s...\t" % species_name)
-    dummy_samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])) 
-    sys.stderr.write("Done!\n")
-
-    sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
-    substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
-    sys.stderr.write("Calculating matrix...\n")
-    dummy_samples, snp_difference_matrix, snp_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
-    
-    dummy_samples, non_difference_matrix, non_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '1D', allowed_samples=snp_samples)
-    dummy_samples, syn_difference_matrix, syn_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '4D', allowed_samples=snp_samples)
-    snp_samples = dummy_samples
-    
-    
-    snp_substitution_rate =     snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
-    sys.stderr.write("Done!\n")
-
-    sys.stderr.write("Loading pre-computed temporal changes for %s...\n" % species_name)
-    temporal_change_map = calculate_temporal_changes.load_temporal_change_map(species_name)
-    sys.stderr.write("Done!\n")
-
-    
-
-    total_snp_modification_map[species_name] = 0
-    total_null_snp_modification_map[species_name] = 0
-    total_gene_modification_map[species_name] = 0
-    total_null_gene_modification_map[species_name] = 0
-
-    temporal_changes = []
-    
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
-    
-    for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
-#    
-        i = same_subject_idxs[0][sample_pair_idx]
-        j = same_subject_idxs[1][sample_pair_idx]
-    
-        sample_i = snp_samples[i] 
-        sample_j = snp_samples[j]
-        
-        if not ((sample_i in allowed_sample_set) and (sample_j in allowed_sample_set)):
-            continue
-        
-        perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-        
-        if perr>=0.5:
-            
-            # Calculate a more fine grained value!
-        
-            dfs = numpy.array([0.6,0.7,0.8,0.9])
-            perrs = diversity_utils.calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=dfs) * snp_opportunity_matrix[i, j]
-    
-            if (perrs<0.5).any():
-                # take most permissive one!
-                perr_idx = numpy.nonzero(perrs<0.5)[0][0]
-                df = dfs[perr_idx]
-                perr = perrs[perr_idx]
-            
-                # recalculate stuff!    
-                perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j,lower_threshold=(1-df)/2.0, upper_threshold=(1+df)/2.0)
-                
-            else:
-                df = 2
-                perr = 1
-                mutations = None
-                reversions = None
-    
-        if mutations==None or perr>=0.5:
-            num_mutations = 0
-            num_reversions = 0
-            num_snp_changes = -1
-        else:
-            num_mutations = len(mutations)
-            num_reversions = len(reversions)
-            num_snp_changes = num_mutations+num_reversions
-    
-        
-        gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-    
-        
-        if (gains==None) or (gene_perr<-0.5) or (gene_perr>0.5):
-            num_gains = 0
-            num_losses = 0
-            num_gene_changes = -1
-        else:
-            num_gains = len(gains)
-            num_losses = len(losses)
-            num_gene_changes = num_gains+num_losses
-    
-        
-    
-        if (num_snp_changes<modification_difference_threshold) and (num_snp_changes>-0.5):
-            total_snp_modification_map[species_name] += num_snp_changes
-            total_null_snp_modification_map[species_name] += perr
-            
-            total_syn_opportunities += syn_opportunity_matrix[i,j]
-            total_non_opportunities += non_opportunity_matrix[i,j]
-            
-            for snp_change in mutations:
-                if snp_change[3]=='4D':
-                    total_syn_snps += 1
-                elif snp_change[3]=='1D':
-                    total_non_snps += 1
-                else:
-                    pass
-        
-            for snp_change in reversions:
-                if snp_change[3]=='4D':
-                    total_syn_snps += 1
-                elif snp_change[3]=='1D':
-                    total_non_snps += 1
-                else:
-                    pass
-            
-            if num_gene_changes > -0.5:
-            
-                
-                total_gene_modification_map[species_name] += num_gene_changes
-                total_null_gene_modification_map[species_name] += gene_perr   
-        
-    
-        temporal_changes.append((sample_i, sample_j, num_snp_changes, num_gene_changes))        
-
-    num_passed_species+=1
-    
-    if len(temporal_changes) > 0:
-        num_temporal_change_map[species_name] = temporal_changes
-        
-    sys.stderr.write("Done with %s!\n" % species_name) 
-    
-sys.stderr.write("Done looping over species!\n")    
-
-print total_syn_snps*1.0/total_syn_opportunities, total_syn_snps, total_syn_opportunities
-print total_non_snps*1.0/total_non_opportunities, total_non_snps, total_non_opportunities
-
-species_names = []
-sample_sizes = []
-
-
-for species_name in num_temporal_change_map.keys():
-    species_names.append(species_name)
-    sample_sizes.append( len(num_temporal_change_map[species_name]) )
-    
-# sort in descending order of sample size
-# Sort by num haploids    
-sample_sizes, species_names = zip(*sorted(zip(sample_sizes, species_names),reverse=True))
-     
-sys.stderr.write("Postprocessing %d species!\n" % len(species_names))
-
-
-cmap_str = 'YlGnBu'
-vmin = -2
-vmax = 3
-cmap = pylab.get_cmap(cmap_str) 
-
-def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=-1):
-    if n == -1:
-        n = cmap.N
-    new_cmap = mcolors.LinearSegmentedColormap.from_list(
-         'trunc({name},{a:.2f},{b:.2f})'.format(name=cmap.name, a=minval, b=maxval),
-         cmap(numpy.linspace(minval, maxval, n)))
-    return new_cmap
-
-cmap = truncate_colormap(cmap, 0.25, 1.0)
-cNorm  = colors.Normalize(vmin=0, vmax=vmax)
-scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
-
-
-
+snp_samples = list(snp_samples)
+       
 ####################################################
 #
-# Set up Figure (1 panels, arranged in 1x1 grid)
+# Set up Figure (3 panels, arranged in 1x3 grid)
 #
 ####################################################
 
-pylab.figure(1,figsize=(7,1.5))
+pylab.figure(1,figsize=(3.42,1.5))
 fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(1,2,width_ratios=[50,1],wspace=0.05)
+outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1], wspace=0.05)
 
-change_axis = plt.Subplot(fig, outer_grid[0])
-fig.add_subplot(change_axis)
+sfs_axes = []
 
-change_axis.set_ylabel('Number of samples')
-change_axis.set_ylim([-35,35])
-change_axis.set_xlim([-1,len(species_names)])
-change_axis.plot([-1,len(species_names)],[0,0],'k-')
+sfs_axis_1 = plt.Subplot(fig, outer_grid[0])
+fig.add_subplot(sfs_axis_1)
+sfs_axis_1.set_ylabel('Final frequency')
+sfs_axis_1.set_xlabel('Initial frequency')
+sfs_axis_1.set_xlim([-0.05,0.51])
+sfs_axis_1.set_ylim([-0.05,1.05])
+sfs_axis_1.plot([0,1],[1,1],'k-')
+sfs_axis_1.plot([0,0],[0,1],'k-')
+sfs_axis_1.plot([0,0.2],[0.8,1.0],'k-')
+sfs_axis_1.plot([0,1],[0,1.0],'k-')
 
-change_axis.set_yticks([-30,-20,-10,0,10,20,30])
-change_axis.set_yticklabels(['30','20','10','0','10','20','30'])
+sfs_axis_1.spines['top'].set_visible(False)
+sfs_axis_1.spines['right'].set_visible(False)
+sfs_axis_1.get_xaxis().tick_bottom()
+sfs_axis_1.get_yaxis().tick_left()
+sfs_axes.append(sfs_axis_1)
 
-xticks = numpy.arange(0,len(species_names))
-#xticklabels = ["%s (%d)" % (species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
-xticklabels = ["%s" % (species_names[i]) for i in xrange(0,len(sample_sizes))]
+sfs_axis_2 = plt.Subplot(fig, outer_grid[1])
+fig.add_subplot(sfs_axis_2)
+sfs_axis_2.set_xlabel('Initial frequency')
+sfs_axis_2.set_xlim([-0.05,0.51])
+sfs_axis_2.set_ylim([-0.05,1.05])
+sfs_axis_2.plot([0,1],[1,1],'k-')
+sfs_axis_2.plot([0,0],[0,1],'k-')
+sfs_axis_2.plot([0,0.2],[0.8,1.0],'k-')
+sfs_axis_2.plot([0,1],[0,1.0],'k-')
 
-change_axis.set_xticks(xticks)
-change_axis.set_xticklabels(xticklabels, rotation='vertical',fontsize=4)
+sfs_axis_2.set_yticklabels([])
+sfs_axis_2.spines['top'].set_visible(False)
+sfs_axis_2.spines['right'].set_visible(False)
+sfs_axis_2.get_xaxis().tick_bottom()
+sfs_axis_2.get_yaxis().tick_left()
+sfs_axes.append(sfs_axis_2)
 
-#change_axis.spines['top'].set_visible(False)
-#change_axis.spines['right'].set_visible(False)
-change_axis.get_xaxis().tick_bottom()
-change_axis.get_yaxis().tick_left()
+#sfs_axis_3 = plt.Subplot(fig, outer_grid[2])
+#fig.add_subplot(sfs_axis_3)
+#sfs_axis_3.set_xlabel('Initial frequency')
+#sfs_axis_3.set_xlim([-0.05,0.51])
+#sfs_axis_3.set_ylim([-0.05,1.05])
+#sfs_axis_3.plot([0,1],[1,1],'k-')
+#sfs_axis_3.plot([0,0],[0,1],'k-')
+#sfs_axis_3.plot([0,0.2],[0.8,1.0],'k-')
+#sfs_axis_3.plot([0,1],[0,1.0],'k-')
 
-cax = plt.Subplot(fig, outer_grid[1])
-fig.add_subplot(cax)
- 
+#sfs_axis_3.set_yticklabels([])
+#sfs_axis_3.spines['top'].set_visible(False)
+#sfs_axis_3.spines['right'].set_visible(False)
+#sfs_axis_3.get_xaxis().tick_bottom()
+#sfs_axis_3.get_yaxis().tick_left()
+#sfs_axes.append(sfs_axis_3)
 
-##############################################################################
-#
-# Now do calculations
-#
-##############################################################################
+gene_names = [[] for i in xrange(0,len(desired_sample_pairs))]
+initial_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
+final_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
 
- 
-# Plot percentiles of divergence distribution
-for species_idx in xrange(0,len(species_names)):
+snp_changes = [[] for i in xrange(0,len(desired_sample_pairs))]
 
-    species_name = species_names[species_idx]
-    temporal_changes = num_temporal_change_map[species_name]
+# Analyze SNPs, looping over chunk sizes. 
+# Clunky, but necessary to limit memory usage on cluster
+
+# Load SNP information for species_name
+sys.stderr.write("Loading SNPs for %s...\n" % species_name)
+sys.stderr.write("(not just core genes...)\n")
+initial_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
+final_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
+
+
+final_line_number = 0
+while final_line_number >= 0:
     
+    sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
+    dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number)
+    sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
+    print len(dummy_samples), "dummy samples!"
     
-    if total_snp_modification_map[species_name] > 0:
-        snp_is_significant = ((total_null_snp_modification_map[species_name]*1.0/total_snp_modification_map[species_name]) < 0.1)
-    else:
-        snp_is_significant = 0
+    desired_sample_pair_idxs = []
+    for initial_sample, final_sample in desired_sample_pairs:
+        initial_idx = numpy.nonzero(dummy_samples==initial_sample)[0][0]
+        final_idx = numpy.nonzero(dummy_samples==final_sample)[0][0]
     
-    if total_gene_modification_map[species_name] > 0:
-        gene_is_significant = ((total_null_gene_modification_map[species_name]*1.0/total_gene_modification_map[species_name]) < 0.1)
-    else:
-        gene_is_significant = 0
+        desired_sample_pair_idxs.append((initial_idx, final_idx))
+        
     
-    print species_name, total_snp_modification_map[species_name], total_null_snp_modification_map[species_name], snp_is_significant, total_gene_modification_map[species_name], total_null_gene_modification_map[species_name], gene_is_significant
+    # Calculate fixation matrix
+    sys.stderr.write("Calculating joint freqs...\n")
+    for pair_idx in xrange(0,len(desired_sample_pairs)):
     
-     
-    snp_changes = []
-    gene_changes = []
-    for sample_1, sample_2, num_snps, num_genes in temporal_changes:
+        initial_sample_idx, final_sample_idx = desired_sample_pair_idxs[pair_idx]
+        
+        chunk_gene_names, chunk_initial_freqs, chunk_final_freqs = diversity_utils.calculate_temporal_sample_freqs(allele_counts_map, passed_sites_map, initial_sample_idx, final_sample_idx)  # 
+    
+        gene_names[pair_idx].extend(chunk_gene_names)
+        initial_freqs[pair_idx].extend(chunk_initial_freqs)
+        final_freqs[pair_idx].extend(chunk_final_freqs)
+        
+        
+        snp_changes[pair_idx].extend( diversity_utils.calculate_snp_differences_between(initial_sample_idx, final_sample_idx, allele_counts_map, passed_sites_map) )
          
-         snp_changes.append(num_snps)
-         
-         if num_genes>=0:
-             gene_changes.append(num_genes)
-             
-    snp_changes = numpy.array(snp_changes)
-    snp_changes.sort()
-    gene_changes = numpy.array(gene_changes)
-    gene_changes.sort()
+    sys.stderr.write("Done!\n")
     
-    for idx in xrange(0,len(snp_changes)):
-        
-        if snp_changes[idx]<0.5:
-            colorVal='0.7'
-        else:
-        
-            colorVal = scalarMap.to_rgba(log10(snp_changes[idx]))
-        
-        change_axis.fill_between([species_idx-0.3,species_idx+0.3], [idx,idx],[idx+1.05,idx+1.05],color=colorVal,linewidth=0)
+for pair_idx in xrange(0,len(desired_sample_pairs)):
+    gene_names[pair_idx] = numpy.array(gene_names[pair_idx])
+    initial_freqs[pair_idx] = numpy.array(initial_freqs[pair_idx])
+    final_freqs[pair_idx] = numpy.array(final_freqs[pair_idx])
     
-        
-        if snp_is_significant:
-            
-            change_axis.text(species_idx, len(snp_changes),'*',fontsize=4)
     
-    for idx in xrange(0,len(gene_changes)):
-        
-        if gene_changes[idx]<0.5:
-            colorVal='0.7'
-        else:
-            colorVal = scalarMap.to_rgba(log10(gene_changes[idx]))
-        
-        change_axis.fill_between([species_idx-0.3,species_idx+0.3], [-idx-1.05,-idx-1.05],[-idx,-idx],color=colorVal,linewidth=0)
-        
-        if gene_is_significant:
-            
-            change_axis.text(species_idx, -len(gene_changes)-3,'*',fontsize=4)
-            
+sys.stderr.write("Done!\n")   
 
-m = change_axis.scatter([200],[1],c=[0], vmin=0, vmax=vmax, cmap=cmap, marker='^')
+# Plot joint SFS!
 
+for pair_idx in xrange(1,len(desired_sample_pairs)):
 
-cbar = fig.colorbar(m,cax=cax,orientation='vertical', ticks=[0,1,2,3])
-cbar.set_ticklabels(['$1$','$10$','$10^{2}$','$10^{3}$'])
-cbar.set_label('Number of changes',rotation=270,labelpad=10)
-cl = pylab.getp(cbar.ax, 'ymajorticklabels')
-pylab.setp(cl, fontsize=9) 
-#fig.text(0.945,0.05,'$\\pi/\\pi_0$',fontsize=12)
+    initial_sample, final_sample = desired_sample_pairs[pair_idx]
 
-cbar.ax.tick_params(labelsize=5)
-change_axis.text(20,25,'SNPs',fontsize=5)
-change_axis.text(20,-20,'Genes',fontsize=5)
-
+    
+    f0s = initial_freqs[pair_idx]
+    f1s = final_freqs[pair_idx]
+    
+    dfs = (f1s-f0s)
+    
+    abs_dfs = numpy.fabs(dfs)
+    
+    major_freqs = numpy.fmax(f1s,1-f1s)
+    
+    good_sites = numpy.logical_or(f0s>0.05, f1s>0.05)
+    fixed_sites = good_sites*(dfs>0.8)
+    
+    fixed_gene_set = set(gene_names[pair_idx][fixed_sites])
+    
+    in_fixed_gene_set = numpy.array([gene_name in fixed_gene_set for gene_name in gene_names[pair_idx]])*good_sites
+    
+    
+    print initial_sample, final_sample
+    for snp_change in snp_changes[pair_idx]:
+        print snp_change
+    #sfs_axes[pair_idx].plot(f0s[good_sites],f1s[good_sites],'b.',alpha=0.1,markersize=2,markeredgewidth=0)
+    #sfs_axes[pair_idx].plot(f0s[fixed_sites],f1s[fixed_sites],'b.',alpha=1,markersize=3,markeredgewidth=0)
+    
+    sfs_axes[pair_idx-1].plot(f0s[good_sites],f1s[good_sites],'.',alpha=0.1,markersize=2,markeredgewidth=0,color='0.7')
+    #sfs_axes[pair_idx-1].plot(f0s[fixed_sites],f1s[fixed_sites],'b.',alpha=1,markersize=3,markeredgewidth=0)
+    sfs_axes[pair_idx-1].plot(f0s[in_fixed_gene_set],f1s[in_fixed_gene_set],'b.',alpha=0.75,markersize=3,markeredgewidth=0)
+    
+    sfs_axes[pair_idx-1].set_xlim([0,1.05])
+    sfs_axes[pair_idx-1].set_ylim([0,1.05])
+    
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_7.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig.savefig('%s/supplemental_joint_sfs%s.png' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight',dpi=600)
 sys.stderr.write("Done!\n")
 
- 
+    

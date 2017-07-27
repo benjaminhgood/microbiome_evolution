@@ -154,7 +154,7 @@ sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(3.42,2))
+pylab.figure(1,figsize=(3,2))
 fig = pylab.gcf()
 # make three panels panels
 outer_grid  = gridspec.GridSpec(1,1)
@@ -162,7 +162,7 @@ outer_grid  = gridspec.GridSpec(1,1)
 divergence_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(divergence_axis)
 
-divergence_axis.set_ylabel('$d_N/d_S$')
+divergence_axis.set_ylabel('Nonsynonymous ratio, $d_N/d_S$')
 divergence_axis.set_xlabel('Synonymous divergence, $d_S$')
 
 divergence_axis.spines['top'].set_visible(False)
@@ -295,7 +295,7 @@ cumulative_axis.set_xlim([1e-05,1e-02])
 cumulative_axis.set_ylim([1e-01,1])
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_5.5.png' % (parse_midas_data.analysis_directory),bbox_inches='tight', dpi=600)
+fig.savefig('%s/figure_3b.png' % (parse_midas_data.analysis_directory),bbox_inches='tight', dpi=600)
 
 sys.stderr.write("Done!\n")
 

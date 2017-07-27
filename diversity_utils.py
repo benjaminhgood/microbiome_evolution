@@ -399,6 +399,7 @@ def calculate_temporal_sample_freqs(allele_counts_map, passed_sites_map, initial
     
     initial_freqs = []
     final_freqs = []
+    gene_names = []
     
     
     if allowed_genes == None:
@@ -435,8 +436,9 @@ def calculate_temporal_sample_freqs(allele_counts_map, passed_sites_map, initial
         
             initial_freqs.extend(polarized_initial_freqs)
             final_freqs.extend(polarized_final_freqs)
+            gene_names.extend([gene_name]*len(polarized_final_freqs))
             
-    return numpy.array(initial_freqs), numpy.array(final_freqs)
+    return numpy.array(gene_names), numpy.array(initial_freqs), numpy.array(final_freqs)
 
 ####################
 

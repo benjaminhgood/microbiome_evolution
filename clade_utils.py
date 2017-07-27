@@ -386,7 +386,11 @@ def load_manual_clades(species_name):
         line = file.readline().strip()
     
     file.close()
-    return clades[species_name]
+    
+    if species_name in clades:
+        return clades[species_name]
+    else:
+        return []
 
 def calculate_clade_idxs_from_clade_sets(samples, clade_sets):
 

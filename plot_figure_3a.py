@@ -120,7 +120,7 @@ sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(7,1))
+pylab.figure(1,figsize=(4,1))
 fig = pylab.gcf()
 # make three panels panels
 outer_grid  = gridspec.GridSpec(1,1)
@@ -190,7 +190,7 @@ for species_idx in xrange(0,len(species_names)):
     
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_3.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig.savefig('%s/figure_3a.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
  
