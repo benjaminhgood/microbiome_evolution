@@ -136,7 +136,21 @@ def calculate_unnormalized_survival_from_vector(xs, min_x=None, max_x=None, min_
     num_observations[-1] += min_p    
     
     return numpy.array(xvalues), numpy.array(num_observations)
-     
+ 
+def calculate_IQR_from_distribution(xs, ns):
+    
+    weights = ns*1.0/ns.sum()
+    CDF = numpy.cumsum(weights)
+    upper_idx = numpy.nonzero(CDF>=0.75)[0][0]
+    lower_idx = numpy.nonzero(CDF>=0.25)[0][0]
+    
+    return xs[lower_idx], xs[upper_idx]
+
+def calculate_median_from_distribution(xs, ns):
+    weights = ns*1.0/ns.sum()
+    CDF = numpy.cumsum(weights)
+    mid_idx = numpy.nonzero(CDF>=0.5)[0][0]
+    return xs[mid_idx]
     
 ####
 #

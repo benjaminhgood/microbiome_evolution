@@ -100,6 +100,24 @@ def calculate_binned_depth_distribution_from_sfs_map(sfs_map,bins=[]):
     
     return Ds,pDs
 
+def calculate_depth_distribution_from_sfs_map(sfs_map):
+    
+    depth_map = {}
+    for key in sfs_map.keys():
+        D,A = key
+        count = sfs_map[key][0]
+        
+        if D not in depth_map:
+            depth_map[D] = 0
+        
+        depth_map[D] += count
+        
+    depths = numpy.array(sorted(depth_map.keys()))
+    counts = numpy.array([depth_map[d] for d in depths])
+    
+    return depths, counts
+    return None
+
 def calculate_polymorphism_rates_from_sfs_map(sfs_map,lower_threshold=0.2,upper_threshold=0.8):
     
     total_sites = 0
@@ -125,4 +143,5 @@ def calculate_polymorphism_rates_from_sfs_map(sfs_map,lower_threshold=0.2,upper_
         
         
     return within_sites, between_sites, total_sites
+    
     
