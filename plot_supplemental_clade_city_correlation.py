@@ -187,7 +187,17 @@ for species_name in good_species_list:
             n_tot = ns.sum()
             n1_tot = n1s.sum()
         
-            return (n1s*numpy.log((n1s+(n1s==0))*1.0/ns*n_tot/n1_tot)+(ns-n1s)*numpy.log((ns-n1s+(n1s==ns))*1.0/ns*n_tot/(n_tot-n1_tot))).sum()
+            pavg = n1_tot*1.0/n_tot
+            ps = n1s*1.0/ns
+            
+            # prevent taking a log of zero
+            ps = numpy.clip(ps,1e-05,1-1e-05)
+            
+            logit_changes = numpy.log(ps/(1-ps)*(1-pavg)/pavg)
+            
+            ps[logit_changes<1] = pavg
+            
+            return (n1s*numpy.log(ps/pavg)+(ns-n1s)*numpy.log((1-ps)/(1-pavg))).sum()
         
         observed_LRT = calculate_LRT(nonsingleton_clade_idxss, us_idxs)
         bootstrapped_LRTs = []
@@ -232,7 +242,7 @@ haploid_color = '#08519c'
 pylab.figure(1,figsize=(4,2))
 fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(2,1,hspace=0.05,height_ratios=[1,1])
+outer_grid  = gridspec.GridSpec(2,1,hspace=0.2,height_ratios=[1,1])
 
 fst_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(fst_axis)
@@ -246,6 +256,7 @@ xticks = numpy.arange(0,len(species_names))
 xticklabels = ["%s" % (species_names[i]) for i in xrange(0,len(species_names))]
 
 fst_axis.set_xticks(xticks)
+fst_axis.set_xticklabels([])
 
 fst_axis.spines['top'].set_visible(False)
 fst_axis.spines['right'].set_visible(False)
@@ -255,8 +266,8 @@ fst_axis.get_yaxis().tick_left()
 lrt_axis = plt.Subplot(fig, outer_grid[1])
 fig.add_subplot(lrt_axis)
 
-lrt_axis.set_ylabel('LRT statistic')
-#lrt_axis.set_ylim([1e-06,1e-01])
+lrt_axis.set_ylabel('LRT statistic, $\\Delta \\ell$')
+lrt_axis.set_ylim([-1,20])
 lrt_axis.set_xlim([-1,len(species_names)])
 
 xticks = numpy.arange(0,len(species_names))
@@ -298,6 +309,8 @@ for species_idx in xrange(0,len(species_names)):
         observed_LRT, bootstrapped_LRTs = clade_country_likelihood[species_name]
         bootstrapped_LRTs.sort()
     
+        LRT_scale = 1 #numpy.sqrt(numpy.square(bootstrapped_LRTs).mean())
+    
         is_significant = ((bootstrapped_LRTs>=observed_LRT).mean()<0.05)
     
         kernel = gaussian_kde(bootstrapped_LRTs)
@@ -306,11 +319,11 @@ for species_idx in xrange(0,len(species_names)):
         theory_pdf = kernel(theory_LRTs)
         theory_pdf = theory_pdf / theory_pdf.max() * 0.45
     
-        lrt_axis.fill_betweenx(theory_LRTs, species_idx-theory_pdf, species_idx+theory_pdf,linewidth=0,facecolor='0.7')
+        lrt_axis.fill_betweenx(theory_LRTs/LRT_scale, species_idx-theory_pdf, species_idx+theory_pdf,linewidth=0,facecolor='0.7')
         if is_significant:
-            lrt_axis.plot([species_idx],[observed_LRT],'rs',markersize=3,markeredgewidth=0)
+            lrt_axis.plot([species_idx],[observed_LRT/LRT_scale],'rs',markersize=3,markeredgewidth=0)
         else:
-            lrt_axis.plot([species_idx],[observed_LRT],'ro',markersize=3,markeredgewidth=0,alpha=0.5)
+            lrt_axis.plot([species_idx],[observed_LRT/LRT_scale],'ro',markersize=3,markeredgewidth=0,alpha=0.5)
             
         
     

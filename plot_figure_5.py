@@ -778,7 +778,7 @@ parallelism_axis.legend(loc='upper right',frameon=False,fontsize=4)
 parallelism_axis.semilogx([1],[-1],'k.')
 parallelism_axis.set_xlim([1,10])
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_6%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
+fig.savefig('%s/figure_5%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
     

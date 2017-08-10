@@ -12,6 +12,7 @@ import species_phylogeny_utils
 import diversity_utils
 import gene_diversity_utils
 import calculate_substitution_rates
+import sfs_utils
 
 import stats_utils
 import matplotlib.colors as colors
@@ -32,7 +33,6 @@ mpl.rcParams['font.size'] = 6
 mpl.rcParams['lines.linewidth'] = 0.5
 mpl.rcParams['legend.frameon']  = False
 mpl.rcParams['legend.fontsize']  = 'small'
-
 
 ################################################################################
 #
@@ -60,6 +60,8 @@ min_sample_size = 33 # 46 gives at least 1000 pairs
 allowed_variant_types = set(['1D','2D','3D','4D'])
 
 divergence_matrices = {}
+within_polymorphisms = {}
+between_divergences = {}
 good_species_list = parse_midas_data.parse_good_species_list()
 
 sys.stderr.write("Loading sample metadata...\n")
@@ -97,18 +99,41 @@ for species_name in good_species_list:
     
     divergence_matrices[species_name] = snp_substitution_matrix
 
-        
+    between_divergences[species_name] = []
+    for i in xrange(0, divergence_matrices[species_name].shape[0]):
+        for j in xrange(i+1, divergence_matrices[species_name].shape[0]):
+            
+            if divergence_matrices[species_name][i,j] >= 0:
+                
+                between_divergences[species_name].append(divergence_matrices[species_name][i,j])
+    between_divergences[species_name] = numpy.array(between_divergences[species_name])
 
+    # Load SNP information for species_name
+    sys.stderr.write("Loading SFSs for %s...\t" % species_name)
+    sfs_samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name) 
+    sys.stderr.write("Done!\n")
+    
+    highcoverage_samples = diversity_utils.calculate_highcoverage_samples(species_name)
+    desired_samples = snp_samples
+    
+    within_polymorphisms[species_name] = []
+    for sample in desired_samples:
+        within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample])
+        within_polymorphisms[species_name].append(within_sites*1.0/total_sites)
+    
+        
 species_names = []
 sample_sizes = []
+avg_divergences = []
 
 for species_name in species_phylogeny_utils.sort_phylogenetically(divergence_matrices.keys()):
     species_names.append(species_name)
     sample_sizes.append( divergence_matrices[species_name].shape[0] )
+    avg_divergences.append( between_divergences[species_name].mean() )
     
 # sort in descending order of sample size
 # Sort by num haploids    
-#sample_sizes, species_names = zip(*sorted(zip(sample_sizes, species_names),reverse=True))
+avg_divergences, sample_sizes, species_names = zip(*sorted(zip(avg_divergences, sample_sizes, species_names),reverse=True))
     
 sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
         
@@ -121,7 +146,7 @@ sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(4,1))
+pylab.figure(1,figsize=(7,1))
 fig = pylab.gcf()
 # make three panels panels
 outer_grid  = gridspec.GridSpec(1,1)
@@ -129,7 +154,8 @@ outer_grid  = gridspec.GridSpec(1,1)
 divergence_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(divergence_axis)
 
-divergence_axis.set_ylabel('Divergence, $d$')
+divergence_axis.set_ylabel('Fraction of sites')
+divergence_axis.semilogy([-2],[1],'k.')
 divergence_axis.set_ylim([1e-06,1e-01])
 divergence_axis.set_xlim([-1,len(species_names)])
 
@@ -152,53 +178,39 @@ for species_idx in xrange(0,len(species_names)):
     species_name = species_names[species_idx]
     
     sys.stderr.write("Postprocessing %s (%d samples)...\n" % (species_name, divergence_matrices[species_name].shape[0]))
-    divergence_matrix = divergence_matrices[species_name]
-    divergences = []
-    for i in xrange(0, divergence_matrix.shape[0]):
-        for j in xrange(i+1, divergence_matrix.shape[0]):
-            
-            if divergence_matrix[i,j] >= 0:
-                
-                divergences.append(divergence_matrix[i,j])
     
-    divergences = numpy.array(divergences)
+    divergences = numpy.array(between_divergences[species_name])
     divergences = numpy.clip(divergences,1e-06,1)
     divergences.sort() # ascending by default
-    
     log_divergences = numpy.log(divergences)
-    
     kernel = gaussian_kde(log_divergences)
     
-    n = len(divergences)
-    
-    
-    
-    #percentiles = numpy.array([0.001,0.01,0.1,0.25,0.5,0.75,0.9,0.99,0.999])
-    percentiles = numpy.array([0.001,0.01,0.5])
-    
-    quantiles = numpy.array([divergences[long(n*p)] for p in percentiles])
-    quantiles = numpy.clip(quantiles,1e-06,1)
+    polymorphisms = numpy.array(within_polymorphisms[species_name])
+    polymorphisms = numpy.clip(polymorphisms,1e-06,1)
+    polymorphisms.sort() # ascending by default
+    log_polymorphisms = numpy.log(polymorphisms)
+    polymorphism_kernel = gaussian_kde(log_polymorphisms)
     
     theory_log_divergences = numpy.linspace(log_divergences.min(), log_divergences.max()+1,100)
     theory_divergences = numpy.exp(theory_log_divergences)
     theory_pdf = kernel(theory_log_divergences)
-    theory_pdf = theory_pdf / theory_pdf.max() * 0.45
+    theory_pdf = theory_pdf / theory_pdf.max() * 0.225
     
+    theory_log_polymorphisms = numpy.linspace(log_polymorphisms.min(), log_polymorphisms.max()+1,100)
+    theory_polymorphisms = numpy.exp(theory_log_polymorphisms)
+    theory_polymorphism_pdf = polymorphism_kernel(theory_log_polymorphisms)
+    theory_polymorphism_pdf = theory_polymorphism_pdf / theory_polymorphism_pdf.max() * 0.15
     
-    divergence_axis.fill_betweenx(theory_divergences, species_idx-theory_pdf, species_idx+theory_pdf,linewidth=0,facecolor='0.7') #facecolor='#de2d26') # red color
-    #divergence_axis.semilogy(numpy.ones_like(quantiles)*species_idx, quantiles,'k_',markersize=3)
+    if species_idx==0:
+        divergence_axis.fill_betweenx(theory_divergences, species_idx+0.25-theory_pdf, species_idx+0.25+theory_pdf,linewidth=0,facecolor='#de2d26',label='Between-host differences')
+        divergence_axis.fill_betweenx(theory_polymorphisms, species_idx-0.25-theory_polymorphism_pdf, species_idx-0.25+theory_polymorphism_pdf,linewidth=0,facecolor='#08519c',label='Within-host polymorphisms')
+    else:
+        divergence_axis.fill_betweenx(theory_divergences, species_idx+0.25-theory_pdf, species_idx+0.25+theory_pdf,linewidth=0,facecolor='#de2d26')
+        divergence_axis.fill_betweenx(theory_polymorphisms, species_idx-0.25-theory_polymorphism_pdf, species_idx-0.25+theory_polymorphism_pdf,linewidth=0,facecolor='#08519c')
     
-    # Median
-    divergence_axis.semilogy([species_idx], [quantiles[-1]],'_',markersize=3,color='#de2d26')
-    # 1%-tile
-    divergence_axis.semilogy([species_idx], [quantiles[1]],'.',markersize=2.5,color='#de2d26',markeredgewidth=0)
-    # 0.1%-tile
-    divergence_axis.semilogy([species_idx], [quantiles[0]],'.',markersize=4,color='#de2d26',markeredgewidth=0)
-    # Line connecting them
-    divergence_axis.semilogy([species_idx,species_idx], [quantiles[0],quantiles[-1]],'-',color='#de2d26')
-
+divergence_axis.legend(loc='lower left',frameon=False,fontsize=4)  
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_3a.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig.savefig('%s/figure_for_katie.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
  

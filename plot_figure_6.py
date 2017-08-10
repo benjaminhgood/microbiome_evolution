@@ -415,7 +415,7 @@ change_axis.text(20,-20,'Genes',fontsize=5)
 
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_7.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig.savefig('%s/figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
  

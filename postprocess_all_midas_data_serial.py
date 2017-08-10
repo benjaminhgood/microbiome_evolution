@@ -10,7 +10,7 @@ else:
     argument = 'all'
     
 # Call postprocess_midas_data.py for each species
-os.system('python loop_over_species_wrapper.py %s python postprocess_midas_data.py' % argument)
+#os.system('python loop_over_species_wrapper.py %s python postprocess_midas_data.py' % argument)
 
 # Calculate substitution rates for the most prevalent species
 os.system('python calculate_substitution_rates.py')
