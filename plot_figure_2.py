@@ -89,14 +89,14 @@ sys.stderr.write("Proceeding with %d haploid samples!\n" % len(snp_samples))
 #
 ####################################################
 
-pylab.figure(1,figsize=(6,2))
-fig = pylab.gcf()
-# make three panels panels
-outer_grid  = gridspec.GridSpec(2,1, height_ratios=[1,2], hspace=0.25)
+pylab.figure(1,figsize=(6,1))
+divergence_fig = pylab.gcf()
+pylab.figure(2,figsize=(6,1))
+dendrogram_fig = pylab.gcf()
 
-divergence_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[4,1], subplot_spec=outer_grid[0], wspace=0.025)
+divergence_grid = gridspec.GridSpec(1, 2, width_ratios=[4,1], wspace=0.025)
                  
-dendrogram_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[8,1], subplot_spec=outer_grid[1], wspace=0.025)
+dendrogram_grid = gridspec.GridSpec(1, 2, width_ratios=[8,1], wspace=0.025)
 
 
 
@@ -106,8 +106,8 @@ dendrogram_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[8,1], sub
 #
 ###################
 
-snp_axis = plt.Subplot(fig, divergence_grid[0])
-fig.add_subplot(snp_axis)
+snp_axis = plt.Subplot(divergence_fig, divergence_grid[0])
+divergence_fig.add_subplot(snp_axis)
 
 #snp_axis.set_title("%s %s (%s)" % tuple(species_name.split("_")),fontsize=7)
 
@@ -123,8 +123,8 @@ snp_axis.get_xaxis().tick_bottom()
 snp_axis.get_yaxis().tick_left()
 
 
-zoomed_snp_axis = plt.Subplot(fig, divergence_grid[1])
-fig.add_subplot(zoomed_snp_axis)
+zoomed_snp_axis = plt.Subplot(divergence_fig, divergence_grid[1])
+divergence_fig.add_subplot(zoomed_snp_axis)
 
 #snp_axis.set_title("%s %s (%s)" % tuple(species_name.split("_")),fontsize=7)
 zoomed_snp_axis.semilogy([1,1],[1e-08,1e-08])
@@ -147,10 +147,9 @@ zoomed_snp_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-dendrogram_axis = plt.Subplot(fig, dendrogram_grid[0])
-#dendrogram_axis = plt.Subplot(fig, outer_grid[1])
+dendrogram_axis = plt.Subplot(dendrogram_fig, dendrogram_grid[0])
 
-fig.add_subplot(dendrogram_axis)
+dendrogram_fig.add_subplot(dendrogram_axis)
 
 dendrogram_axis.set_ylim([1e-06,1e-01])
 dendrogram_axis.set_ylabel('Divergence, $d$')
@@ -171,8 +170,8 @@ dendrogram_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-inconsistency_axis = plt.Subplot(fig, dendrogram_grid[1])
-fig.add_subplot(inconsistency_axis)
+inconsistency_axis = plt.Subplot(dendrogram_fig, dendrogram_grid[1])
+dendrogram_fig.add_subplot(inconsistency_axis)
 
 inconsistency_axis.set_xlabel('% inconsistent')
 inconsistency_axis.set_yticklabels([])
@@ -530,7 +529,8 @@ inconsistency_axis.plot(null_fraction_inconsistent, ds, '.-',color='0.7',markers
 inconsistency_axis.legend(loc='lower right',frameon=False,numpoints=1,fontsize=4)
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_2%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
+divergence_fig.savefig('%s/supplemental_divergence_distribution%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
+dendrogram_fig.savefig('%s/figure_2%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
  
