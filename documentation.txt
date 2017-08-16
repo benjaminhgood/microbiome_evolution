@@ -256,7 +256,6 @@ cat ~/ben_nandita_hmp_data/Qin_2012_ids_healthy.txt | cut -f3 > ~/BenNanditaProj
 
 # run midas
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_Qin_MIDAS_species_snps_cnvs
-
 # Merge data (with HMP and Kuleshov)
 # get a list of all the sample paths:
 python ~/ben_nandita_hmp_scripts/fastq_samples_without_visno_replicate.py 
@@ -982,6 +981,28 @@ qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_genes_tech_com
 # combined samples
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_snps_samples_combined_newDB_timepts_matched
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_genes_samples_combined_newDB_timepts_matched
+
+# repeat for Qin et al. 
+
+
+
+while read file; do
+    echo $file
+    mv /pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output/${file}/snps /pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output/${file}/snps_original_db 
+
+    mv /pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output/${file}/genes /pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output/${file}/genes_original_db 
+
+done <~/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_IDs_healthy.txt
+
+
+# remove the crassphage file from the genes folder from all 420 outputs because this throws an error when merging genes. 
+
+while read path; do
+    mv ${path}/genes/output/crassphage.genes.gz ${path}/genes/crassphage.genes.gz
+done < /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin.txt
+
+# also edit the output files for species.txt and summary.txt in the genes intermediate folder to exclude crassphage 
+
 
 #############################################################################################
 #
