@@ -21,7 +21,7 @@ old_intermediate_filename = '%slinkage_disequilibria.txt.old' % (parse_midas_dat
 min_coverage = config.min_median_coverage
 alpha = 0.5 # Confidence interval range for rate estimates
 low_pi_threshold = 1e-03
-low_divergence_threshold = 1e-03
+low_divergence_threshold = 1e-03 #NRG: how was this picked?
 min_change = 0.8
 min_sample_size = 10
 allowed_variant_types = set(['1D','4D'])
@@ -121,12 +121,14 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
     parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
+    parser.add_argument("--species", help="Name of specific species to run code on", default="all")
 
     args = parser.parse_args()
 
     debug = args.debug
     chunk_size = args.chunk_size
-         
+    species=args.species
+
     # Load subject and sample metadata
     sys.stderr.write("Loading sample metadata...\n")
     subject_sample_map = parse_HMP_data.parse_subject_sample_map()
@@ -135,8 +137,9 @@ if __name__=='__main__':
     good_species_list = parse_midas_data.parse_good_species_list()
     if debug:
         good_species_list = good_species_list[:3]
-
-
+    elif species !='all':
+        good_species_list = [species]
+        
     # better binning scheme (multiple of 3)
     distance_bin_locations = numpy.arange(0,1002)*3.0
     distance_bins = numpy.arange(-1,1002)*3+1.5
@@ -144,10 +147,11 @@ if __name__=='__main__':
     distance_bins[1] = 2.5 # want at least one codon separation
     distance_bins[-1] = 1e09 # catch everything
     
-    distance_strs = ["LD_N:LD_D:%g" % d for d in distance_bin_locations[1:-1]]
+    distance_strs = ["LD_N:LD_D:%g" % d for d in distance_bin_locations[1:-1]] # N=numerator and D=denominator
     distance_strs = distance_strs+["LD_N:LD_D:intergene"]
     
 
+    # header of the output file.
     record_strs = [", ".join(['Species', 'CladeType', 'VariantType', 'Pi']+distance_strs)]
     
     for species_name in good_species_list:
@@ -179,7 +183,7 @@ if __name__=='__main__':
         sys.stderr.write("Done!\n")
 
         sys.stderr.write("Clustering samples with low divergence...\n")
-        coarse_grained_idxs, coarse_grained_cluster_list = clade_utils.cluster_samples(substitution_rate, min_d=low_divergence_threshold)
+        coarse_grained_idxs, coarse_grained_cluster_list = clade_utils.cluster_samples(substitution_rate, min_d=low_divergence_threshold) # NRG: what is this returning?
 
         coarse_grained_samples = snp_samples[coarse_grained_idxs]
         clade_sets = clade_utils.load_manual_clades(species_name)
@@ -222,7 +226,8 @@ if __name__=='__main__':
         binned_rsquared_numerators = {}
         binned_rsquared_denominators = {}
         binned_counts = {}
-        
+
+        # NRG: total_control=between genes? 
         total_control_rsquared_numerators = {}
         total_control_rsquared_denominators = {}
         total_control_counts = {}

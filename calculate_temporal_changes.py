@@ -145,12 +145,14 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
     parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
+    parser.add_argument("--species", help="Name of specific species to run code on", default="all")
 
     args = parser.parse_args()
 
     debug = args.debug
     chunk_size = args.chunk_size
-         
+    species=args.species
+
     # Load subject and sample metadata
     sys.stderr.write("Loading sample metadata...\n")
     subject_sample_map = parse_HMP_data.parse_subject_sample_map()
@@ -160,6 +162,8 @@ if __name__=='__main__':
     good_species_list = parse_midas_data.parse_good_species_list()
     if debug:
         good_species_list = good_species_list[:3]
+    elif species !='all':
+        good_species_list = [species]
 
     record_strs = [", ".join(['Species', 'Sample1', 'Sample2', 'Type', 'FalsePositives', 'Change1', '...'])]
 

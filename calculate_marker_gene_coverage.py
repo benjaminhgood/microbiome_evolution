@@ -35,6 +35,7 @@ line = coverage_file.readline()
 items = line.split()
 samples = items[1:]
 
+# get the indexes of the samples in the coverage file corresponding to the depth file.
 output_idxs = numpy.array([samples.index(sample) for sample in output_samples])
     
 # write header lines for output file
@@ -60,10 +61,12 @@ while True:
         output_coverage_file.write("\n")
         output_coverage_file.write("\t".join([current_species]+["%g" % d for d in depths]))
         
+    #initialize the total depths field
     if not total_depths_defined:
         total_depths = numpy.zeros_like(depths)
         total_depths_defined=True
-                
+
+    # total depths reports the depth across all species. 
     total_depths += depths
         
     

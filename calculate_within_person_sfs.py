@@ -76,7 +76,9 @@ for line in snp_file:
     alts = numpy.array(alts)
     depths = numpy.array(depths)
     refs = depths-alts
-    
+
+    # population_freq returns the fraction of people for which the alt is the major allele.
+    # This is a very important quantity being computed! It is later used for identifying CPS samples. 
     population_freq = ((alts>=refs)*(depths>0)).sum()*1.0/(depths>0).sum()
         
     for i in xrange(0,len(alts)):

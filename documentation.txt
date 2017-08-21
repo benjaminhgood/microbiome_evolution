@@ -381,6 +381,20 @@ python ~/ben_nandita_hmp_scripts/print_good_species_list.py name> ~/tmp_intermed
 
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/run_postprocessing_scripts 
 
+# run the next three scripts too
+# Calculate substitution rates for the most prevalent species
+species=Bacteroides_uniformis_57318
+python ~/ben_nandita_hmp_scripts/calculate_substitution_rates.py --species $species
+
+# Calculate linkage disequilibria for the most prevalent species
+python ~/ben_nandita_hmp_scripts/calculate_linkage_disequilibria.py --species $species
+
+# Calculate temporal changes for the most prevalent species
+python ~/ben_nandita_hmp_scripts/calculate_temporal_changes.py --species $species
+
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/run_postprocessing_scripts_part2
+
+
 ####################
 # Analysis scripts #
 ####################
