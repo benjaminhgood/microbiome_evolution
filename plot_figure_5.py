@@ -61,7 +61,7 @@ else:
 
 min_coverage = config.min_median_coverage
 clade_divergence_threshold = 1e-02
-modification_divergence_threshold = 1e-03
+modification_divergence_threshold = 1e-03 #the threshold for deciding when something is a modification vs a replacement. Like most other things, it is an arbitrary choice. 
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
@@ -408,7 +408,7 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
     num_reversions = len(reversions)
     num_snp_changes = num_mutations+num_reversions
     #
-    if perr>1: # how can perr >1? NRG
+    if perr>1: # perr is probably a bad name, because it's the false positive rate summed across the entire genome (i.e., the expected number of errors across the genome, which can definitely be >1 if per site error rates are not tiny).  
         num_mutations = 0
         num_reversions = 0
         num_snp_changes = -1
@@ -417,7 +417,8 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
     same_subject_snp_mutations.append(num_mutations)
     same_subject_snp_reversions.append(num_reversions)
     #
-    # what is this threshold? Why do we have it? NRG
+
+    #Including replacement events in within-host evolution statistics messes everything up, so we want to only focus on changes that are not obvious replacements (i.e., modifications):
     if snp_substitution_rate[snp_i, snp_j] < modification_divergence_threshold:
         if perr<=1:
             total_modification_error_rate += perr # why are we calculating this? NRG
@@ -459,7 +460,7 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
             if len(pair_specific_gene_idxs)==0:
                 continue
             #
-            # what is this? NRG
+            # Ultimately, gene changes within and between hosts are compared with randomly chosen genes (hence: null)
             pair_specific_null_gene_idxs = choice(present_gene_idxs, len(pair_specific_gene_idxs)*10 )
             pair_specific_between_gene_idxs = choice(between_host_gene_idxs, len(pair_specific_gene_idxs)*10 )
             #
@@ -470,7 +471,8 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
             null_other_fold_changes = []
             between_other_fold_changes = []
             #
-            # why do we have a nested for loop? NRG
+            #How parallel are gene changes across hosts? 
+            #This next section is calculating the next-most extreme log-fold change, so the inner for loop is trying to figure out what the next-most extreme event is. 
             for other_sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
                 #
                 other_i = same_subject_gene_idxs[0][other_sample_pair_idx]
