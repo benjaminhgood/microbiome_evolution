@@ -237,6 +237,11 @@ parallelism_axis.spines['right'].set_visible(False)
 parallelism_axis.get_xaxis().tick_bottom()
 parallelism_axis.get_yaxis().tick_left()
 
+
+#####################
+# Analyze the data  #
+#####################
+
 reference_genes = parse_midas_data.load_reference_genes(species_name)
 
 # Analyze SNPs, looping over chunk sizes. 
@@ -274,7 +279,7 @@ gene_copynum_matrix = gene_depth_matrix*1.0/(marker_coverages+(marker_coverages=
 clipped_gene_copynum_matrix = numpy.clip(gene_depth_matrix,0.1,1e09)/(marker_coverages+0.1*(marker_coverages==0))
 
 low_copynum_matrix = (gene_copynum_matrix<=3)
-good_copynum_matrix = (gene_copynum_matrix>=0.5)*(gene_copynum_matrix<=3)
+good_copynum_matrix = (gene_copynum_matrix>=0.5)*(gene_copynum_matrix<=3) # why isn't this till 2? NRG
 
 prevalence_idxs = (parse_midas_data.calculate_unique_samples(subject_sample_map, gene_samples))*(marker_coverages>=min_coverage)
     
@@ -485,13 +490,13 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
                 # Make sure it is not a replacement!    
                 if other_sample_pair_idx not in modification_pair_idxs:
                     continue
-                #    
+                # dont' inculde stuff where coverage is low.    
                 if (marker_coverages[other_i]<min_coverage) or (marker_coverages[other_j]<min_coverage):
                     continue     
                 #
                 # calculate log-fold change
                 logfoldchanges = numpy.fabs( numpy.log2(clipped_gene_copynum_matrix[pair_specific_gene_idxs,other_j] / clipped_gene_copynum_matrix[pair_specific_gene_idxs,other_i] ) )
-                #
+                # check if the copy num of either i or j is eithin the accepted range of 0.5 or 3. 
                 good_idxs = numpy.logical_or( good_copynum_matrix[pair_specific_gene_idxs, other_i], good_copynum_matrix[pair_specific_gene_idxs, other_j] ) 
                 good_idxs *= numpy.logical_and( low_copynum_matrix[pair_specific_gene_idxs, other_i], low_copynum_matrix[pair_specific_gene_idxs, other_j] ) 
                 #
@@ -503,7 +508,7 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
                 # calculate log-fold change
                 logfoldchanges = numpy.fabs( numpy.log2(clipped_gene_copynum_matrix[pair_specific_null_gene_idxs,other_j] / clipped_gene_copynum_matrix[pair_specific_null_gene_idxs,other_i] ) )
                 #
-                # only include genes that are at low copynum at both timepoints
+                # only include genes that are at low copynum at both timepoints # Why?? NRG
                 # and have a "good" copynum at at least one point
                 good_idxs = numpy.logical_or( good_copynum_matrix[pair_specific_null_gene_idxs, other_i], good_copynum_matrix[pair_specific_null_gene_idxs, other_j] ) 
                 good_idxs *= numpy.logical_and( low_copynum_matrix[pair_specific_null_gene_idxs, other_i], low_copynum_matrix[pair_specific_null_gene_idxs, other_j] ) 
@@ -527,6 +532,8 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
             null_other_fold_changes = numpy.array(null_other_fold_changes)
             between_other_fold_changes = numpy.array(between_other_fold_changes)
             #
+
+            # Pull out the largest fold change computed across all pairs of hosts other than the i and j of interest at the top of the for loop
             for gene_idx in xrange(0,other_fold_changes.shape[1]):
                 fold_changes = other_fold_changes[:,gene_idx]
                 fold_changes = fold_changes[fold_changes>-0.5]
