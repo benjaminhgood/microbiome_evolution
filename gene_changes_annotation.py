@@ -17,6 +17,7 @@ import gene_diversity_utils
 import sfs_utils
 import calculate_substitution_rates
 import calculate_temporal_changes
+import parse_patric
 
 import stats_utils
 import matplotlib.colors as colors
@@ -32,7 +33,7 @@ mpl.rcParams['lines.linewidth'] = 0.5
 mpl.rcParams['legend.frameon']  = False
 mpl.rcParams['legend.fontsize']  = 'small'
 
-species_name = "Bacteroides_vulgatus_57955"
+#species_name = "Bacteroides_vulgatus_57955"
 
 ################################################################################
 #
@@ -59,129 +60,128 @@ else:
     
 ################################################################################
 
-# parameters:
 
-min_coverage = config.min_median_coverage
-clade_divergence_threshold = 1e-02
+
 modification_divergence_threshold = 1e-03 #the threshold for deciding when something is a modification vs a replacement. Like most other things, it is an arbitrary choice. 
 
-# Load subject and sample metadata
-sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
-sample_country_map = parse_HMP_data.parse_sample_country_map()
-sample_order_map = parse_HMP_data.parse_sample_order_map()
-sys.stderr.write("Done!\n")
-       
-# Only plot samples above a certain depth threshold that are "haploids"
-snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
 
+good_species_list = parse_midas_data.parse_good_species_list()
 
-
-####################
-# Analyze the data #
-####################
-
-reference_genes = parse_midas_data.load_reference_genes(species_name)
-
-# Analyze SNPs, looping over chunk sizes. 
-# Clunky, but necessary to limit memory usage on cluster
-
-import sfs_utils
-sys.stderr.write("Loading SFSs for %s...\t" % species_name)
-samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])) 
-sys.stderr.write("Done!\n")
-
-
-sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
-substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
-sys.stderr.write("Calculating matrix...\n")
-dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
-snp_samples = dummy_samples
-sys.stderr.write("Done!\n")
-
-sys.stderr.write("Loading pre-computed temporal changes for %s...\n" % species_name)
-temporal_change_map = calculate_temporal_changes.load_temporal_change_map(species_name)
-sys.stderr.write("Done!\n")
-
-snp_substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
-sys.stderr.write("Done!\n")   
-
-# Load gene coverage information for species_name
-sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
-gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
-sys.stderr.write("Done!\n")
-
-sys.stderr.write("Loaded gene info for %d samples\n" % len(gene_samples))
-
-gene_copynum_matrix = gene_depth_matrix*1.0/(marker_coverages+(marker_coverages==0))
-
-clipped_gene_copynum_matrix = numpy.clip(gene_depth_matrix,0.1,1e09)/(marker_coverages+0.1*(marker_coverages==0))
-
-low_copynum_matrix = (gene_copynum_matrix<=3)
-good_copynum_matrix = (gene_copynum_matrix>=0.5)*(gene_copynum_matrix<=3) # why isn't this till 2? NRG
-
-prevalence_idxs = (parse_midas_data.calculate_unique_samples(subject_sample_map, gene_samples))*(marker_coverages>=min_coverage)
+#good_species_list=['Eubacterium_rectale_56927']
+for species_name in good_species_list: 
     
-prevalences = gene_diversity_utils.calculate_fractional_gene_prevalences(gene_depth_matrix[:,prevalence_idxs], marker_coverages[prevalence_idxs])
 
-pangenome_prevalences = numpy.array(prevalences,copy=True)
-pangenome_prevalences.sort()
-        
-# Calculate matrix of number of genes that differ
-sys.stderr.write("Calculating matrix of gene differences...\n")
-gene_gain_matrix, gene_loss_matrix, gene_opportunity_matrix = gene_diversity_utils.calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_reads_matrix, gene_depth_matrix, marker_coverages)
+    ####################
+    # Analyze the data #
+    ####################
+    snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
 
-gene_difference_matrix = gene_gain_matrix + gene_loss_matrix
+    # load pre-computed data:
+    sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
+    substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
+    sys.stderr.write("Calculating matrix...\n")
+    dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
+    snp_samples = dummy_samples
+    sys.stderr.write("Done!\n")
 
-# Now need to make the gene samples and snp samples match up
-desired_samples = gene_samples
+    sys.stderr.write("Loading pre-computed temporal changes for %s...\n" % species_name)
+    temporal_change_map = calculate_temporal_changes.load_temporal_change_map(species_name)
+    sys.stderr.write("Done!\n")
 
-num_haploids = len(desired_samples)
-     
-# Calculate which pairs of idxs belong to the same sample, which to the same subject
-# and which to different subjects
-desired_same_sample_idxs, desired_same_subject_idxs, desired_diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, desired_samples)
-
-sys.stderr.write("%d temporal samples\n" % len(desired_same_subject_idxs[0]))
-
-# get the idx for samples being considered for snp changes to match with gene changes.
-
-snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)
-gene_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, gene_samples)
-
-# indexes for time pairs  
-same_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_same_subject_idxs)  
-same_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_same_subject_idxs)  
-
-# Calculate subset of "modification timepoints" 
-modification_pair_idxs = set([])
-
-for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
-#    
-    snp_i = same_subject_snp_idxs[0][sample_pair_idx]
-    snp_j = same_subject_snp_idxs[1][sample_pair_idx]
-
-    if snp_substitution_rate[snp_i, snp_j] < modification_divergence_threshold:
-        modification_pair_idxs.add( sample_pair_idx ) 
+    snp_substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
+    sys.stderr.write("Done!\n")   
 
 
-# In this loop, pull out the gene idxes for genes that are changing. Use this to look up the gene IDs. 
 
-for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):    
-    snp_i = same_subject_snp_idxs[0][sample_pair_idx]
-    snp_j = same_subject_snp_idxs[1][sample_pair_idx]
-    #
-    sample_i = snp_samples[snp_i]
-    sample_j = snp_samples[snp_j]
-    if marker_coverages[i]>min_coverage and marker_coverages[j]>min_coverage:
-        # iterate through modificaiton pair idxs -- otherwise we get confused with replacements. 
-        if sample_pair_idx in modification_pair_idxs:
-            # Calculate set of genes that are present in at least one sample
-            present_gene_idxs = []
-            present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,i]>0.5)*(gene_copynum_matrix[:,i]<2))[0] )
-            present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,j]>0.5)*(gene_copynum_matrix[:,j]<2))[0] )
-            #
-            # calculate the indexes of genes that are changing. 
-            pair_specific_gene_idxs = gene_diversity_utils.calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages)
-            if len(pair_specific_gene_idxs)>0:
-                print pair_specific_gene_idxs
+    gene_descriptions_gene_changes=[] # store the descriptions in this vector
+    kegg_pathways_gene_changes=[] # store the pathways in this vector
+    gene_descriptions_gene_changes_dict={}
+    kegg_pathways_gene_changes_dict={}
+
+    for sample_pair in temporal_change_map.keys():
+        sample_1=sample_pair[0]
+        sample_2=sample_pair[1]
+        # check if this pair underwent a replacement event. If so, ignore, otherwise stats get messed up. 
+        # find the index of sample_1 and sample_2 in snp_samples if the sample was included in the SNP output:
+        include_sample_pair=False
+        if sample_1 in snp_samples and sample_2 in snp_samples:
+            sample_1_idx=snp_samples.index(sample_1)
+            sample_2_idx=snp_samples.index(sample_2)
+            if snp_substitution_rate[sample_1_idx, sample_2_idx] < modification_divergence_threshold:
+                include_sample_pair=True
+        else:
+            include_sample_pair=True # not sure what to do if the snp matrix doesn't include this pair
+        if include_sample_pair == True:
+            gene_perr, gains, losses=calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_1, sample_2, lower_threshold=0.05)
+            all_changes=gains+losses
+            gene_ids=[] # store the gene ids from all changes in this.
+            #iterate through all_changes to pull out the gene_ids.
+            for i in range(0, len(all_changes)):
+                gene_ids.append(all_changes[i][0])
+                
+            # what kegg pathways are the genes in? Load all kegg_ids for all genomes in which the gene changes are in. 
+            kegg_ids=parse_patric.load_kegg_annotations(gene_ids)    
+            # what are the patric gene_descriptions for all genes that are changing? Load all gene_descritpions for the genomes in which the gene changes are in
+            gene_descriptions=parse_patric.load_patric_gene_descriptions(gene_ids) 
+            # now iterate again and pull out the pathway and gene_descriptions for hte genes in the gene_ids vector:
+            kegg_pathways_gene_changes_dict[(sample_1,sample_2)]=[]
+            gene_descriptions_gene_changes_dict[(sample_1,sample_2)]=[]
+            for gene_id in gene_ids:
+                #if kegg_ids[gene_id][0][0] != '':
+                #print sample_1 +'\t'+sample_2 +'\t' + gene_id +'\t' + str(kegg_ids[gene_id])
+                for i in range(0, len(kegg_ids[gene_id])):
+                    if kegg_ids[gene_id][i][1] !='':
+                        if kegg_ids[gene_id][i][1] not in kegg_pathways_gene_changes:
+                            kegg_pathways_gene_changes.append(kegg_ids[gene_id][i][1])
+                        kegg_pathways_gene_changes_dict[(sample_1,sample_2)].append(kegg_ids[gene_id][i][1])
+                if 'hypothetical protein' not in gene_descriptions[gene_id]:
+                    if gene_descriptions[gene_id] not in gene_descriptions_gene_changes:
+                        gene_descriptions_gene_changes.append(gene_descriptions[gene_id]) 
+                    gene_descriptions_gene_changes_dict[(sample_1,sample_2)].append(gene_descriptions[gene_id])
+
+
+    # put the results in a 2D matrix so that I can plot a heatmap.
+    # size of the heatmap is num_samples x num_unique_pathways
+    if len(kegg_pathways_gene_changes):
+        first=len(kegg_pathways_gene_changes)
+        second=len(kegg_pathways_gene_changes_dict.keys())
+        kegg_occurrence_matrix=numpy.zeros((first,second))
+        #fill in the matrix:
+        sample_pair_idx=0
+        for sample_pair in kegg_pathways_gene_changes_dict.keys():
+            for pathway in kegg_pathways_gene_changes_dict[sample_pair]:
+                pathway_idx=kegg_pathways_gene_changes.index(pathway)
+                kegg_occurrence_matrix[pathway_idx,sample_pair_idx]+=1
+            sample_pair_idx+=1
+
+        # plot this as a heatmap:
+        import seaborn as sns; sns.set()
+
+        pylab.figure(figsize=(6,10)) 
+        sns.set(font_scale=0.4) # set the font
+        ax = sns.heatmap(kegg_occurrence_matrix,yticklabels=kegg_pathways_gene_changes)
+        ax.set_title(species_name)
+        pylab.savefig('%s/%s_gene_change_kegg_pathway_distribution.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
+
+
+    # repeat for gene changes:
+    if len(gene_descriptions_gene_changes) >0:
+        first=len(gene_descriptions_gene_changes)
+        second=len(gene_descriptions_gene_changes_dict.keys())
+        gene_occurrence_matrix=numpy.zeros((first,second))
+        #fill in the matrix:
+        sample_pair_idx=0
+        for sample_pair in gene_descriptions_gene_changes_dict.keys():
+            for pathway in gene_descriptions_gene_changes_dict[sample_pair]:
+                pathway_idx=gene_descriptions_gene_changes.index(pathway)
+                gene_occurrence_matrix[pathway_idx,sample_pair_idx]+=1
+            sample_pair_idx+=1
+
+        # plot this as a heatmap:
+        import seaborn as sns; sns.set()
+
+        pylab.figure(figsize=(6,10)) 
+        sns.set(font_scale=0.4) # set the font
+        ax = sns.heatmap(gene_occurrence_matrix,yticklabels=gene_descriptions_gene_changes) # plot heatmap
+        ax.set_title(species_name)
+        pylab.savefig('%s/%s_gene_change_description_distribution.png' % (parse_midas_data.analysis_directory,species_name),bbox_inches='tight',dpi=300)
