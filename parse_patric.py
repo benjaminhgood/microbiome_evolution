@@ -11,6 +11,7 @@ import parse_midas_data
 #########################################################################################
 #
 # Read in the Kegg info for a given speceis
+# What is returned are all pathways for a given species rather than just the pathways for the genes in gene_names.
 #
 #########################################################################################
 
@@ -20,7 +21,7 @@ def load_kegg_annotations(gene_names):
     kegg_ids={}
     
 
-    genomes_visited=[]
+    genomes_visited=[] #check if I have already loaded the genome for this gene
     for i in range(0, len(gene_names)):
         genome_id='.'.join(gene_names[i].split('.')[0:2])
         if genome_id not in genomes_visited:
@@ -94,6 +95,39 @@ def load_virulence_factors(species_name):
             virulence_genes.add(gene_name)
             
     return virulence_genes
+
+
+
+#################################################################
+#
+# Load individual gene names from patric
+# This returns a dictionary with all gene names for the genomes included in the gene_names object.
+# In the main code, I will pull out the actual gene names. 
+#
+#################################################################
+
+def load_patric_gene_descriptions(gene_ids):
+    
+    # dictionary to store all gene names (gene_id -> )
+    gene_descriptions={}
+
+    genomes_visited=[] #check if I have already loaded the genome for this gene
+    for i in range(0, len(gene_ids)):
+        genome_id='.'.join(gene_ids[i].split('.')[0:2])
+        if genome_id not in genomes_visited:
+            genomes_visited.append(genome_id)
+            file=gzip.open('/pollard/shattuck0/snayfach/databases/PATRIC/genomes/%s/%s.PATRIC.features.tab.gz' % (genome_id, genome_id), 'r') # update once I pull out gene names for Ben?
+            file.readline() #header  
+            for line in file:
+                items = line.strip().split("\t")
+                if items[0] !='':
+                    if items[5] !='' and len(items)>14: # sometimes entries are blank
+                        gene_id =  items[5].split('|')[1] # id of gene
+                        gene_description = items[14] # what the gene does
+                        gene_descriptions[gene_id] = gene_description # load into the dictionary
+
+    return gene_descriptions
+    
 
 
 ######################################################################################

@@ -1030,3 +1030,11 @@ python postprocess_all_midas_data_serial.py
 
 # Then generate the figures included in the paper
 python generate_all_figures.py 
+
+
+
+#####################################################################################################
+# August 28, 2017
+# Pull out the gene names from patric so that Ben and I have the same, but not large-data size copy. 
+#####################################################################################################
+
