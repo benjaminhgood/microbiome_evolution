@@ -26,6 +26,7 @@ allowed_variant_types = set(['1D','2D','3D','4D'])
 
 
 def load_substitution_rate_map(species_name):
+# This definition is called whenever another script downstream uses the output of this data.
 
     substitution_rate_map = {}
 
@@ -51,7 +52,7 @@ def load_substitution_rate_map(species_name):
     return substitution_rate_map
     
 def calculate_matrices_from_substitution_rate_map(substitution_rate_map, type, allowed_samples=[]):
-    
+# once the map is loaded, then we can compute rate matrices in this definition (so, it relies on the previous def)    
 
     sample_set = set([])
     for sample_1, sample_2 in substitution_rate_map.keys():
@@ -102,27 +103,33 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
     parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
-
+    parser.add_argument("--species", help="Name of specific species to run code on", default="all")
     args = parser.parse_args()
 
     debug = args.debug
     chunk_size = args.chunk_size
-         
+    species=args.species
+
     # Load subject and sample metadata
     sys.stderr.write("Loading sample metadata...\n")
     subject_sample_map = parse_HMP_data.parse_subject_sample_map()
     sys.stderr.write("Done!\n")
     
+    # get a list of specis to run this script on. 
     good_species_list = parse_midas_data.parse_good_species_list()
     if debug:
         good_species_list = good_species_list[:3]
+    elif species !='all':
+        good_species_list = [species]
 
+    # header for the output file.
     record_strs = [", ".join(['Species', 'Sample1', 'Sample2', 'Type', 'Num_changes', 'Num_opportunities'])]
 
     for species_name in good_species_list:
 
         sys.stderr.write("Loading haploid samples...\n")
-        # Only plot samples above a certain depth threshold that are "haploids"
+
+        # Only plot samples above a certain depth threshold that are confidently phaseable.
         snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
         
         if len(snp_samples) < min_sample_size:

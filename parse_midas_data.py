@@ -710,7 +710,7 @@ def calculate_relative_depth_threshold_map(sample_coverage_histograms, samples, 
     
         # Passed median coverage requirement
         # Now check whether a significant number of sites fall between lower and upper factor. 
-        lower_depth_threshold = floor(nonzero_median_coverage*lower_factor)-0.5
+        lower_depth_threshold = floor(nonzero_median_coverage*lower_factor)-0.5 # why is 0.5 being added/subtracted? NRG
         upper_depth_threshold = ceil(nonzero_median_coverage*upper_factor)+0.5
     
         depths, depth_CDF = stats_utils.calculate_CDF_from_histogram(sample_coverage_histograms[i])
@@ -721,7 +721,7 @@ def calculate_relative_depth_threshold_map(sample_coverage_histograms, samples, 
         
         fraction_in_good_range = depth_CDF[(depths>lower_depth_threshold)*(depths<upper_depth_threshold)].sum()
     
-        if fraction_in_good_range < 0.6:
+        if fraction_in_good_range < 0.6: #where does 0.6 come from? NRG
             is_bad_coverage_distribution=True
             
         if is_bad_coverage_distribution:
@@ -768,9 +768,11 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
 # upper factor = 3 is the default for (logarithmic) symmetry 
 # min_samples=4 is the default because then the site is guaranteed to be present in 
 # at least 2 independent people. 
+# NRG: Why is a site guaranteed to be in at least 2 independent people?
     
     # Load genomic coverage distributions
     sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name, remove_c=False)
+    # depth threshold map returns the lower and upper depth values that are 0.3*median and 3*median depth in the data. 
     depth_threshold_map = calculate_relative_depth_threshold_map(sample_coverage_histograms, sample_list, min_nonzero_median_coverage, lower_factor, upper_factor)
     
    
@@ -811,7 +813,7 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
     upper_depth_threshold_vector = numpy.array(upper_depth_threshold_vector)
     
     # Figure out which samples passed our avg_depth_threshold
-    passed_samples = (lower_depth_threshold_vector<1e09)
+    passed_samples = (lower_depth_threshold_vector<1e09) #1e09 comes from the calculate_relative_depth_threshold_map definition above, which is a code for a bad sample. A bad sample has median depth less than 5 or greater than 0.6 fraction of the genome is outside the acceptable range of good depths. 
     total_passed_samples = passed_samples.sum()
     
     # Let's focus on those from now on

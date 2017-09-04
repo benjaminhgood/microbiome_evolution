@@ -137,7 +137,7 @@ def calculate_polymorphism_rates_from_sfs_map(sfs_map,lower_threshold=0.2,upper_
             within_sites += n
         else:    
             if f>0.5:
-                between_sites += (n-reverse_n)
+                between_sites += (n-reverse_n) #NRG what does this do?
             else:
                 between_sites += reverse_n
         

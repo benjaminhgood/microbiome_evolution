@@ -61,7 +61,7 @@ else:
 
 min_coverage = config.min_median_coverage
 clade_divergence_threshold = 1e-02
-modification_divergence_threshold = 1e-03
+modification_divergence_threshold = 1e-03 #the threshold for deciding when something is a modification vs a replacement. Like most other things, it is an arbitrary choice. 
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
@@ -237,6 +237,11 @@ parallelism_axis.spines['right'].set_visible(False)
 parallelism_axis.get_xaxis().tick_bottom()
 parallelism_axis.get_yaxis().tick_left()
 
+
+#####################
+# Analyze the data  #
+#####################
+
 reference_genes = parse_midas_data.load_reference_genes(species_name)
 
 # Analyze SNPs, looping over chunk sizes. 
@@ -274,7 +279,7 @@ gene_copynum_matrix = gene_depth_matrix*1.0/(marker_coverages+(marker_coverages=
 clipped_gene_copynum_matrix = numpy.clip(gene_depth_matrix,0.1,1e09)/(marker_coverages+0.1*(marker_coverages==0))
 
 low_copynum_matrix = (gene_copynum_matrix<=3)
-good_copynum_matrix = (gene_copynum_matrix>=0.5)*(gene_copynum_matrix<=3)
+good_copynum_matrix = (gene_copynum_matrix>=0.5)*(gene_copynum_matrix<=3) # why isn't this till 2? NRG
 
 prevalence_idxs = (parse_midas_data.calculate_unique_samples(subject_sample_map, gene_samples))*(marker_coverages>=min_coverage)
     
@@ -300,12 +305,16 @@ desired_same_sample_idxs, desired_same_subject_idxs, desired_diff_subject_idxs =
 
 sys.stderr.write("%d temporal samples\n" % len(desired_same_subject_idxs[0]))
 
+# get the idx for samples being considered for snp changes to match with gene changes.
+
 snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)
 gene_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, gene_samples)
-  
+
+# indexes for time pairs  
 same_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_same_subject_idxs)  
 same_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_same_subject_idxs)  
 
+# indexes for different subject pairs
 diff_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_diff_subject_idxs)  
 diff_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_diff_subject_idxs)  
 
@@ -328,6 +337,7 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 between_host_gene_idxs = [] # indexes of genes that changed between hosts
 low_divergence_between_host_gene_idxs = [] # indexes of genes that changed between particularly low divergence hosts
 
+# Store the total amount of SNP and gene changes in these arrays. 
 diff_subject_snp_changes = []
 diff_subject_gene_changes = []
 
@@ -347,7 +357,7 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
     else:
         diff_subject_gene_changes.append( gene_difference_matrix[i,j] )
         
-        
+        # why are we conditionng on the substitution rate being less than this threshold? NRG
         if snp_substitution_rate[snp_i, snp_j] < clade_divergence_threshold:
         
             # Now actually calculate genes that differ! 
@@ -361,8 +371,11 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
 diff_subject_snp_changes = numpy.array(diff_subject_snp_changes)
 diff_subject_gene_changes = numpy.array(diff_subject_gene_changes)
 
+# What does this sort do? NRG
 diff_subject_snp_changes, diff_subject_gene_changes =  (numpy.array(x) for x in zip(*sorted(zip(diff_subject_snp_changes, diff_subject_gene_changes))))
 
+
+#these arrays will store the number of SNP and gene changes for different same-subject sample pairs. 
 
 same_subject_snp_changes = []
 same_subject_snp_mutations = []
@@ -375,7 +388,9 @@ same_subject_gene_losses = []
 
 within_host_gene_idxs = [] # the indexes of genes that actually changed between samples
 within_host_null_gene_idxs = [] # a null distribution of gene indexes. chosen randomly from genes "present" in genome
+# NRG: why are these null genes chosen?
 
+# NRG what does this store?
 within_host_next_fold_changes = []
 within_host_null_next_fold_changes = []
 within_host_between_next_fold_changes = []
@@ -383,134 +398,142 @@ within_host_between_next_fold_changes = []
 total_modification_error_rate = 0
 total_modifications = 0
 
+# what is the objective of this loop? NRG
 for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 #    
     snp_i = same_subject_snp_idxs[0][sample_pair_idx]
     snp_j = same_subject_snp_idxs[1][sample_pair_idx]
-    
+    #
     sample_i = snp_samples[snp_i]
     sample_j = snp_samples[snp_j]
-    
-    
+    #    
     perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)    
-    
+    #
     num_mutations = len(mutations)
     num_reversions = len(reversions)
     num_snp_changes = num_mutations+num_reversions
-    
-    if perr>1:
+    #
+    if perr>1: # perr is probably a bad name, because it's the false positive rate summed across the entire genome (i.e., the expected number of errors across the genome, which can definitely be >1 if per site error rates are not tiny).  
         num_mutations = 0
         num_reversions = 0
         num_snp_changes = -1
-    
+    #
     same_subject_snp_changes.append(num_snp_changes)
     same_subject_snp_mutations.append(num_mutations)
     same_subject_snp_reversions.append(num_reversions)
-    
+    #
+
+    #Including replacement events in within-host evolution statistics messes everything up, so we want to only focus on changes that are not obvious replacements (i.e., modifications):
     if snp_substitution_rate[snp_i, snp_j] < modification_divergence_threshold:
         if perr<=1:
-            total_modification_error_rate += perr
+            total_modification_error_rate += perr # why are we calculating this? NRG
             total_modifications += num_snp_changes
-            
+    #       
     if num_snp_changes>-1:
         print sample_i, sample_j, num_snp_changes, num_mutations, num_reversions, perr
-    
+    #
     i = same_subject_gene_idxs[0][sample_pair_idx]
     j = same_subject_gene_idxs[1][sample_pair_idx]
-    
+    #
     if marker_coverages[i]<min_coverage or marker_coverages[j]<min_coverage:
         # can't look at gene changes!
-
+        #
         same_subject_gene_changes.append(-1)
         same_subject_gene_gains.append(-1)
         same_subject_gene_losses.append(-1)
         gene_perr = 1
     else:
-       
+        # where is the output for this used? NRG
         gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-        
+        #
         print sample_i, sample_j, gene_difference_matrix[i,j], gene_gain_matrix[i,j], gene_loss_matrix[i,j], gene_perr
-       
+        #
         same_subject_gene_changes.append(gene_difference_matrix[i,j])
         same_subject_gene_gains.append(gene_gain_matrix[i,j])
         same_subject_gene_losses.append(gene_loss_matrix[i,j])
-        
+        #
+        # why are we iterating through modification_pair_idxs? NRG
         if sample_pair_idx in modification_pair_idxs:
-        
+            #
             # Calculate set of genes that are present in at least one sample
             present_gene_idxs = []
             present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,i]>0.5)*(gene_copynum_matrix[:,i]<2))[0] )
             present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,j]>0.5)*(gene_copynum_matrix[:,j]<2))[0] )
-        
+            #
             pair_specific_gene_idxs = gene_diversity_utils.calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages)
-
+            #
             if len(pair_specific_gene_idxs)==0:
                 continue
-
+            #
+            # Ultimately, gene changes within and between hosts are compared with randomly chosen genes (hence: null)
             pair_specific_null_gene_idxs = choice(present_gene_idxs, len(pair_specific_gene_idxs)*10 )
             pair_specific_between_gene_idxs = choice(between_host_gene_idxs, len(pair_specific_gene_idxs)*10 )
-            
+            #
             within_host_gene_idxs.extend(pair_specific_gene_idxs)
-            within_host_null_gene_idxs.extend(pair_specific_null_gene_idxs)            
-            
+            within_host_null_gene_idxs.extend(pair_specific_null_gene_idxs)                       #
+            #
             other_fold_changes = []
             null_other_fold_changes = []
             between_other_fold_changes = []
-            
+            #
+            #How parallel are gene changes across hosts? 
+            #This next section is calculating the next-most extreme log-fold change, so the inner for loop is trying to figure out what the next-most extreme event is. 
             for other_sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
-           
+                #
                 other_i = same_subject_gene_idxs[0][other_sample_pair_idx]
                 other_j = same_subject_gene_idxs[1][other_sample_pair_idx]
-     
+                #
                 # Make sure we don't count the same thing twice! 
                 if other_sample_pair_idx == sample_pair_idx:
                     continue
-                
+                #
                 # Make sure it is not a replacement!    
                 if other_sample_pair_idx not in modification_pair_idxs:
                     continue
-                    
+                # dont' inculde stuff where coverage is low.    
                 if (marker_coverages[other_i]<min_coverage) or (marker_coverages[other_j]<min_coverage):
                     continue     
-                
+                #
                 # calculate log-fold change
                 logfoldchanges = numpy.fabs( numpy.log2(clipped_gene_copynum_matrix[pair_specific_gene_idxs,other_j] / clipped_gene_copynum_matrix[pair_specific_gene_idxs,other_i] ) )
-                
+                # check if the copy num of either i or j is eithin the accepted range of 0.5 or 3. 
                 good_idxs = numpy.logical_or( good_copynum_matrix[pair_specific_gene_idxs, other_i], good_copynum_matrix[pair_specific_gene_idxs, other_j] ) 
                 good_idxs *= numpy.logical_and( low_copynum_matrix[pair_specific_gene_idxs, other_i], low_copynum_matrix[pair_specific_gene_idxs, other_j] ) 
-                
+                #
                 bad_idxs = numpy.logical_not( good_idxs ) 
                 logfoldchanges[bad_idxs] = -1
-                
+                #
                 other_fold_changes.append(logfoldchanges)
-                
+                #
                 # calculate log-fold change
                 logfoldchanges = numpy.fabs( numpy.log2(clipped_gene_copynum_matrix[pair_specific_null_gene_idxs,other_j] / clipped_gene_copynum_matrix[pair_specific_null_gene_idxs,other_i] ) )
-                
-                # only include genes that are at low copynum at both timepoints
+                #
+                # only include genes that are at low copynum at both timepoints # Why?? NRG
                 # and have a "good" copynum at at least one point
                 good_idxs = numpy.logical_or( good_copynum_matrix[pair_specific_null_gene_idxs, other_i], good_copynum_matrix[pair_specific_null_gene_idxs, other_j] ) 
                 good_idxs *= numpy.logical_and( low_copynum_matrix[pair_specific_null_gene_idxs, other_i], low_copynum_matrix[pair_specific_null_gene_idxs, other_j] ) 
                 bad_idxs = numpy.logical_not( good_idxs ) 
-                
+                #
                 logfoldchanges[bad_idxs] = -1
-                
+                #
                 null_other_fold_changes.append( logfoldchanges )
-                
+                #
                 # calculate log-fold change
                 logfoldchanges = numpy.fabs( numpy.log2(clipped_gene_copynum_matrix[pair_specific_between_gene_idxs,other_j] / clipped_gene_copynum_matrix[pair_specific_between_gene_idxs,other_i] ) )
-                good_idxs = numpy.logical_or( good_copynum_matrix[pair_specific_between_gene_idxs, other_i], good_copynum_matrix[pair_specific_between_gene_idxs, other_j] ) 
-                good_idxs *= numpy.logical_and( low_copynum_matrix[pair_specific_between_gene_idxs, other_i], low_copynum_matrix[pair_specific_between_gene_idxs, other_j] ) 
-                 
+                good_idxs = numpy.logical_or( good_copynum_matrix[pair_specific_between_gene_idxs, other_i], good_copynum_matrix[pair_specific_between_gene_idxs, other_j] )                # 
+                good_idxs *= numpy.logical_and( low_copynum_matrix[pair_specific_between_gene_idxs, other_i], low_copynum_matrix[pair_specific_between_gene_idxs, other_j] )                #
+                # 
                 bad_idxs = numpy.logical_not( good_idxs ) 
                 logfoldchanges[bad_idxs] = -1
-                
+                #
                 between_other_fold_changes.append( logfoldchanges )
-                
+                #
             other_fold_changes = numpy.array(other_fold_changes)
             null_other_fold_changes = numpy.array(null_other_fold_changes)
             between_other_fold_changes = numpy.array(between_other_fold_changes)
-            
+            #
+
+            # Pull out the largest fold change computed across all pairs of hosts other than the i and j of interest at the top of the for loop
             for gene_idx in xrange(0,other_fold_changes.shape[1]):
                 fold_changes = other_fold_changes[:,gene_idx]
                 fold_changes = fold_changes[fold_changes>-0.5]
@@ -518,13 +541,13 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
                     #print "Observed biggest change: %g, median change %g" % (fold_changes.max(), numpy.median(fold_changes))
                     #print fold_changes
                     within_host_next_fold_changes.append( (fold_changes).max() )
-
+                    #
             for gene_idx in xrange(0,null_other_fold_changes.shape[1]):
                 fold_changes = null_other_fold_changes[:,gene_idx]
                 fold_changes = fold_changes[fold_changes>-0.5]
                 if len(fold_changes)>0:
                     within_host_null_next_fold_changes.append( (fold_changes).max() )
-                
+                #
             for gene_idx in xrange(0, between_other_fold_changes.shape[1]):
                 fold_changes = between_other_fold_changes[:,gene_idx]
                 fold_changes = fold_changes[fold_changes>-0.5]
@@ -602,20 +625,20 @@ between_host_gene_multiplicities = []
 between_host_gene_sfs = []
 num_bootstraps = 1
 for i in xrange(0,num_bootstraps):
-    
+#    
     bootstrapped_gene_idxs = choice(between_host_gene_idxs,len(within_host_gene_idxs),replace=False)
-    
+#    
     # Create idx map
     bootstrapped_gene_idx_map = {}
     for gene_idx in bootstrapped_gene_idxs:
         if gene_idx not in bootstrapped_gene_idx_map:
             bootstrapped_gene_idx_map[gene_idx]=0
-            
+#            
         bootstrapped_gene_idx_map[gene_idx]+=1
-        
+#        
     for gene_idx in bootstrapped_gene_idxs:
         between_host_gene_multiplicities.append( bootstrapped_gene_idx_map[gene_idx] )
-    
+#    
     between_host_gene_sfs.extend( bootstrapped_gene_idx_map.values() )    
     
         

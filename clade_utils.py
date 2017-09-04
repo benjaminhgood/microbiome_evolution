@@ -22,6 +22,7 @@ def cluster_samples(distance_matrix, min_d=0, max_ds=[1e09]):
     Z = linkage(Y, method='average')        
     
     # First coarse-grain things less than min_d apart:
+    #NRG: what does it mean to coarse-grain?
     subcluster_assignments = fcluster(Z, min_d, criterion='distance')
     
     coarse_grained_idxs = []

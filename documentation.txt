@@ -381,6 +381,20 @@ python ~/ben_nandita_hmp_scripts/print_good_species_list.py name> ~/tmp_intermed
 
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/run_postprocessing_scripts 
 
+# run the next three scripts too
+# Calculate substitution rates for the most prevalent species
+species=Bacteroides_uniformis_57318
+python ~/ben_nandita_hmp_scripts/calculate_substitution_rates.py --species $species
+
+# Calculate linkage disequilibria for the most prevalent species
+python ~/ben_nandita_hmp_scripts/calculate_linkage_disequilibria.py --species $species
+
+# Calculate temporal changes for the most prevalent species
+python ~/ben_nandita_hmp_scripts/calculate_temporal_changes.py --species $species
+
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/run_postprocessing_scripts_part2
+
+
 ####################
 # Analysis scripts #
 ####################
@@ -1016,3 +1030,19 @@ python postprocess_all_midas_data_serial.py
 
 # Then generate the figures included in the paper
 python generate_all_figures.py 
+
+
+
+#####################################################################################################
+# August 28, 2017
+# Pull out the gene names from patric so that Ben and I have the same, but not large-data size copy. 
+#####################################################################################################
+
+
+# run the gene annotation script in parallel on good_species_list:
+
+while read species; do
+
+    nohup nice python ~/ben_nandita_hmp_scripts/gene_changes_annotation.py --other-species $species &
+
+done < ~/tmp_intermediate_files/tmp_species_list.txt

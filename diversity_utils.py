@@ -673,7 +673,8 @@ upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min
             intermediate_freq_sites = (freqs>lower_threshold)*(freqs<upper_threshold)
    
             passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
-            
+
+            # NRG: what exactly is happening in bad_sites?
             bad_sites = numpy.logical_or(intermediate_freq_sites[:,:,None],intermediate_freq_sites[:,None,:])*passed_depths
             
             delta_freqs = numpy.fabs(freqs[:,:,None]-freqs[:,None,:])*passed_depths
