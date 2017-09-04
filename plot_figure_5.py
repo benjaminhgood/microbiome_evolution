@@ -79,15 +79,15 @@ snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debu
 #
 ####################################################
 
-pylab.figure(1,figsize=(5,2))
+pylab.figure(1,figsize=(3.43,1.9))
 fig = pylab.gcf()
 
 
-# make three panels panels
-outer_grid  = gridspec.GridSpec(1,2, width_ratios=[2,1], wspace=0.25)
+# make 2 panels
+outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1], wspace=0.4)
 
-differences_grid = gridspec.GridSpecFromSubplotSpec(2, 2, height_ratios=[1,1],
-                subplot_spec=outer_grid[0], hspace=0.05, width_ratios=[1,1], wspace=0.025)
+differences_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[1,1],
+                subplot_spec=outer_grid[0], hspace=0.1)
                 
 gene_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[1,1],
                 subplot_spec=outer_grid[1], hspace=0.5)
@@ -105,38 +105,24 @@ supplemental_outer_grid  = gridspec.GridSpec(1,1)
 #
 ###################
 
-snp_axis = plt.Subplot(fig, differences_grid[0,0])
+snp_axis = plt.Subplot(fig, differences_grid[0])
 fig.add_subplot(snp_axis)
 
 #snp_axis.set_title("%s %s (%s)" % tuple(species_name.split("_")),fontsize=7)
 
-snp_axis.set_ylabel('SNP changes')
-snp_axis.set_ylim([2e-01,1e05])
+snp_axis.set_ylabel('SNV changes',labelpad=2)
+snp_axis.set_ylim([1.2e-01,1e05])
 
-snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'b-',label='Within host')
-snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'r-',label='Between host')
+snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'b.',markersize=1.5,label='Within-host')
+snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'r.',linewidth=0.35,markersize=1.5,label='Between-host')
+
 
 snp_axis.spines['top'].set_visible(False)
 snp_axis.spines['right'].set_visible(False)
 snp_axis.get_xaxis().tick_bottom()
 snp_axis.get_yaxis().tick_left()
 
-
-within_snp_axis = plt.Subplot(fig, differences_grid[0,1])
-fig.add_subplot(within_snp_axis)
-
-#snp_axis.set_title("%s %s (%s)" % tuple(species_name.split("_")),fontsize=7)
-
-within_snp_axis.set_ylim([2e-01,1e05])
-
-within_snp_axis.spines['top'].set_visible(False)
-within_snp_axis.spines['right'].set_visible(False)
-within_snp_axis.spines['left'].set_visible(False)
-
-within_snp_axis.get_xaxis().tick_bottom()
-within_snp_axis.get_yaxis().tick_left()
-
-
+within_snp_axis = snp_axis 
 
 ###################
 #
@@ -144,13 +130,13 @@ within_snp_axis.get_yaxis().tick_left()
 #
 ###################
 
-gene_axis = plt.Subplot(fig, differences_grid[1,0])
+gene_axis = plt.Subplot(fig, differences_grid[1])
 fig.add_subplot(gene_axis)
 
-gene_axis.set_ylabel('Gene changes')
-gene_axis.set_ylim([2e-01,1e04])
+gene_axis.set_ylabel('Gene changes',labelpad=2)
+gene_axis.set_ylim([1.2e-01,1e04])
 
-gene_axis.set_xlabel('Between-host')
+gene_axis.set_xlabel('Sample pairs')
 
 gene_axis.spines['top'].set_visible(False)
 gene_axis.spines['right'].set_visible(False)
@@ -158,18 +144,11 @@ gene_axis.get_xaxis().tick_bottom()
 gene_axis.get_yaxis().tick_left()
 
 
-within_gene_axis = plt.Subplot(fig, differences_grid[1,1])
-fig.add_subplot(within_gene_axis)
+within_gene_axis = gene_axis
 
-within_gene_axis.set_ylim([2e-01,1e04])
 
-within_gene_axis.spines['top'].set_visible(False)
-within_gene_axis.spines['right'].set_visible(False)
-within_gene_axis.spines['left'].set_visible(False)
-within_gene_axis.get_xaxis().tick_bottom()
-within_gene_axis.get_yaxis().tick_left()
-
-within_gene_axis.set_xlabel('Within-host')
+snp_axis.fill_between([-1e06,1e06],[1e-01,1e-01],[0.6,0.6],color='0.8')
+gene_axis.fill_between([-1e06,1e06],[1e-01,1e-01],[0.6,0.6],color='0.8')
 
 ##############################################################################
 #
@@ -180,8 +159,8 @@ within_gene_axis.set_xlabel('Within-host')
 prevalence_axis = plt.Subplot(fig, gene_grid[0])
 fig.add_subplot(prevalence_axis)
 
-prevalence_axis.set_ylabel('Fraction genes $\leq p$')
-prevalence_axis.set_xlabel('Prevalence, $p$')
+prevalence_axis.set_ylabel('Fraction genes $\leq p$',labelpad=2)
+prevalence_axis.set_xlabel('Prevalence, $p$',labelpad=2)
 prevalence_axis.set_xlim([0,1.05])
 #prevalence_axis.set_ylim([0,1.1])
 
@@ -203,8 +182,8 @@ multiplicity_axis = plt.Subplot(supplemental_fig, supplemental_outer_grid[0])
 supplemental_fig.add_subplot(multiplicity_axis)
 
 
-multiplicity_axis.set_ylabel('Fraction gene changes')
-multiplicity_axis.set_xlabel('Gene multiplicity, $m$')
+multiplicity_axis.set_ylabel('Fraction gene changes',labelpad=2)
+multiplicity_axis.set_xlabel('Gene multiplicity, $m$',labelpad=2)
 multiplicity_axis.set_xlim([0.5,3.5])
 multiplicity_axis.set_ylim([0,1.05])
 
@@ -227,8 +206,8 @@ fig.add_subplot(parallelism_axis)
 #supplemental_fig.add_subplot(parallelism_axis)
 
 
-parallelism_axis.set_ylabel('Fraction genes $\geq c$')
-parallelism_axis.set_xlabel('Largest parallel fold-change, $c$')
+parallelism_axis.set_ylabel('Fraction genes $\geq c$',labelpad=2)
+parallelism_axis.set_xlabel('Largest parallel fold-change, $c$',labelpad=2)
 #parallelism_axis.set_xlim([0,5])
 parallelism_axis.set_ylim([0,1.1])
 
@@ -668,30 +647,30 @@ for snp_changes, snp_mutations, snp_reversions, gene_changes, gene_gains, gene_l
     y-=2
     
     #within_snp_axis.semilogy([y,y], [snp_plower,snp_pupper],'g-',linewidth=0.25)
-    within_snp_axis.semilogy([y], [snp_changes],'b.',markersize=1.5)
+    within_snp_axis.semilogy([y], [snp_changes],'b.',markersize=3,zorder=1)
         
     #within_gene_axis.semilogy([y,y], [gene_plower,gene_pupper], 'g-',linewidth=0.25)
-    within_gene_axis.semilogy([y],[gene_changes],  'b.',markersize=1.5)
+    within_gene_axis.semilogy([y],[gene_changes],  'b.',markersize=3,zorder=1)
 
     print "Mutations=%g, Reversions=%g, Gains=%g, Losses=%g" % (snp_mutations, snp_reversions, gene_gains, gene_losses)
 
 y-=4
 
-within_snp_axis.semilogy([y,y],[1e-09,1e09],'-',linewidth=0.25,color='k')
-within_gene_axis.semilogy([y,y],[1e-09,1e09],'-',linewidth=0.25,color='k')
+#within_snp_axis.semilogy([y,y],[1e-09,1e09],'-',linewidth=0.25,color='k')
+#within_gene_axis.semilogy([y,y],[1e-09,1e09],'-',linewidth=0.25,color='k')
 
 
-within_snp_axis.set_xlim([y-0.2,0])
-within_gene_axis.set_xlim([y-0.2,0])    
+#within_snp_axis.set_xlim([y-0.2,0])
+#within_gene_axis.set_xlim([y-0.2,0])    
 
-within_snp_axis.set_xticks([])
-within_gene_axis.set_xticks([])
+#within_snp_axis.set_xticks([])
+#within_gene_axis.set_xticks([])
 
-within_snp_axis.set_yticks([])
-within_snp_axis.minorticks_off()
+#within_snp_axis.set_yticks([])
+#within_snp_axis.minorticks_off()
 
-within_gene_axis.set_yticks([])
-within_gene_axis.minorticks_off()
+#within_gene_axis.set_yticks([])
+#within_gene_axis.minorticks_off()
 
 #within_snp_axis.set_yticklabels([])
 #within_gene_axis.set_yticklabels([])
@@ -713,8 +692,8 @@ for snp_changes, gene_changes in zip(diff_subject_snp_changes, diff_subject_gene
 
     y-=1
     
-    snp_axis.semilogy([y],[snp_changes],'r.',linewidth=0.35,markersize=1.5)
-    gene_axis.semilogy([y],[gene_changes],'r.',linewidth=0.35,markersize=1.5)
+    snp_axis.semilogy([y],[snp_changes],'r.',linewidth=0.35,markersize=1.5,zorder=0)
+    gene_axis.semilogy([y],[gene_changes],'r.',linewidth=0.35,markersize=1.5,zorder=0)
 
 y-=4
 
@@ -797,6 +776,7 @@ parallelism_axis.step(xs,ns*1.0/ns[0],'k-',label='Random',zorder=0)
 
 parallelism_axis.legend(loc='upper right',frameon=False,fontsize=4)
 
+snp_axis.legend(loc='upper right',frameon=False,fontsize=4, numpoints=1)
 
 parallelism_axis.semilogx([1],[-1],'k.')
 parallelism_axis.set_xlim([1,10])
