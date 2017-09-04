@@ -1038,3 +1038,11 @@ python generate_all_figures.py
 # Pull out the gene names from patric so that Ben and I have the same, but not large-data size copy. 
 #####################################################################################################
 
+
+# run the gene annotation script in parallel on good_species_list:
+
+while read species; do
+
+    nohup nice python ~/ben_nandita_hmp_scripts/gene_changes_annotation.py --other-species $species &
+
+done < ~/tmp_intermediate_files/tmp_species_list.txt

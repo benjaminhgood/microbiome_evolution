@@ -11,35 +11,32 @@ import parse_midas_data
 #########################################################################################
 #
 # Read in the Kegg info for a given speceis
-# What is returned are all pathways for a given species rather than just the pathways for the genes in gene_names.
+# What is returned are all pathways for a given species.
 #
 #########################################################################################
 
-def load_kegg_annotations(gene_names):
+def load_kegg_annotations(genome_ids):
     
     # dictionary to store the kegg ids (gene_id -> [[kegg_id, description]])
     kegg_ids={}
     
 
     genomes_visited=[] #check if I have already loaded the genome for this gene
-    for i in range(0, len(gene_names)):
-        genome_id='.'.join(gene_names[i].split('.')[0:2])
-        if genome_id not in genomes_visited:
-            genomes_visited.append(genome_id)
-            file= bz2.BZ2File("%skegg/%s.kegg.txt.bz2" % (parse_midas_data.patric_directory, genome_id),"r")
-            file.readline() #header  
-            for line in file:
-                if line.split('\t')[0]!='':
-                    if line.strip() != "":
-                        items = line.split("\t")
-                        gene_name=items[0].strip().split('|')[1]
-                        kegg_ids[gene_name]=[]
-                        kegg_pathway_tmp=items[1].strip().split(';')
-                        if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
-                            for i in range(0, len(kegg_pathway_tmp)):
-                                kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
-                        elif kegg_pathway_tmp[0] =='':
-                            kegg_ids[gene_name].append(['',''])
+    for genome_id in genome_ids:
+        file= bz2.BZ2File("%skegg/%s.kegg.txt.bz2" % (parse_midas_data.patric_directory, genome_id),"r")
+        file.readline() #header  
+        for line in file:
+            if line.split('\t')[0]!='':
+                if line.strip() != "":
+                    items = line.split("\t")
+                    gene_name=items[0].strip().split('|')[1]
+                    kegg_ids[gene_name]=[]
+                    kegg_pathway_tmp=items[1].strip().split(';')
+                    if len(kegg_pathway_tmp)>0 and kegg_pathway_tmp[0] !='':
+                        for i in range(0, len(kegg_pathway_tmp)):
+                            kegg_ids[gene_name].append(kegg_pathway_tmp[i].split('|'))
+                    elif kegg_pathway_tmp[0] =='':
+                        kegg_ids[gene_name].append(['',''])
     return kegg_ids
 
 ########################################
@@ -101,35 +98,81 @@ def load_virulence_factors(species_name):
 #################################################################
 #
 # Load individual gene names from patric
-# This returns a dictionary with all gene names for the genomes included in the gene_names object.
+# This returns a dictionary with all gene names for the genomes included in the genome_ids object.
 # In the main code, I will pull out the actual gene names. 
 #
 #################################################################
 
-def load_patric_gene_descriptions(gene_ids):
+def load_patric_gene_descriptions(genome_ids):
     
     # dictionary to store all gene names (gene_id -> )
     gene_descriptions={}
 
-    genomes_visited=[] #check if I have already loaded the genome for this gene
-    for i in range(0, len(gene_ids)):
-        genome_id='.'.join(gene_ids[i].split('.')[0:2])
-        if genome_id not in genomes_visited:
-            genomes_visited.append(genome_id)
-            file=gzip.open('/pollard/shattuck0/snayfach/databases/PATRIC/genomes/%s/%s.PATRIC.features.tab.gz' % (genome_id, genome_id), 'r') # update once I pull out gene names for Ben?
-            file.readline() #header  
-            for line in file:
-                items = line.strip().split("\t")
-                if items[0] !='':
-                    if items[5] !='' and len(items)>14: # sometimes entries are blank
-                        gene_id =  items[5].split('|')[1] # id of gene
-                        gene_description = items[14] # what the gene does
-                        gene_descriptions[gene_id] = gene_description # load into the dictionary
+    for genome_id in genome_ids:
+        file=gzip.open('/pollard/shattuck0/snayfach/databases/PATRIC/genomes/%s/%s.PATRIC.features.tab.gz' % (genome_id, genome_id), 'r') # update once I pull out gene names for Ben?
+        file.readline() #header  
+        for line in file:
+            items = line.strip().split("\t")
+            if items[0] !='':
+                if items[5] !='' and len(items)>14: # sometimes entries are blank
+                    gene_id =  items[5].split('|')[1] # id of gene
+                    gene_description = items[14] # what the gene does
+                    gene_descriptions[gene_id] = gene_description # load into the dictionary
 
     return gene_descriptions
     
+###########################################################
+# 
+# Categorize PATRIC gene descriptions by  regular expression
+#
+###########################################################
+import operator
+def cluster_patric_gene_descriptions(gene_descriptions):
+    
+    
+    #iterate through and alphabetically categorize genes based on their string identity. If there are at most 2 string mismatches with the previous string, then clump it with that string.
 
+    gene_categories={}  # key=gene_name, value=number of genes in this category
+    gene_category_map={} # key=gene_id, value=category 
+    # I'm making this map so that we can later look up which category a patric id belongs in. 
 
+    prev_gene='' # I will do a regexp with this as I iterate and keep updating
+    gene_categories[prev_gene]=0 #initialize
+    #iterate through alphabetically (faster)
+    for item in sorted(gene_descriptions.items(), key=operator.itemgetter(1)):
+        gene_id=item[0]
+        gene=item[1]
+        hamming_distance= hamming(gene, prev_gene) 
+        if hamming_distance<=2:
+            gene_categories[prev_gene]+=1
+            gene_category_map[gene_id]=prev_gene
+        else:
+            # sometimes the alpha sort doesn't take care of corner cases. Iterate through the whole list again to find an existing match if possible. 
+            found_category=False
+            for existing_gene in gene_categories.keys():
+                hamming_distance= hamming(gene, existing_gene)
+                if hamming_distance <=2 and found_category==False:
+                    gene_categories[existing_gene] +=1
+                    gene_category_map[gene_id]=existing_gene
+                    found_category=True
+            # if no match is found, create a new category
+            if found_category==False:
+                gene_categories[gene]=1
+                gene_category_map[gene_id]=gene
+                prev_gene=gene
+
+    return gene_categories, gene_category_map
+
+#########
+# hamming distance between two strings:
+
+import itertools
+
+def hamming(str1, str2):
+  diff=sum(itertools.imap(str.__ne__, str1, str2))
+  diff += abs(len(str1) - len(str2)) # above doesn't take into account difference in string length
+  return diff
+  
 ######################################################################################
 # 
 # Create a new genome.features.gz file for running MIDAS on a different representative genome for SNP calling. 
