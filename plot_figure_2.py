@@ -393,7 +393,12 @@ dendrogram_axis.set_ylim([yplotmin/1.4,yplotmax])
 
 snp_samples = numpy.array(snp_samples)
 
-ds = numpy.logspace(log10(2e-05),log10(2e-02),15)
+# Calculate range of distances to compute phylogenetic inconsistency for
+min_d = snp_substitution_rate[(snp_substitution_rate>=2e-05)].min()+1e-07 # a little bit more than the min
+max_d = snp_substitution_rate.max()-1e-07 # a little bit less than the max
+ds = numpy.logspace(log10(min_d),log10(max_d),15)
+print ds
+
 clade_setss = []
 sys.stderr.write("Assessing phylogenetic consistency...\n")
 sys.stderr.write("Clustering samples at different divergence thresholds...\n")
@@ -516,7 +521,7 @@ null_fraction_inconsistent = total_null_inconsistent_sites*1.0/total_polymorphic
     
 sys.stderr.write("Done!\n")
 
-sys.stderr.write("Observed singletons at %g: %d/%d (%g), Expected: %d/%d (%g)\n" % (dstar, total_dstar_singleton_sites, total_dstar_polymorphic_sites, total_dstar_singleton_sites*1.0/total_dstar_polymorphic_sites, total_bootstrapped_singleton_sites, total_bootstrapped_polymorphic_sites, total_bootstrapped_singleton_sites*1.0/total_bootstrapped_polymorphic_sites))
+sys.stderr.write("Observed singletons at %g: %d/%d (%g), Expected: %d/%d (%g)\n" % (dstar, total_dstar_singleton_sites, total_dstar_polymorphic_sites, total_dstar_singleton_sites*1.0/(total_dstar_polymorphic_sites+(total_dstar_polymorphic_sites==0)), total_bootstrapped_singleton_sites, total_bootstrapped_polymorphic_sites, total_bootstrapped_singleton_sites*1.0/(total_bootstrapped_polymorphic_sites + (total_bootstrapped_polymorphic_sites==0))))
 
 inconsistency_axis.semilogy([2,2],[yplotmin/1.4, yplotmax],'-',color='0.7', linewidth=0.25)
 inconsistency_axis.set_ylim([yplotmin/1.4,yplotmax])
