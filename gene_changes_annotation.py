@@ -1,4 +1,4 @@
-# Within-snp gene changes
+# Within-host gene change annotation
 
 import matplotlib  
 matplotlib.use('Agg') 
@@ -19,6 +19,7 @@ import sfs_utils
 import calculate_substitution_rates
 import calculate_temporal_changes
 import parse_patric
+import species_phylogeny_utils
 
 import stats_utils
 import matplotlib.colors as colors
@@ -28,6 +29,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from numpy.random import randint, choice
+
 
 mpl.rcParams['font.size'] = 5
 mpl.rcParams['lines.linewidth'] = 0.5
@@ -63,9 +65,9 @@ else:
 
 
 if other_species=="":
-    outFile=open('/pollard/home/ngarud/ben_nandita_hmp_analysis/gene_changes_shuffle_all_species.txt', 'w' )
+    outFile=open('%sgene_changes_shuffle_all_species.txt' % parse_midas_data.analysis_directory, 'w' )
 else:
-    outFile=open('/pollard/home/ngarud/ben_nandita_hmp_analysis/gene_changes_shuffle_%s.txt' % species_name , 'w' )   
+    outFile=open('%sgene_changes_shuffle_%s.txt' %(parse_midas_data.analysis_directory, species_name) , 'w' )   
 
 modification_divergence_threshold = 1e-03 #the threshold for deciding when something is a modification vs a replacement. Like most other things, it is an arbitrary choice. 
 min_coverage=20
@@ -78,16 +80,16 @@ else:
     good_species_list=[species_name]
 
 # store all the species' data in a dictionary:
-all_data={}
-
+all_data={} 
 #key=species
 #value={}, key=gene, valuee=num times gene shows up
 
 for species_name in good_species_list: 
+    
+    # data structures for storing information for pickling later on
     all_species_gene_changes={}
     all_species_gene_changes_category={}
     all_species_null={}
-
     all_data[species_name]={}
 
     ####################
@@ -204,7 +206,7 @@ for species_name in good_species_list:
             sample_1_gene_idx=gene_samples.index(sample_1)
             sample_2_gene_idx=gene_samples.index(sample_2)
             #check if the marker coverages are in range:
-            if (marker_coverages[i]>min_coverage) and (marker_coverages[j]>min_coverage): 
+            if (marker_coverages[sample_2_gene_idx]>min_coverage) and (marker_coverages[sample_2_gene_idx]>min_coverage): 
                 # check if this pair underwent a replacement event. If so, ignore, otherwise stats get messed up. 
                 # find the index of sample_1 and sample_2 in snp_samples to see if this is a CPS sample pair:
                 include_sample_pair=False
@@ -306,7 +308,7 @@ for species_name in good_species_list:
     # compute empirical p-value #
     #############################
 
-    # how likely is it to see a given gene change occur across and within people as many times as it does given all the nulls across people?
+    # how likely is it to see a given gene change as many times as it does given all the nulls?
 
     # count the number of times a gene shows up in within-host changes
     all_gene_changes={}
@@ -325,7 +327,7 @@ for species_name in good_species_list:
         for gene in gene_descriptions_gene_changes_null_between_host[trial]:
             all_gene_changes_null_between_host[gene]=[]
         for gene in gene_descriptions_gene_changes_null_present[trial]: 
-            all_gene_changes_null_pangenome[gene]=[]
+            all_gene_changes_null_present[gene]=[]
         for gene in gene_descriptions_gene_changes_null_pangenome[trial]: 
             all_gene_changes_null_pangenome[gene]=[]
 
@@ -353,17 +355,17 @@ for species_name in good_species_list:
     for gene in all_gene_changes.keys():
         if gene in all_gene_changes_null_between_host:
             tmp_null = numpy.array(all_gene_changes_null_between_host[gene])
-            prob_between_hosts=sum(all_gene_changes[gene] <= tmp_null)/100.0
+            prob_between_hosts=sum(all_gene_changes[gene] <= tmp_null)/float(num_trials)
         else:
             prob_between_hosts=0
         if gene in all_gene_changes_null_present:
             tmp_null = numpy.array(all_gene_changes_null_present[gene])
-            prob_present=sum(all_gene_changes[gene] <= tmp_null)/100.0
+            prob_present=sum(all_gene_changes[gene] <= tmp_null)/float(num_trials)
         else:
             prob_present=0
         if gene in all_gene_changes_null_pangenome:
             tmp_null = numpy.array(all_gene_changes_null_pangenome[gene])
-            prob_pangenome=sum(all_gene_changes[gene] <= tmp_null)/100.0
+            prob_pangenome=sum(all_gene_changes[gene] <= tmp_null)/float(num_trials)
         else:
             prob_pangenome=0
         #store data in a dictionary for cross-species plotting after running on all species
@@ -455,7 +457,7 @@ else:
 #######################################
 # code for loading cross-species data #
 #######################################
-'''
+
 import pickle
 good_species_list = parse_midas_data.parse_good_species_list() 
 
@@ -468,36 +470,229 @@ for species_name in good_species_list:
         all_data[species_name]=all_data_species[species_name]
 
 
-# want to know what the sum of all gene changes is across species
+#  sum  all gene changes  across species
 all_data['all_species']={}
-all_data['all_species']['gene_changes']={}
+for gene_type in ['gene_changes','gene_changes_category']:
+    all_data['all_species']['gene_changes']={}
+    all_data['all_species']['gene_changes_category']={}
+
 for species_name in all_data.keys():
     if species_name != 'all_species':
-        for gene in all_data[species_name]['gene_changes'].keys():
-            if gene not in all_data['all_species']['gene_changes'].keys():
-                all_data['all_species']['gene_changes'][gene] = [all_data[species_name]['gene_changes'][gene][0],0,0]
-            else:
-                all_data['all_species']['gene_changes'][gene][0] +=all_data[species_name]['gene_changes'][gene][0]
+        for gene_type in ['gene_changes','gene_changes_category']:
+            for gene in all_data[species_name][gene_type].keys():
+                if gene not in all_data['all_species'][gene_type].keys():
+                    all_data['all_species'][gene_type][gene] = [all_data[species_name][gene_type][gene][0],0,0,0]
+                else:
+                    all_data['all_species'][gene_type][gene][0] +=all_data[species_name][gene_type][gene][0]
+                                                                 
 
-
-# want to know what the null is combining all trials across speceis:
+# compute a null for all species by combining all trials across speceis:
 all_data['all_species']['null']={}
-all_data['all_species']['null']['between_host_genes']={}
+for null_type in ['between_host_genes', 'present_genes', 'pangenome_genes', 'between_host_category','present_category','pangenome_category']:
+    all_data['all_species']['null'][null_type]={}
 
 for species_name in all_data.keys(): 
-    if species_name != 'all_species':
-        for gene in all_data[species_name]['null']['between_host_genes'].keys():
-            if gene not in  all_data['all_species']['null']['between_host_genes'].keys():
-                all_data['all_species']['null']['between_host_genes'][gene]=all_data[species_name]['null']['between_host_genes'][gene]
-            else:
-                for i in range(0, num_trials):
-                    all_data['all_species']['null']['between_host_genes'][gene][i] += all_data[species_name]['null']['between_host_genes'][gene][i]
+    print species_name
+    if species_name != 'all_species' and species_name !='Escherichia_coli_58110':
+        for null_type in ['between_host_genes', 'present_genes', 'pangenome_genes', 'between_host_category','present_category','pangenome_category']:
+            for gene in all_data[species_name]['null'][null_type].keys():
+                if gene not in  all_data['all_species']['null'][null_type].keys():
+                    all_data['all_species']['null'][null_type][gene]=all_data[species_name]['null'][null_type][gene]
+                else:
+                    for i in range(0, num_trials):
+                        all_data['all_species']['null'][null_type][gene][i] += all_data[species_name]['null'][null_type][gene][i]
+
                 
 
-# compute empirical p-value for all_species
+# compute empirical p-value for all_species 
+for gene in all_data['all_species']['gene_changes'].keys():
+    for null_type in ['between_host_genes', 'present_genes', 'pangenome_genes']:
+        if gene in all_data['all_species']['null'][null_type].keys():
+            tmp_null = numpy.array(all_data['all_species']['null'][null_type][gene])
+            prob=sum(all_data['all_species']['gene_changes'][gene][0] <= tmp_null)/float(num_trials)
+        else:
+            prob=0
+        if null_type=='between_host_genes':
+            all_data['all_species']['gene_changes'][gene][1]=prob
+        elif null_type=='present_genes':
+            all_data['all_species']['gene_changes'][gene][2]=prob
+        else:
+            all_data['all_species']['gene_changes'][gene][3]=prob
+        
 
 
-# put everything in a 2D matrix so that I can plot a heatmap:
+# repeat for gene_category
+
+for gene in all_data['all_species']['gene_changes_category'].keys():
+    for null_type in ['between_host_category','present_category','pangenome_category']:
+        if gene in all_data['all_species']['null'][null_type].keys():
+            tmp_null = numpy.array(all_data['all_species']['null'][null_type][gene])
+            prob=sum(all_data['all_species']['gene_changes_category'][gene][0] <= tmp_null)/float(num_trials)
+        else:
+            prob=0
+        if null_type=='between_host_category':
+            all_data['all_species']['gene_changes_category'][gene][1]=prob
+        elif null_type=='present_category':
+            all_data['all_species']['gene_changes_category'][gene][2]=prob
+        else:
+            all_data['all_species']['gene_changes_category'][gene][3]=prob
+        
+
+# print the p-values of the genes in the all species gene changes:
+outFile_gene_change=open('%sgene_changes_accross_species.txt' %  parse_midas_data.analysis_directory,'w')
+
+# store data for plotting cdf:
+p_val_between_array=[]
+p_val_present_array=[]
+p_val_pangenome_array=[]
+
+gene_order_sorted = sorted(all_data['all_species']['gene_changes'].items(), key=operator.itemgetter(1))
+for i in range(0, len(gene_order_sorted)):
+    gene=gene_order_sorted[i][0]
+    counts=all_data['all_species']['gene_changes'][gene][0]
+    p_val_between=all_data['all_species']['gene_changes'][gene][1]
+    p_val_present=all_data['all_species']['gene_changes'][gene][2]
+    p_val_pangenome=all_data['all_species']['gene_changes'][gene][3]
+    p_val_between_array.append(p_val_between)
+    p_val_present_array.append(p_val_present)
+    p_val_pangenome_array.append(p_val_pangenome)
+    print gene + '\t' + str(counts) + '\t' +str(p_val_between) +'\t' + str(p_val_present) +'\t' + str(p_val_pangenome) 
+    outFile_gene_change.write(gene + '\t' +str(counts) +'\t'+ str(p_val_between) +'\t' + str(p_val_present) +'\t' + str(p_val_pangenome) + '\n' )
+
+
+outFile_gene_change.close()
+
+p_val_between_array=numpy.asarray(sorted(p_val_between_array))
+p_val_present_array=numpy.asarray(sorted(p_val_present_array))
+p_val_pangenome_array=numpy.asarray(sorted(p_val_pangenome_array))
+
+# print the p-values of the genes in the all species category:
+outFile_category=open('%sgene_changes_accross_species_category.txt' %  parse_midas_data.analysis_directory,'w')
+
+gene_order_sorted = sorted(all_data['all_species']['gene_changes_category'].items(), key=operator.itemgetter(1))
+for i in range(0, len(gene_order_sorted)):
+    gene=gene_order_sorted[i][0]
+    counts=all_data['all_species']['gene_changes_category'][gene][0]
+    p_val_between=all_data['all_species']['gene_changes_category'][gene][1]
+    p_val_present=all_data['all_species']['gene_changes_category'][gene][2]
+    p_val_pangenome=all_data['all_species']['gene_changes_category'][gene][3]
+    print gene + '\t' + str(counts) + '\t' +str(p_val_between) +'\t' + str(p_val_present) +'\t' + str(p_val_pangenome) 
+    outFile_category.write(gene + '\t' +str(counts) +'\t'+ str(p_val_between) +'\t' + str(p_val_present) +'\t' + str(p_val_pangenome) + '\n' )
+
+outFile_category.close()
+
+
+##################################################
+# list of common genes that show up              #
+##################################################
+
+keywords={}
+keywords['hypothetical'] = 'ypothetical'
+keywords['conjugative']='onjugati'
+keywords['transposase']='anspos'
+keywords['tRNA']='tRNA'
+keywords['recombinase']='ecombinase'
+keywords['integrase']='ntegrase'
+keywords['ABC transporter']='ABC'
+keywords['mob']='mob'
+keywords['ATP']='ATP'
+keywords['excisionase']='xcisionase'
+keywords['mobile']='obile'
+keywords['transmembrane']='embrane'
+keywords['replication']='eplication'
+keywords['phase']='hage'
+keywords['mobilization']='obilization'
+keywords['regulator']='egulator'
+keywords['transcription']='anscription'
+keywords['endonuclease']='ndonuclease'
+keywords['DNA']='DNA'
+keywords['RNA']='RNA'
+keywords['toxin']='toxin'
+keywords['ferredoxin']='erredoxin'
+keywords['restriction']='estriction'
+keywords['replication']='eplication'
+keywords['transferase']='ansferase'
+keywords['reductase']='eductase'
+keywords['phosphatase']='phosphatase'
+keywords['plasmid']='plasmid'
+keywords['helicase']='elicase'
+keywords['kinase']='kinase'
+keywords['dehydrogenase']='dehydrogenase'
+keywords['drug']='drug'
+keywords['cell wall']='ell wall'
+keywords['other']='other'
+
+common_genes={}
+
+# key=keyword
+# value={}
+# num={}
+# genes={}
+for keyword in keywords:
+    common_genes[keyword]={'num':0, 'genes':[]}
+
+others=[]
+for gene in all_data['all_species']['gene_changes']:
+    keyword_found=False
+    for keyword in keywords.keys():
+        if keywords[keyword] in gene:
+            common_genes[keyword]['num']+=all_data['all_species']['gene_changes'][gene][0]
+            common_genes[keyword]['genes'].append(gene)
+            keyword_found=True
+    if keyword_found==False:
+        common_genes['other']['num']+=all_data['all_species']['gene_changes'][gene][0]
+        common_genes['other']['genes'].append(gene)
+
+outFile_keywords=open('%sgene_changes_accross_species_keywords.txt' %  parse_midas_data.analysis_directory,'w')
+
+for gene in common_genes.keys():
+    outFile_keywords.write(gene + '\t' + str(common_genes[gene]['num']) +'\t' + ','.join(common_genes[gene]['genes']) +'\n')
+
+outFile_keywords.close()
+    
+
+###################################################
+# plot CDF of p-values for the different nulls 
+###################################################
+
+pylab.figure(figsize=(6,6))
+prevalence_axis = pylab.subplot(111)
+
+prevalence_axis.set_ylabel('Fraction genes $\leq p$',labelpad=2)
+prevalence_axis.set_xlabel('P-val, $p$',labelpad=2)
+prevalence_axis.set_xlim([0,1.05])
+prevalence_axis.set_ylim([0,1.1])
+
+prevalence_axis.spines['top'].set_visible(False)
+prevalence_axis.spines['right'].set_visible(False)
+prevalence_axis.get_xaxis().tick_bottom()
+prevalence_axis.get_yaxis().tick_left()
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(p_val_present_array)
+prevalence_axis.step(xs,1-ns*1.0/ns[0],'b-',label='Within-host present genes',zorder=2)
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(p_val_between_array)
+prevalence_axis.step(xs,1-ns*1.0/ns[0],'r-',label='Between-host gene changes',zorder=1)
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(p_val_pangenome_array)
+prevalence_axis.step(xs,1-ns*1.0/ns[0],'k-',label='Pangenome',zorder=0)
+
+#prevalence_axis.set_ylim([0,1.1])
+#prevalence_axis.set_xlim([0,1.05])
+
+prevalence_axis.legend(loc='upper right',frameon=False,fontsize=4)
+
+pylab.savefig('%s/p_vals_gene_change_annotation.png' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=300)
+
+
+
+
+
+
+
+##############################################################
+# 2D matrix of the p-values (genes x species) for a heatmap:
+##############################################################
 num_species=len(all_data.keys())
 num_genes=len(all_data['all_species']['gene_changes'].keys())-1 # remove hypothetical protein
 gene_occurrence_matrix=numpy.zeros((num_genes, num_species))
@@ -509,28 +704,88 @@ for i in range(0, len(gene_order_sorted)):
     if gene_order_sorted[i][0] !='hypothetical protein':
         gene_order.append(gene_order_sorted[i][0])
 
+species_order=species_phylogeny_utils.sort_phylogenetically(all_data.keys())
+species_order.append('all_species')
 
 
-# fill in the matrix
+
+# fill matrix with probability under the present gene null 
 species_idx=0
-for species_name in all_data.keys():
+for species_name in species_order:
     gene_idx=0
     for gene in gene_order:
         if gene != 'hypothetical protein':
             if gene in all_data[species_name]['gene_changes']:
-                gene_occurrence_matrix[gene_idx, species_idx] = all_data[species_name]['gene_changes'][gene][0]
+                if all_data[species_name]['gene_changes'][gene][2] <=0.05:
+                    gene_occurrence_matrix[gene_idx, species_idx]=2
+                else:
+                    gene_occurrence_matrix[gene_idx, species_idx]=1
             gene_idx +=1
     species_idx +=1
 
 
 
+import seaborn as sns; sns.set()
+pylab.figure(figsize=(10,15))   
+sns.set(font_scale=0.4)
+ax = sns.heatmap(gene_occurrence_matrix, yticklabels=gene_order, xticklabels=species_order) 
+pylab.savefig('%s/gene_change_cross_species_distribution_present_null.png' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=300)
+
+
+
+gene_occurrence_matrix=numpy.zeros((num_genes, num_species))
+
+# fill matrix with probability under the between-host gene changes null 
 species_idx=0
-for species_name in all_data.keys():
+for species_name in species_order:
     gene_idx=0
     for gene in gene_order:
         if gene != 'hypothetical protein':
             if gene in all_data[species_name]['gene_changes']:
                 if all_data[species_name]['gene_changes'][gene][1] <=0.05:
+                    gene_occurrence_matrix[gene_idx, species_idx]=2
+                else:
+                    gene_occurrence_matrix[gene_idx, species_idx]=1
+            gene_idx +=1
+    species_idx +=1
+
+
+
+import seaborn as sns; sns.set()
+pylab.figure(figsize=(10,15))   
+sns.set(font_scale=0.4)
+ax = sns.heatmap(gene_occurrence_matrix, yticklabels=gene_order, xticklabels=species_order) 
+pylab.savefig('%s/gene_change_cross_species_distribution_between_host_null.png' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=300)
+
+
+#####
+# repeat for gene_changes_category
+
+# put everything in a 2D matrix so that I can plot a heatmap:
+num_species=len(all_data.keys())
+num_genes=len(all_data['all_species']['gene_changes_category'].keys())-1 # remove hypothetical protein
+gene_occurrence_matrix=numpy.zeros((num_genes, num_species))
+
+# sort genes based on how abundant they are accross species:
+gene_order_sorted = sorted(all_data['all_species']['gene_changes_category'].items(), key=operator.itemgetter(1))
+gene_order=[]
+for i in range(0, len(gene_order_sorted)):
+    if gene_order_sorted[i][0] !='hypothetical protein':
+        gene_order.append(gene_order_sorted[i][0])
+
+species_order=species_phylogeny_utils.sort_phylogenetically(all_data.keys())
+species_order.append('all_species')
+
+
+
+# fill based on the probability under the present gene model
+species_idx=0
+for species_name in species_order:
+    gene_idx=0
+    for gene in gene_order:
+        if gene != 'hypothetical protein':
+            if gene in all_data[species_name]['gene_changes_category']:
+                if all_data[species_name]['gene_changes_category'][gene][2] <=0.05:
                     gene_occurrence_matrix[gene_idx, species_idx] = 2
                 else:
                     gene_occurrence_matrix[gene_idx, species_idx] = 1
@@ -542,10 +797,35 @@ for species_name in all_data.keys():
 import seaborn as sns; sns.set()
 pylab.figure(figsize=(10,15))   
 sns.set(font_scale=0.4)
-ax = sns.heatmap(gene_occurrence_matrix, yticklabels=gene_order, xticklabels=all_data.keys()) 
-pylab.savefig('%s/gene_change_cross_species_distribution_betwn_host_prob.png' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=300)
+ax = sns.heatmap(gene_occurrence_matrix, yticklabels=gene_order, xticklabels=species_order) 
+pylab.savefig('%s/gene_change_cross_species_distribution_category_present_null.png' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=300)
 
-'''
+
+# fill based on the probability under the between-host model
+species_idx=0
+for species_name in species_order:
+    gene_idx=0
+    for gene in gene_order:
+        if gene != 'hypothetical protein':
+            if gene in all_data[species_name]['gene_changes_category']:
+                if all_data[species_name]['gene_changes_category'][gene][1] <=0.05:
+                    gene_occurrence_matrix[gene_idx, species_idx] = 2
+                else:
+                    gene_occurrence_matrix[gene_idx, species_idx] = 1
+            gene_idx +=1
+    species_idx +=1
+
+
+
+import seaborn as sns; sns.set()
+pylab.figure(figsize=(10,15))   
+sns.set(font_scale=0.4)
+ax = sns.heatmap(gene_occurrence_matrix, yticklabels=gene_order, xticklabels=species_order) 
+pylab.savefig('%s/gene_change_cross_species_distribution_category_between_host_null.png' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=300)
+
+
+
+
 
 '''
     # put the results in a 2D matrix so that I can plot a heatmap.
