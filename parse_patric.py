@@ -7,6 +7,7 @@ import stats_utils
 from math import floor, ceil
 import gene_diversity_utils
 import parse_midas_data
+import config
 
 #########################################################################################
 #
@@ -109,7 +110,7 @@ def load_patric_gene_descriptions(genome_ids):
     gene_descriptions={}
 
     for genome_id in genome_ids:
-        file=gzip.open('/pollard/shattuck0/snayfach/databases/PATRIC/genomes/%s/%s.PATRIC.features.tab.gz' % (genome_id, genome_id), 'r') # update once I pull out gene names for Ben?
+        file=gzip.open('%s/features/%s.PATRIC.features.tab.gz' % (config.patric_directory, genome_id), 'r') 
         file.readline() #header  
         for line in file:
             items = line.strip().split("\t")

@@ -1035,8 +1035,15 @@ python generate_all_figures.py
 
 #####################################################################################################
 # August 28, 2017
-# Pull out the gene names from patric so that Ben and I have the same, but not large-data size copy. 
+# annotate genes
 #####################################################################################################
+
+# Pull out the  patric files for species in the good species list so that Ben and I have the same, but not large-data size copy. 
+python ~/ben_nandita_hmp_scripts/list_of_relevant_patric_files.py > ~/tmp_intermediate_files/relevant_patric_files.txt
+while read genome; do
+    echo $genome
+    cp /pollard/shattuck0/snayfach/databases/PATRIC/genomes/${genome}/${genome}.PATRIC.features.tab.gz ~/patric_db/features/
+done < ~/tmp_intermediate_files/relevant_patric_files.txt
 
 
 # run the gene annotation script in parallel on good_species_list:
@@ -1046,3 +1053,5 @@ while read species; do
     nohup nice python ~/ben_nandita_hmp_scripts/gene_changes_annotation.py --other-species $species &
 
 done < ~/tmp_intermediate_files/tmp_species_list.txt
+
+
