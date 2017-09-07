@@ -1017,6 +1017,34 @@ done < /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Q
 
 # also edit the output files for species.txt and summary.txt in the genes intermediate folder to exclude crassphage 
 
+# merge of midas:
+# see code from above on how this was done. To remember:
+# the SNP module did not produce output (some is in the tmp dir)
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_Qin_MIDAS_SNPs_merge_5_3_core_and_variable_samples_combined 
+
+# run the merge code with just 1 species and see what happens
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_Qin_MIDAS_SNPs_merge_5_3_core_and_variable_samples_combined_Bunif_test
+
+OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP
+mkdir $OUTDIR
+
+merge_midas.py snps $OUTDIR/snps_Qin_HMP_samples_combined -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin.txt -t file --sample_depth 5 --site_depth 3 --min_samples 1 --species_id Bacteroides_uniformis_57318  --site_prev 0.0 --threads 10 >& $OUTDIR/snps_Qin_HMP_samples_combined/snps_core_variable_Qin_HMP_samples_combined.log
+
+# run a mini test --this works with the OLD DB
+
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_Qin_MIDAS_SNPs_merge_5_3_core_and_variable_samples_combined_Bunif_test_small
+
+OUTDIR=~/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP
+mkdir $OUTDIR
+
+merge_midas.py snps $OUTDIR/snps_B_unif_test -i ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin_test.txt -t file --sample_depth 5 --site_depth 3 --min_samples 1 --species_id Bacteroides_uniformis_57318  --site_prev 0.0 --threads 10 >& $OUTDIR/snps_B_unif_test/snps_core_variable_Qin_HMP_samples_combined.log
+
+
+# the genes module ran fine
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_Qin_MIDAS_CNVs_1_merge_samples_combined 
+
+
+
 
 #############################################################################################
 #
@@ -1054,4 +1082,92 @@ while read species; do
 
 done < ~/tmp_intermediate_files/tmp_species_list.txt
 
+
+#####################################################################################################
+#
+# Sept 5, 2017
+# Do the SNPs that are in the two clades resemble B. Dorei or B. vul more?
+#
+#####################################################################################################
+
+cat /pollard/home/ngarud/midas_db/genome_info.txt | grep Bacteroides_vulgatus
+
+# iterate through, grab the sequence for each rep genome.
+Bacteroides vulgatus ATCC 8482 
+Bacteroides dorei DSM 17855
+
+# possible genes which have a B. vul and a B. dorei:
+1235786.3.peg.2656	B000039
+435590.9.peg.1428	B000039
+997876.3.peg.1306	B000039
+
+1339351.3.peg.1977	B000041
+435590.9.peg.1410	B000041
+997875.3.peg.2675	B000041
+
+435590.9.peg.1989	B000062
+469593.3.peg.4807	B000062
+997875.3.peg.1153	B000062
+
+435590.9.peg.1724	B000071
+457394.3.peg.4119	B000071
+702446.3.peg.22	B000071
+997876.3.peg.5309	B000071
+
+
+1339351.3.peg.403	B000079
+435590.9.peg.1934	B000079
+997876.3.peg.5257	B000079
+
+435590.9.peg.1355	B000096
+483217.6.peg.1552	B000096
+997875.3.peg.2812	B000096
+
+cat phyeco.map | grep Bacteroides_vulgatus | cut -f1,5 | sort -k2,2
+cat /pollard/home/ngarud/midas_db/genome_info.txt | grep Bacteroides_vulgatus   | cut -f1,2
+
+1235786.3	Bacteroides vulgatus dnLKV7
+1339350.3	Bacteroides vulgatus str. 3775 SL(B) 10 (iv)
+1339351.3	Bacteroides vulgatus str. 3775 SR(B) 19
+1339352.3	Bacteroides vulgatus str. 3975 RP4
+435590.9	Bacteroides vulgatus ATCC 8482
+
+
+483217.6	Bacteroides dorei DSM 17855
+556260.3	Bacteroides dorei 5_1_36/D4
+702446.3	Bacteroides vulgatus PC510
+997875.3	Bacteroides dorei CL02T00C15
+997876.3	Bacteroides dorei CL02T12C06
+997877.3	Bacteroides dorei CL03T12C01
+997891.3	Bacteroides vulgatus CL09T03C04
+
+
+1235786.3.peg.2567	435590.9.peg.1355
+1339350.3.peg.218	435590.9.peg.1355
+1339351.3.peg.1687	435590.9.peg.1355
+1339352.3.peg.2789	435590.9.peg.1355
+435590.9.peg.1355	435590.9.peg.1355
+457394.3.peg.445	435590.9.peg.1355
+469593.3.peg.723	435590.9.peg.1355
+469593.3.peg.724	435590.9.peg.1355
+702446.3.peg.68	435590.9.peg.1355
+997891.3.peg.1626	435590.9.peg.1355
+
+
+483217.6.peg.1552	997875.3.peg.2812
+556260.3.peg.3141	997875.3.peg.2812
+
+457391.3.peg.3199	997875.3.peg.2812
+457395.6.peg.3070	997875.3.peg.2812
+483217.6.peg.1552	997875.3.peg.2812
+556260.3.peg.3141	997875.3.peg.2812
+997875.3.peg.2812	997875.3.peg.2812
+997876.3.peg.1461	997875.3.peg.2812
+997877.3.peg.2796	997875.3.peg.2812
+
+##########################
+# v-search test
+########################
+# use the code from the latest version of MIDAS for this
+/pollard/home/ngarud/shattuck/software/new_midas/MIDAS
 
