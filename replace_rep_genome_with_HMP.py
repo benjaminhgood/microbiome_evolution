@@ -48,10 +48,13 @@ for species_name in genome_names:
 
 for species in genome_choice:
     genome_id=genome_choice[species]
-    os.system('mkdir /pollard/home/ngarud/BenNanditaProject/MIDAS_HMP_ref_genome_swap/%s' % species)
-    outFile='/pollard/home/ngarud/BenNanditaProject/MIDAS_HMP_ref_genome_swap/%s/%s_features.gz' % (species, genome_id)
+    #os.system('mkdir /pollard/home/ngarud/BenNanditaProject/MIDAS_HMP_ref_genome_swap/%s' % species)
+    #outFile='/pollard/home/ngarud/BenNanditaProject/MIDAS_HMP_ref_genome_swap/%s/%s_features.gz' % (species, genome_id) # note that paths are updated (NRG 09/06/07)
+    outFile='/pollard/shattuck0/ngarud/midas_db_HMP_refs/rep_genomes/%s/genome.features.gz' % (species)
     parse_patric.new_genome_features_file(genome_id, outFile)
     
+
+# may need to update the paths below. (NRG 09/06/17)
 
 # swap out all the fasta files and genome features files in the existing MIDAS db
 for species in genome_choice:
