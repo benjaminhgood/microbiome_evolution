@@ -75,21 +75,21 @@ snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debu
 
 ####################################################
 #
-# Set up Figure (4 panels, arranged in 2x2 grid)
+# Set up Figure (6 panels, arranged in 3x2 grid)
 #
 ####################################################
 
-pylab.figure(1,figsize=(3.43,1.9))
+pylab.figure(1,figsize=(3.43,3))
 fig = pylab.gcf()
 
 
 # make 2 panels
 outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1], wspace=0.4)
 
-differences_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[1,1],
+differences_grid = gridspec.GridSpecFromSubplotSpec(3, 1, height_ratios=[1,1,1],
                 subplot_spec=outer_grid[0], hspace=0.1)
                 
-gene_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[1,1],
+gene_grid = gridspec.GridSpecFromSubplotSpec(3, 1, height_ratios=[1,1,1],
                 subplot_spec=outer_grid[1], hspace=0.5)
 
 
@@ -130,25 +130,33 @@ within_snp_axis = snp_axis
 #
 ###################
 
-gene_axis = plt.Subplot(fig, differences_grid[1])
-fig.add_subplot(gene_axis)
+gene_loss_axis = plt.Subplot(fig, differences_grid[1])
+fig.add_subplot(gene_loss_axis)
 
-gene_axis.set_ylabel('Gene changes',labelpad=2)
-gene_axis.set_ylim([1.2e-01,1e04])
+gene_loss_axis.set_ylabel('Gene losses',labelpad=2)
+gene_loss_axis.set_ylim([1.2e-01,1e04])
 
-gene_axis.set_xlabel('Sample pairs')
+gene_loss_axis.spines['top'].set_visible(False)
+gene_loss_axis.spines['right'].set_visible(False)
+gene_loss_axis.get_xaxis().tick_bottom()
+gene_loss_axis.get_yaxis().tick_left()
 
-gene_axis.spines['top'].set_visible(False)
-gene_axis.spines['right'].set_visible(False)
-gene_axis.get_xaxis().tick_bottom()
-gene_axis.get_yaxis().tick_left()
+gene_gain_axis = plt.Subplot(fig, differences_grid[2])
+fig.add_subplot(gene_gain_axis)
 
+gene_gain_axis.set_ylabel('Gene changes',labelpad=2)
+gene_gain_axis.set_ylim([1.2e-01,1e04])
 
-within_gene_axis = gene_axis
+gene_gain_axis.set_xlabel('Sample pairs')
 
+gene_gain_axis.spines['top'].set_visible(False)
+gene_gain_axis.spines['right'].set_visible(False)
+gene_gain_axis.get_xaxis().tick_bottom()
+gene_gain_axis.get_yaxis().tick_left()
 
 snp_axis.fill_between([-1e06,1e06],[1e-01,1e-01],[0.6,0.6],color='0.8')
-gene_axis.fill_between([-1e06,1e06],[1e-01,1e-01],[0.6,0.6],color='0.8')
+gene_loss_axis.fill_between([-1e06,1e06],[1e-01,1e-01],[0.6,0.6],color='0.8')
+gene_gain_axis.fill_between([-1e06,1e06],[1e-01,1e-01],[0.6,0.6],color='0.8')
 
 ##############################################################################
 #
@@ -168,6 +176,25 @@ prevalence_axis.spines['top'].set_visible(False)
 prevalence_axis.spines['right'].set_visible(False)
 prevalence_axis.get_xaxis().tick_bottom()
 prevalence_axis.get_yaxis().tick_left()
+
+##############################################################################
+#
+# Gene linkage panel
+#
+##############################################################################
+
+linkage_axis = plt.Subplot(fig, gene_grid[1])
+fig.add_subplot(linkage_axis)
+
+linkage_axis.set_ylabel('Fraction of blocks $\geq k$',labelpad=2)
+linkage_axis.set_xlabel('Number of genes in block',labelpad=2)
+linkage_axis.set_xlim([0,1.05])
+#prevalence_axis.set_ylim([0,1.1])
+
+linkage_axis.spines['top'].set_visible(False)
+linkage_axis.spines['right'].set_visible(False)
+linkage_axis.get_xaxis().tick_bottom()
+linkage_axis.get_yaxis().tick_left()
 
 
 ##############################################################################
@@ -200,7 +227,7 @@ multiplicity_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-parallelism_axis = plt.Subplot(fig, gene_grid[1])
+parallelism_axis = plt.Subplot(fig, gene_grid[2])
 fig.add_subplot(parallelism_axis)
 #parallelism_axis = plt.Subplot(supplemental_fig, supplemental_outer_grid[0])
 #supplemental_fig.add_subplot(parallelism_axis)
@@ -319,6 +346,8 @@ low_divergence_between_host_gene_idxs = [] # indexes of genes that changed betwe
 # Store the total amount of SNP and gene changes in these arrays. 
 diff_subject_snp_changes = []
 diff_subject_gene_changes = []
+diff_subject_gene_gains = []
+diff_subject_gene_losses = []
 
 for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
     
@@ -335,6 +364,9 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
         diff_subject_gene_changes.append( -1 )
     else:
         diff_subject_gene_changes.append( gene_difference_matrix[i,j] )
+        diff_subject_gene_gains.append( gene_gain_matrix[i,j] )
+        diff_subject_gene_losses.append( gene_loss_matrix[i,j] )
+
         
         # why are we conditionng on the substitution rate being less than this threshold? NRG
         if snp_substitution_rate[snp_i, snp_j] < clade_divergence_threshold:
@@ -349,9 +381,11 @@ for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
 
 diff_subject_snp_changes = numpy.array(diff_subject_snp_changes)
 diff_subject_gene_changes = numpy.array(diff_subject_gene_changes)
+diff_subject_gene_gains = numpy.array(diff_subject_gene_gains)
+diff_subject_gene_losses = numpy.array(diff_subject_gene_losses)
 
 # What does this sort do? NRG
-diff_subject_snp_changes, diff_subject_gene_changes =  (numpy.array(x) for x in zip(*sorted(zip(diff_subject_snp_changes, diff_subject_gene_changes))))
+diff_subject_snp_changes, diff_subject_gene_changes, diff_subject_gene_gains, diff_subject_gene_losses =  (numpy.array(x) for x in zip(*sorted(zip(diff_subject_snp_changes, diff_subject_gene_changes, diff_subject_gene_gains, diff_subject_gene_losses))))
 
 
 #these arrays will store the number of SNP and gene changes for different same-subject sample pairs. 
@@ -643,44 +677,27 @@ for snp_changes, snp_mutations, snp_reversions, gene_changes, gene_gains, gene_l
     if gene_changes>-0.5 and gene_changes<0.5:
         gene_changes = 0.3
     
+    if gene_changes>-0.5 and gene_losses<0.5:
+        gene_losses = 0.3
+    
+    if gene_changes>-0.5 and gene_gains<0.5:
+        gene_gains = 0.3
+    
 
     y-=2
     
-    #within_snp_axis.semilogy([y,y], [snp_plower,snp_pupper],'g-',linewidth=0.25)
     within_snp_axis.semilogy([y], [snp_changes],'b.',markersize=3,zorder=1)
         
-    #within_gene_axis.semilogy([y,y], [gene_plower,gene_pupper], 'g-',linewidth=0.25)
-    within_gene_axis.semilogy([y],[gene_changes],  'b.',markersize=3,zorder=1)
-
+    gene_loss_axis.semilogy([y],[gene_losses],  'b.',markersize=3,zorder=1)
+    gene_gain_axis.semilogy([y],[gene_gains],'b.',markersize=3,zorder=1)
+    
     print "Mutations=%g, Reversions=%g, Gains=%g, Losses=%g" % (snp_mutations, snp_reversions, gene_gains, gene_losses)
 
 y-=4
 
-#within_snp_axis.semilogy([y,y],[1e-09,1e09],'-',linewidth=0.25,color='k')
-#within_gene_axis.semilogy([y,y],[1e-09,1e09],'-',linewidth=0.25,color='k')
-
-
-#within_snp_axis.set_xlim([y-0.2,0])
-#within_gene_axis.set_xlim([y-0.2,0])    
-
-#within_snp_axis.set_xticks([])
-#within_gene_axis.set_xticks([])
-
-#within_snp_axis.set_yticks([])
-#within_snp_axis.minorticks_off()
-
-#within_gene_axis.set_yticks([])
-#within_gene_axis.minorticks_off()
-
-#within_snp_axis.set_yticklabels([])
-#within_gene_axis.set_yticklabels([])
-
-
-
-
 y=0    
     
-for snp_changes, gene_changes in zip(diff_subject_snp_changes, diff_subject_gene_changes)[0:50]:
+for snp_changes, gene_changes, gene_gains, gene_losses in zip(diff_subject_snp_changes, diff_subject_gene_changes, diff_subject_gene_gains, diff_subject_gene_losses)[0:50]:
 
     
     if snp_changes>-0.5 and snp_changes<0.5:
@@ -693,15 +710,19 @@ for snp_changes, gene_changes in zip(diff_subject_snp_changes, diff_subject_gene
     y-=1
     
     snp_axis.semilogy([y],[snp_changes],'r.',linewidth=0.35,markersize=1.5,zorder=0)
-    gene_axis.semilogy([y],[gene_changes],'r.',linewidth=0.35,markersize=1.5,zorder=0)
-
+    gene_loss_axis.semilogy([y], [gene_losses],'r.',linewidth=0.35,markersize=1.5,zorder=0)
+    gene_gain_axis.semilogy([y], [gene_gains],'r.',linewidth=0.35,markersize=1.5,zorder=0)
+    
 y-=4
 
 snp_axis.set_xlim([y-1,0])
-gene_axis.set_xlim([y-1,0])    
+gene_loss_axis.set_xlim([y-1,0])    
+gene_gain_axis.set_xlim([y-1,0])    
+
 
 snp_axis.set_xticks([])
-gene_axis.set_xticks([])
+gene_loss_axis.set_xticks([])
+gene_gain_axis.set_xticks([])
 
 #snp_axis.legend(loc='upper right',frameon=False)
 

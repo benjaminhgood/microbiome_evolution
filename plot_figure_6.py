@@ -59,6 +59,8 @@ memoize = args.memoize
 min_coverage = config.min_median_coverage
 min_sample_size = 5
 
+variant_types = ['1D','4D']
+
 modification_difference_threshold = 100
 
 # Must compete divergence matrix on the fly! 
@@ -83,10 +85,17 @@ total_null_snp_modification_map = {}
 total_gene_modification_map = {}
 total_null_gene_modification_map = {}
 
-total_syn_snps = 0
-total_non_snps = 0
-total_syn_opportunities = 0
-total_non_opportunities = 0
+total_snps = {var_type:0 for var_type in variant_types}
+total_opportunities = {var_type:0 for var_type in variant_types}
+
+pooled_snp_change_distribution = []
+pooled_gene_change_distribution = []
+
+total_snp_muts = 0
+total_snp_revs = 0
+
+total_gene_gains = 0
+total_gene_losses = 0
 
 for species_name in good_species_list:
 
@@ -112,8 +121,6 @@ for species_name in good_species_list:
             
     snp_samples = list(snp_samples)
 
-
-
     allowed_sample_set = set(snp_samples)
 
     if sample_size < min_sample_size:
@@ -130,11 +137,25 @@ for species_name in good_species_list:
     substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
     sys.stderr.write("Calculating matrix...\n")
     dummy_samples, snp_difference_matrix, snp_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
-    
-    dummy_samples, non_difference_matrix, non_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '1D', allowed_samples=snp_samples)
-    dummy_samples, syn_difference_matrix, syn_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '4D', allowed_samples=snp_samples)
     snp_samples = dummy_samples
     
+    opportunity_matrices = {}
+    
+    dummy_samples, difference_matrix, opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '1D', allowed_samples=snp_samples)
+    
+    opportunity_matrices['1D'] = opportunity_matrix
+    
+    #dummy_samples, difference_matrix, opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '2D', allowed_samples=snp_samples)
+    
+    #opportunity_matrices['2D'] = opportunity_matrix
+    
+    #dummy_samples, difference_matrix, opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '3D', allowed_samples=snp_samples)
+    
+    #opportunity_matrices['3D'] = opportunity_matrix
+    
+    dummy_samples, difference_matrix, opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '4D', allowed_samples=snp_samples)
+    
+    opportunity_matrices['4D'] = opportunity_matrix
     
     snp_substitution_rate =     snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
     sys.stderr.write("Done!\n")
@@ -144,7 +165,6 @@ for species_name in good_species_list:
     sys.stderr.write("Done!\n")
 
     
-
     total_snp_modification_map[species_name] = 0
     total_null_snp_modification_map[species_name] = 0
     total_gene_modification_map[species_name] = 0
@@ -211,37 +231,40 @@ for species_name in good_species_list:
             num_losses = len(losses)
             num_gene_changes = num_gains+num_losses
     
+        if (num_snp_changes>-0.5):
+            pooled_snp_change_distribution.append(num_snp_changes)
         
-    
         if (num_snp_changes<modification_difference_threshold) and (num_snp_changes>-0.5):
             total_snp_modification_map[species_name] += num_snp_changes
             total_null_snp_modification_map[species_name] += perr
             
-            total_syn_opportunities += syn_opportunity_matrix[i,j]
-            total_non_opportunities += non_opportunity_matrix[i,j]
+            for var_type in variant_types:
+                total_opportunities[var_type] += opportunity_matrices[var_type][i,j]
+                
+            total_snp_muts += num_mutations
+            total_snp_revs += num_reversions
             
             for snp_change in mutations:
-                if snp_change[3]=='4D':
-                    total_syn_snps += 1
-                elif snp_change[3]=='1D':
-                    total_non_snps += 1
+                if snp_change[3] in variant_types:
+                    total_snps[snp_change[3]] += 1
                 else:
-                    pass
-        
+                    print snp_change[3]
+                    
             for snp_change in reversions:
-                if snp_change[3]=='4D':
-                    total_syn_snps += 1
-                elif snp_change[3]=='1D':
-                    total_non_snps += 1
+                if snp_change[3] in variant_types:
+                    total_snps[snp_change[3]] += 1
                 else:
-                    pass
-            
+                    print snp_change[3]
             if num_gene_changes > -0.5:
             
-                
+                pooled_gene_change_distribution.append(num_gene_changes)        
+    
+             
                 total_gene_modification_map[species_name] += num_gene_changes
                 total_null_gene_modification_map[species_name] += gene_perr   
-        
+                
+                total_gene_gains += num_gains
+                total_gene_losses += num_losses
     
         temporal_changes.append((sample_i, sample_j, num_snp_changes, num_gene_changes))        
 
@@ -254,8 +277,6 @@ for species_name in good_species_list:
     
 sys.stderr.write("Done looping over species!\n")    
 
-print total_syn_snps*1.0/total_syn_opportunities, total_syn_snps, total_syn_opportunities
-print total_non_snps*1.0/total_non_opportunities, total_non_snps, total_non_opportunities
 
 species_names = []
 sample_sizes = []
@@ -297,6 +318,12 @@ scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
 #
 ####################################################
 
+####################################################
+#
+# Set up Figure (1 panels, arranged in 1x1 grid)
+#
+####################################################
+
 pylab.figure(1,figsize=(5,1.5))
 fig = pylab.gcf()
 # make three panels panels
@@ -327,16 +354,91 @@ change_axis.get_yaxis().tick_left()
 
 cax = plt.Subplot(fig, outer_grid[1])
 fig.add_subplot(cax)
+
+pylab.figure(2,figsize=(3.42,1.9))
+fig2 = pylab.gcf()
+# make three panels panels
+
+outer_grid  = gridspec.GridSpec(2,1,height_ratios=[1.1,1.9],hspace=0.3)
+
+upper_grid = gridspec.GridSpecFromSubplotSpec(1,3, width_ratios=[1,1,1],wspace=0.45,subplot_spec=outer_grid[0])
+
+dnds_axis = plt.Subplot(fig2, upper_grid[0])
+fig2.add_subplot(dnds_axis)
+dnds_axis.set_ylabel('# changes')
+
+dnds_axis.spines['top'].set_visible(False)
+dnds_axis.spines['right'].set_visible(False)
+dnds_axis.get_xaxis().tick_bottom()
+dnds_axis.get_yaxis().tick_left()
+
+dnds_axis.set_xlim([0.3,2.7])
+dnds_axis.set_xticks([1,2])
+dnds_axis.set_xticklabels(['1D','4D'])
+
+# Mutation / reversion
+mutrev_axis = plt.Subplot(fig2, upper_grid[1])
+fig2.add_subplot(mutrev_axis)
+
+mutrev_axis.spines['top'].set_visible(False)
+mutrev_axis.spines['right'].set_visible(False)
+mutrev_axis.get_xaxis().tick_bottom()
+mutrev_axis.get_yaxis().tick_left()
+
+mutrev_axis.set_xlim([0.3,2.7])
+mutrev_axis.set_xticks([1,2])
+mutrev_axis.set_xticklabels(['mut','rev'])
+#mutrev_axis.set_yticklabels([])
+
+
+
+# Gain / loss
+gainloss_axis = plt.Subplot(fig2, upper_grid[2])
+fig2.add_subplot(gainloss_axis)
+gainloss_axis.spines['top'].set_visible(False)
+gainloss_axis.spines['right'].set_visible(False)
+gainloss_axis.get_xaxis().tick_bottom()
+gainloss_axis.get_yaxis().tick_left()
+gainloss_axis.set_xlim([0.3,2.7])
+gainloss_axis.set_xticks([1,2])
+gainloss_axis.set_xticklabels(['gain','loss'])
+#gainloss_axis.set_yticklabels([])
+
+
+pooled_grid = gridspec.GridSpecFromSubplotSpec(1,2,width_ratios=[1,1],wspace=0.15,subplot_spec=outer_grid[1])
+
+pooled_snp_axis = plt.Subplot(fig2, pooled_grid[0])
+fig2.add_subplot(pooled_snp_axis)
+pooled_snp_axis.set_ylabel('# samples $\geq n$')
+pooled_snp_axis.set_xlabel('# SNV changes')
+#pooled_axis.set_ylim([-35,35])
+pooled_snp_axis.set_xlim([1e-01,1e05])
+pooled_snp_axis.set_xticklabels([])
+
+pooled_snp_axis.spines['top'].set_visible(False)
+pooled_snp_axis.spines['right'].set_visible(False)
+pooled_snp_axis.get_xaxis().tick_bottom()
+pooled_snp_axis.get_yaxis().tick_left()
+ 
+pooled_gene_axis = plt.Subplot(fig2, pooled_grid[1])
+fig2.add_subplot(pooled_gene_axis)
+#pooled_gene_axis.set_ylabel('Number of samples')
+pooled_gene_axis.set_xlabel('# gene changes')
+#pooled_axis.set_ylim([-35,35])
+pooled_gene_axis.set_xlim([1e-01,1e04])
+pooled_gene_axis.spines['top'].set_visible(False)
+pooled_gene_axis.spines['right'].set_visible(False)
+pooled_gene_axis.get_xaxis().tick_bottom()
+pooled_gene_axis.get_yaxis().tick_left()
  
 
 ##############################################################################
 #
-# Now do calculations
+# Plot results
 #
 ##############################################################################
 
  
-# Plot percentiles of divergence distribution
 for species_idx in xrange(0,len(species_names)):
 
     species_name = species_names[species_idx]
@@ -413,9 +515,68 @@ cbar.ax.tick_params(labelsize=5)
 change_axis.text(20,25,'SNPs',fontsize=5)
 change_axis.text(20,-20,'Genes',fontsize=5)
 
+######
+#
+# Distribution of nucleotide changes
+#
+######
+
+pooled_snp_change_distribution = numpy.array(pooled_snp_change_distribution)
+
+print "Mean =", pooled_snp_change_distribution.mean()
+print "Median =", numpy.median(pooled_snp_change_distribution)
+
+pooled_snp_change_distribution = numpy.clip(pooled_snp_change_distribution, 3e-01,1e08)
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution, min_x=1e-02, max_x=1e09)
+
+
+pooled_snp_axis.fill_between([1e03,1e05],[1,1],[1e03,1e03],color='0.8')
+#pooled_snp_axis.text(1e03,100,'Replacement',fontsize=4)
+pooled_snp_axis.step(xs,ns,'-',color='#08519c',linewidth=1)
+pooled_snp_axis.loglog([1e-01,1e05],[1,1],'k:')
+
+pooled_snp_axis.set_ylim([1,1e03])
+
+
+# Now do same thing for genes
+
+
+pooled_gene_change_distribution = numpy.clip(pooled_gene_change_distribution, 3e-01,1e08)
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_gene_change_distribution, min_x=1e-02, max_x=1e09)
+
+pooled_gene_axis.step(xs,ns,'-',color='#08519c',linewidth=1)
+pooled_gene_axis.loglog([1e-01,1e05],[1,1],'k:')
+
+pooled_gene_axis.set_ylim([1,1e03])
+pooled_gene_axis.set_yticklabels([])
+
+# Plot dNdS and expected version
+
+observed_totals = numpy.array([total_snps[var_type] for var_type in variant_types])*1.0
+
+expected_totals = numpy.array([total_snps['4D']*total_opportunities[var_type]/total_opportunities['4D'] for var_type in variant_types])
+
+dnds_axis.bar(numpy.arange(1,3), observed_totals, width=0.3, linewidth=0, color='#08519c',label='Obs')
+
+dnds_axis.bar(numpy.arange(1,3)-0.3, expected_totals, width=0.3, linewidth=0, color='#08519c',alpha=0.5,label='Null')
+
+dnds_axis.legend(loc='upper right',frameon=False)
+
+
+
+# Plot mutations, reversions
+
+mutrev_axis.bar([1-0.2, 2-0.2], [total_snp_muts, total_snp_revs], width=0.4, linewidth=0,color='#08519c')
+
+gainloss_axis.bar([1-0.2, 2-0.2], [total_gene_gains, total_gene_losses], width=0.4, linewidth=0,color='#08519c')
+
+
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig2.savefig('%s/figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
  
