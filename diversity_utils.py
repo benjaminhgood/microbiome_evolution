@@ -1448,3 +1448,17 @@ def calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=[0.6], frequen
 
 
 
+
+def find_snps_in_gene_pair(gene1_fasta, gene2_fasta):
+    alignment={}
+    # key=bp 
+    # value=[B. vul, B. dorei]
+    
+    if len(gene1_fasta) == len(gene2_fasta):
+        for bp in range(0, len(gene1_fasta)):
+            if gene1_fasta[bp] != gene2_fasta[bp]:
+                alignment[bp]=[gene1_fasta[bp],gene2_fasta[bp]]
+
+    return alignment
+
+    
