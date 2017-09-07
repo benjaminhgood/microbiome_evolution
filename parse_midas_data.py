@@ -1944,6 +1944,27 @@ def parse_intermediate_species_file(sample_id, inFN):
 
     return set(species_list)
 
+
+#########################################
+# 
+# Read in centroids fasta sequences
+#
+#########################################
+def load_centroid_fasta(species_name):
+    centroid_fastas={} # key=gene, value=sequence
+    centroid_file = gzip.open("%span_genomes/%s/centroids.ffn.gz" % (midas_directory, species_name), 'r')
+    for line in centroid_file:
+        line=line.strip()
+        if line[0]=='>':
+            gene_name=line[1:len(line)]
+            centroid_fastas[gene_name]=''
+        else:
+            centroid_fastas[gene_name]+= line
+
+    return centroid_fastas
+    
+
+
 #######################    
 
 if __name__=='__main__':
