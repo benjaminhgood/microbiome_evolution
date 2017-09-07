@@ -204,7 +204,8 @@ def new_genome_features_file(genome_id, outFN):
                 functions=items[15].strip()
             else:
                 functions=''
-            outFile.write(gene_id +'\t' +scaffold_id +'\t'+start +'\t' + end +'\t' +strand +'\t' +gene_type +'\t' +functions +'\n')
+            # NRG: added 'accn|' to match the headers in the fasta file (09/06/17)
+            outFile.write(gene_id +'\t' +'accn|'+scaffold_id +'\t'+start +'\t' + end +'\t' +strand +'\t' +gene_type +'\t' +functions +'\n')
 
 ######################################################################################
 # 
@@ -226,6 +227,7 @@ def get_HMP_reference_genomes():
             genome_length=items[29]
             body_part = items[35]
             host = items[45]
+            # This annotation is one of a few! Missed a few genomes (NRG, 09/06/17)
             if 'Reference genome for the Human Microbiome Project' in annotation:
                 HMP_genomes[genome_id] = [int(contigs), int(genome_length), body_part, host]
         
