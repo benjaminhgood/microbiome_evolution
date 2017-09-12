@@ -51,8 +51,7 @@ good_species_list = parse_midas_data.parse_good_species_list()
 all_data={}
 for species_name in good_species_list:
     print species_name
-    if species_name != 'Bacteroides_uniformis_57318':
-      if os.path.isfile("/pollard/home/ngarud/tmp_intermediate_files/%s_gene_changes.p" %species_name):
+    if os.path.isfile("/pollard/home/ngarud/tmp_intermediate_files/%s_gene_changes.p" %species_name):
         all_data_species = pickle.load( open( "/pollard/home/ngarud/tmp_intermediate_files/%s_gene_changes.p" %species_name, "rb" ))
         all_data[species_name]=all_data_species[species_name]
 
@@ -184,34 +183,38 @@ outFile_category.close()
 ##################################################
 
 keywords={}
-keywords['hypothetical'] = ['ypothetical']
-keywords['transposon']=['onjugati','anspos']
-keywords['tRNA']=['tRNA']
-keywords['recombinase']=['ecombinase']
-keywords['integrase']=['ntegrase']
 keywords['ABC transporter']=['ABC']
+keywords['phage']=['hage']
+keywords['transposon']=['onjugati','anspos']
+keywords['mobilization']=['mob','obilization','obile']
+keywords['integrase']=['ntegrase']
+keywords['plasmid']=['plasmid']
+keywords['recombinase']=['ecombinase']
+keywords['tRNA']=['tRNA']
 keywords['ATP']=['ATP']
 keywords['excisionase']=['xcisionase']
 keywords['transmembrane']=['embrane']
 keywords['replication']=['eplication']
-keywords['phage']=['hage']
-keywords['mobilization']=['mob','obilization','obile']
 keywords['regulator']=['egulator']
 keywords['transcription']=['anscription']
-keywords['endonuclease']=['ndonuclease']
 keywords['toxin']=['toxin']
 keywords['restriction']=['estriction']
 keywords['replication']=['eplication']
 keywords['transferase']=['ansferase']
 keywords['reductase']=['eductase']
 keywords['phosphatase']=['phosphatase']
-keywords['plasmid']=['plasmid']
 keywords['helicase']=['elicase']
 keywords['kinase']=['kinase']
 keywords['dehydrogenase']=['dehydrogenase']
 keywords['drug']=['drug']
 keywords['cell wall']=['ell wall']
+keywords['primase']=['imase']
+keywords['topoisomerase']=['opoisomerase']
+keywords['hypothetical'] = ['ypothetical']
 keywords['other']=['other']
+
+# since this is a greedy algorithm, order the more important keywords first
+keyword_order=['ABC transporter','phage','transposon','mobilization','integrase', 'plasmid','recombinase','tRNA','ATP','excisionase','transmembrane','replication','regulator','transcription','toxin','restriction','replication','transferase','reductase','phosphatase','helicase','kinase','dehydrogenase','drug','cell wall','primase','topoisomerase','hypothetical']
 
 common_genes={}
 
@@ -219,14 +222,15 @@ common_genes={}
 # value={}
 # num={}
 # genes={}
-for keyword in keywords:
+for keyword in keywords.keys():
     common_genes[keyword]={'all':[0,0,0,0], 'gains':[0,0,0,0], 'losses':[0,0,0,0], 'genes':[]}
+
 
 for gene in all_data['all_species']['gene_changes']:
     keyword_found=False
-    for keyword in keywords.keys():
+    for keyword in keyword_order:
         for regexp in keywords[keyword]:
-            if regexp in gene:
+            if regexp in gene and keyword_found==False:
                 for change_type in ['all','gains','losses']:
                     for i in range(0,4):
                         common_genes[keyword][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
@@ -238,15 +242,25 @@ for gene in all_data['all_species']['gene_changes']:
                 common_genes['other'][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
         common_genes['other']['genes'].append(gene)
 
+#sorted list by total num
+genes_sorted={}
+for gene in common_genes.keys():
+    genes_sorted[gene]=common_genes[gene]['all'][0]
+
+sorted_genes = sorted(genes_sorted.items(), key=operator.itemgetter(1))
+
+
 outFile_keywords=open('%sgene_changes_accross_species_keywords.txt' %  parse_midas_data.analysis_directory,'w')
 
 outFile_keywords.write('keyword\tnum_all\texp_all_between\texp_all_present\texp_all_pangenome\tnum_gains\texp_gains_between\texp_gains_present\texp_gains_pangenome\tnum_loss\texp_loss_between\texp_loss_present\texp_loss_pangenome\tgene_names\n')
-for gene in common_genes.keys():
+
+for i in range (0, len(sorted_genes)):
+    gene=sorted_genes[i][0]    
     string=gene
     for change_type in ['all','gains','losses']: 
         for i in range(0,4):
             string += '\t' + str(common_genes[gene][change_type][i])
-    string += '\t' + ','.join(common_genes[gene]['genes'])
+    string += '\t' + ';'.join(common_genes[gene]['genes'])
     print string
     outFile_keywords.write(string+'\n')
 
