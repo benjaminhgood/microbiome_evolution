@@ -89,7 +89,7 @@ for species_name in good_species_list:
     
     # data structures for storing information for pickling later on
     all_species_gene_changes={}
-    all_species_gene_changes_category={}
+    #all_species_gene_changes_category={}
     all_species_null={}
     all_data[species_name]={}
 
@@ -130,12 +130,15 @@ for species_name in good_species_list:
     # store null data in this to see how the actual data compares. 
     between_host_changes_gene_ids_null={} #dictionary which stores different trials (trial=key)
     present_gene_null={}
-    pangenome_null={} # same except null is pangenome
-    
-    for trial in range(0,num_trials):
-        between_host_changes_gene_ids_null[trial]=[]
-        present_gene_null[trial]=[]        
-        pangenome_null[trial]=[]
+    pangenome_null={}
+    for change_type in ['gains','losses','all']:
+        between_host_changes_gene_ids_null[change_type]={}
+        present_gene_null[change_type]={}
+        pangenome_null[change_type]={}
+        for trial in range(0,num_trials):
+            between_host_changes_gene_ids_null[change_type][trial]=[]
+            present_gene_null[change_type][trial]=[]        
+            pangenome_null[change_type][trial]=[]
         
 
     ##################
@@ -196,10 +199,11 @@ for species_name in good_species_list:
     #######################
 
     # store the actual data in this:
-    within_host_changes_gene_ids=[]
-    
+    within_host_changes_gene_ids={}
+    within_host_changes_gene_ids['gains']=[]
+    within_host_changes_gene_ids['losses']=[]
+    within_host_changes_gene_ids['all']=[]   #gains + losses 
 
-    within_host_change_distribution=[] # use this for constructing the null
     for sample_pair in temporal_change_map.keys():
         sample_1=sample_pair[0]
         sample_2=sample_pair[1]
@@ -208,33 +212,34 @@ for species_name in good_species_list:
             sample_2_gene_idx=gene_samples.index(sample_2)
             #check if the marker coverages are in range:
             if (marker_coverages[sample_2_gene_idx]>min_coverage) and (marker_coverages[sample_2_gene_idx]>min_coverage): 
-                # check if this pair underwent a replacement event. If so, ignore, otherwise stats get messed up. 
                 # find the index of sample_1 and sample_2 in snp_samples to see if this is a CPS sample pair:
-                include_sample_pair=False
                 if sample_1 in snp_samples and sample_2 in snp_samples:
                     sample_1_idx=snp_samples.index(sample_1)
                     sample_2_idx=snp_samples.index(sample_2)
+                    # check if this pair underwent a replacement event. If so, ignore, otherwise stats get messed up.
                     if snp_substitution_rate[sample_1_idx, sample_2_idx] < modification_divergence_threshold:
                         gene_perr, gains, losses=calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_1, sample_2, lower_threshold=0.05)
                         all_changes=gains+losses
-                    #within_host_change_distribution.append(len(all_changes))
-                    #iterate through all_changes to store the gene_ids.
-                    for i in range(0, len(all_changes)):
-                        within_host_changes_gene_ids.append(all_changes[i][0])
-                    #
-                    # construct a null comprising of all genes present at either time point:
-                    present_gene_idxs = []
-                    present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
-                    present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
-                    #
-                    # sample 100x the number of within-host gene changes from the three different nulls:
-                    for trial in range(0,num_trials):
-                        between_gene_null_idxs = choice(between_host_gene_idxs, len(all_changes))
-                        present_gene_null_idxs = choice(present_gene_idxs, len(all_changes))
-                        # get the gene_ids for these idxs:
-                        between_host_changes_gene_ids_null[trial].extend(gene_names[between_gene_null_idxs].tolist())
-                        present_gene_null[trial].extend(gene_names[present_gene_null_idxs].tolist())                
-                        pangenome_null[trial].extend(random.sample(pangenome_gene_names, len(all_changes)))
+                        gene_change_dictionary={'gains':gains, 'losses':losses,'all':all_changes}
+                        #iterate through all_changes to store the gene_ids.
+                        for change_type in ['gains','losses','all']:
+                            for i in range(0, len(gene_change_dictionary[change_type])):
+                                within_host_changes_gene_ids[change_type].append(gene_change_dictionary[change_type][i][0])
+                        #        
+                        # construct a null comprising of all genes present at either time point:
+                        present_gene_idxs = []
+                        present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
+                        present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
+                        #
+                        # sample 100x the number of within-host gene changes from the three different nulls:
+                        for change_type in ['gains','losses','all']:
+                            for trial in range(0,num_trials):
+                                between_gene_null_idxs = choice(between_host_gene_idxs, len(gene_change_dictionary[change_type]))
+                                present_gene_null_idxs = choice(present_gene_idxs, len(gene_change_dictionary[change_type]))
+                                # get the gene_ids for these idxs:
+                                between_host_changes_gene_ids_null[change_type][trial].extend(gene_names[between_gene_null_idxs].tolist())
+                                present_gene_null[change_type][trial].extend(gene_names[present_gene_null_idxs].tolist())                
+                                pangenome_null[change_type][trial].extend(random.sample(pangenome_gene_names, len(all_changes)))
                 
 
 
@@ -244,15 +249,24 @@ for species_name in good_species_list:
     # gene_cateogry annotation
     #########################################################
 
-    gene_descriptions_gene_changes=[] # store the descriptions in this vector
-    kegg_pathways_gene_changes=[] # store the pathways in this vector
-    gene_categories_gene_changes=[] #stor categories in this vector
+    # annotate the real data:
+    gene_descriptions_gene_changes={} # store the descriptions in this vector
+    kegg_pathways_gene_changes={} # store the pathways in this vector
+    gene_categories_gene_changes={} #stor categories in this vector
 
-    for gene_id in within_host_changes_gene_ids:
-        gene_descriptions_gene_changes.append(gene_descriptions[gene_id])
-        gene_categories_gene_changes.append(gene_category_map[gene_id])
-        for i in range(0, len(kegg_ids[gene_id])):
-            kegg_pathways_gene_changes.append(kegg_ids[gene_id][i][1])
+    for change_type in ['gains','losses','all']:
+        gene_descriptions_gene_changes[change_type]=[]
+        kegg_pathways_gene_changes[change_type]=[]
+        gene_categories_gene_changes[change_type]=[]
+        #
+        #
+        for gene_id in within_host_changes_gene_ids[change_type]:
+            gene_descriptions_gene_changes[change_type].append(gene_descriptions[gene_id])
+            gene_categories_gene_changes[change_type].append(gene_category_map[gene_id])
+            for i in range(0, len(kegg_ids[gene_id])):
+                kegg_pathways_gene_changes[change_type].append(kegg_ids[gene_id][i][1])
+    
+    # annotate the random draws:
 
     gene_descriptions_gene_changes_null_between_host={}
     kegg_pathways_gene_changes_null_between_host={}
@@ -266,42 +280,56 @@ for species_name in good_species_list:
     kegg_pathways_gene_changes_null_pangenome={}
     gene_categories_gene_changes_null_pangenome={}
 
-    for trial in range(0, num_trials):
-        gene_descriptions_gene_changes_null_between_host[trial]=[]
-        kegg_pathways_gene_changes_null_between_host[trial]=[]
-        gene_categories_gene_changes_null_between_host[trial]=[]
-        for gene_id in between_host_changes_gene_ids_null[trial]:
-            if gene_id in gene_descriptions:
-                gene_descriptions_gene_changes_null_between_host[trial].append(gene_descriptions[gene_id])
-                gene_categories_gene_changes_null_between_host[trial].append(gene_category_map[gene_id])
-            for i in range(0, len(kegg_ids[gene_id])):
-                if gene_id in kegg_ids:
-                    kegg_pathways_gene_changes_null_between_host[trial].append(kegg_ids[gene_id][i][1])
-
-        gene_descriptions_gene_changes_null_present[trial]=[]
-        kegg_pathways_gene_changes_null_present[trial]=[]
-        gene_categories_gene_changes_null_present[trial]=[]
-        for gene_id in present_gene_null[trial]:
-            if gene_id in gene_descriptions:
-                gene_descriptions_gene_changes_null_present[trial].append(gene_descriptions[gene_id])
-                gene_categories_gene_changes_null_present[trial].append(gene_category_map[gene_id])
-            for i in range(0, len(kegg_ids[gene_id])):
-                if gene_id in kegg_ids:
-                    kegg_pathways_gene_changes_null_present[trial].append(kegg_ids[gene_id][i][1])
-
-        gene_descriptions_gene_changes_null_pangenome[trial]=[]
-        kegg_pathways_gene_changes_null_pangenome[trial]=[]
-        gene_categories_gene_changes_null_pangenome[trial]=[]
-        for gene_id in pangenome_null[trial]:
-            if gene_id in gene_descriptions:
-                gene_descriptions_gene_changes_null_pangenome[trial].append(gene_descriptions[gene_id])
-                gene_categories_gene_changes_null_pangenome[trial].append(gene_category_map[gene_id]) 
-            for i in range(0, len(kegg_ids[gene_id])):
-                if gene_id in kegg_ids:
-                    kegg_pathways_gene_changes_null_pangenome[trial].append(kegg_ids[gene_id][i][1])
+    for change_type in ['gains','losses','all']:
+        gene_descriptions_gene_changes_null_between_host[change_type]={}
+        kegg_pathways_gene_changes_null_between_host[change_type]={}
+        gene_categories_gene_changes_null_between_host[change_type]={}
+        
+        gene_descriptions_gene_changes_null_present[change_type]={}
+        kegg_pathways_gene_changes_null_present[change_type]={}
+        gene_categories_gene_changes_null_present[change_type]={}
+        
+        gene_descriptions_gene_changes_null_pangenome[change_type]={}
+        kegg_pathways_gene_changes_null_pangenome[change_type]={}
+        gene_categories_gene_changes_null_pangenome[change_type]={}
+        
+        for trial in range(0, num_trials):
+            gene_descriptions_gene_changes_null_between_host[change_type][trial]=[]
+            kegg_pathways_gene_changes_null_between_host[change_type][trial]=[]
+            gene_categories_gene_changes_null_between_host[change_type][trial]=[]
+            
+            gene_descriptions_gene_changes_null_present[change_type][trial]=[]
+            kegg_pathways_gene_changes_null_present[change_type][trial]=[]
+            gene_categories_gene_changes_null_present[change_type][trial]=[]
+            
+            gene_descriptions_gene_changes_null_pangenome[change_type][trial]=[]
+            kegg_pathways_gene_changes_null_pangenome[change_type][trial]=[]
+            gene_categories_gene_changes_null_pangenome[change_type][trial]=[]
+            
+            for gene_id in between_host_changes_gene_ids_null[change_type][trial]:
+                if gene_id in gene_descriptions:
+                    gene_descriptions_gene_changes_null_between_host[change_type][trial].append(gene_descriptions[gene_id])
+                    gene_categories_gene_changes_null_between_host[change_type][trial].append(gene_category_map[gene_id])
+                for i in range(0, len(kegg_ids[gene_id])):
+                    if gene_id in kegg_ids:
+                        kegg_pathways_gene_changes_null_between_host[change_type][trial].append(kegg_ids[gene_id][i][1])
+            
+            for gene_id in present_gene_null[change_type][trial]:
+                if gene_id in gene_descriptions:
+                    gene_descriptions_gene_changes_null_present[change_type][trial].append(gene_descriptions[gene_id])
+                    gene_categories_gene_changes_null_present[change_type][trial].append(gene_category_map[gene_id])
+                for i in range(0, len(kegg_ids[gene_id])):
+                    if gene_id in kegg_ids:
+                        kegg_pathways_gene_changes_null_present[change_type][trial].append(kegg_ids[gene_id][i][1])
+            
+            for gene_id in pangenome_null[change_type][trial]:
+                if gene_id in gene_descriptions:
+                    gene_descriptions_gene_changes_null_pangenome[change_type][trial].append(gene_descriptions[gene_id])
+                    gene_categories_gene_changes_null_pangenome[change_type][trial].append(gene_category_map[gene_id]) 
+                for i in range(0, len(kegg_ids[gene_id])):
+                    if gene_id in kegg_ids:
+                        kegg_pathways_gene_changes_null_pangenome[change_type][trial].append(kegg_ids[gene_id][i][1])
                 
-    
-
 
 
 
@@ -313,73 +341,74 @@ for species_name in good_species_list:
 
     # count the number of times a gene shows up in within-host changes
     all_gene_changes={}
-    for gene in gene_descriptions_gene_changes:
-        if gene not in all_gene_changes:
-            all_gene_changes[gene]=1
-        else:
-            all_gene_changes[gene] +=1
+    for change_type in ['gains','losses','all']:
+        for gene in gene_descriptions_gene_changes[change_type]:
+            if gene not in all_gene_changes:
+                all_gene_changes[gene]={'gains':0,'losses':0,'all':0}
+            all_gene_changes[gene][change_type] +=1
 
-    # count the number of times a gene shows up in between-host changes in the num_trails
+    # count the number of times a gene shows up in between-host changes in the num_trials
     all_gene_changes_null_between_host={} # key == gene
     all_gene_changes_null_present={}
     all_gene_changes_null_pangenome={}
     
+
     for trial in range(0,num_trials):
-        for gene in gene_descriptions_gene_changes_null_between_host[trial]:
-            all_gene_changes_null_between_host[gene]=[]
-        for gene in gene_descriptions_gene_changes_null_present[trial]: 
-            all_gene_changes_null_present[gene]=[]
-        for gene in gene_descriptions_gene_changes_null_pangenome[trial]: 
-            all_gene_changes_null_pangenome[gene]=[]
+        for gene in gene_descriptions_gene_changes_null_between_host['all'][trial]:
+            all_gene_changes_null_between_host[gene]={'gains':[],'losses':[],'all':[]}
+        for gene in gene_descriptions_gene_changes_null_present['all'][trial]: 
+            all_gene_changes_null_present[gene]={'gains':[],'losses':[],'all':[]}
+        for gene in gene_descriptions_gene_changes_null_pangenome['all'][trial]: 
+            all_gene_changes_null_pangenome[gene]={'gains':[],'losses':[],'all':[]}
 
-    for gene in all_gene_changes_null_between_host.keys():
+    for change_type in ['gains','losses','all']:
         for trial in range(0,num_trials): # iterate through the 100 trials
-            num_occurrences=gene_descriptions_gene_changes_null_between_host[trial].count(gene)
-            all_gene_changes_null_between_host[gene].append(num_occurrences)
-
-    for gene in all_gene_changes_null_present.keys():
-        for trial in range(0,num_trials): # iterate through the 100 trials
-            num_occurrences=gene_descriptions_gene_changes_null_present[trial].count(gene)
-            all_gene_changes_null_present[gene].append(num_occurrences)
-
-    for gene in all_gene_changes_null_pangenome.keys():
-        for trial in range(0,num_trials): # iterate through the 100 trials
-            num_occurrences=gene_descriptions_gene_changes_null_pangenome[trial].count(gene)
-            all_gene_changes_null_pangenome[gene].append(num_occurrences)
+            for gene in all_gene_changes_null_between_host.keys():
+                num_occurrences=gene_descriptions_gene_changes_null_between_host[change_type][trial].count(gene)
+                all_gene_changes_null_between_host[gene][change_type].append(num_occurrences)
+                #
+            for gene in all_gene_changes_null_present.keys():        
+                num_occurrences=gene_descriptions_gene_changes_null_present[change_type][trial].count(gene)
+                all_gene_changes_null_present[gene][change_type].append(num_occurrences)
+                #
+            for gene in all_gene_changes_null_pangenome.keys():
+                num_occurrences=gene_descriptions_gene_changes_null_pangenome[change_type][trial].count(gene)
+                all_gene_changes_null_pangenome[gene][change_type].append(num_occurrences)
 
 
 
     # iterate through all gene changes and quantify observed vs expected:
     
-    outFile.write(species_name + '\ngene_name\tprob_between_hosts\tprob_present\tprob_pangenome\n')
+    #outFile.write(species_name + '\ngene_name\tprob_between_hosts\tprob_present\tprob_pangenome\n')
    
-    for gene in all_gene_changes.keys():
-        if gene in all_gene_changes_null_between_host:
-            tmp_null = numpy.array(all_gene_changes_null_between_host[gene])
-            prob_between_hosts=sum(all_gene_changes[gene] <= tmp_null)/float(num_trials)
-        else:
-            prob_between_hosts=0
-        if gene in all_gene_changes_null_present:
-            tmp_null = numpy.array(all_gene_changes_null_present[gene])
-            prob_present=sum(all_gene_changes[gene] <= tmp_null)/float(num_trials)
-        else:
-            prob_present=0
-        if gene in all_gene_changes_null_pangenome:
-            tmp_null = numpy.array(all_gene_changes_null_pangenome[gene])
-            prob_pangenome=sum(all_gene_changes[gene] <= tmp_null)/float(num_trials)
-        else:
-            prob_pangenome=0
+    #for gene in all_gene_changes.keys():
+        #if gene in all_gene_changes_null_between_host:
+        #    tmp_null = numpy.array(all_gene_changes_null_between_host[gene])
+        #    prob_between_hosts=sum(all_gene_changes[gene] <= tmp_null)/float(num_trials)
+        #else:
+        #    prob_between_hosts=0
+        #if gene in all_gene_changes_null_present:
+        #    tmp_null = numpy.array(all_gene_changes_null_present[gene])
+        #    prob_present=sum(all_gene_changes[gene] <= tmp_null)/float(num_trials)
+        #else:
+        #    prob_present=0
+        #if gene in all_gene_changes_null_pangenome:
+        #    tmp_null = numpy.array(all_gene_changes_null_pangenome[gene])
+        #    prob_pangenome=sum(all_gene_changes[gene] <= tmp_null)/float(num_trials)
+        #else:
+        #    prob_pangenome=0
         #store data in a dictionary for cross-species plotting after running on all species
-        all_species_gene_changes[gene]=[all_gene_changes[gene],prob_between_hosts,prob_present,prob_pangenome]
+        #all_species_gene_changes[gene]=[all_gene_changes[gene],prob_between_hosts,prob_present,prob_pangenome]
+        #all_species_gene_changes[gene]=all_gene_changes[gene]
+        #outFile.write(gene + '\t' + str(all_gene_changes[gene]) +'\t' + str(prob_between_hosts) + '\t'+ str(prob_present)+ '\t' + str(prob_pangenome) + '\n')
         
-        outFile.write(gene + '\t' + str(all_gene_changes[gene]) +'\t' + str(prob_between_hosts) + '\t'+ str(prob_present)+ '\t' + str(prob_pangenome) + '\n')
-        
-    outFile.write('\n')
+    #outFile.write('\n')
+    
     ###################################################################
     # check whether there is an enrichment of genes in a gene_category
     ##########################################################
 
-
+    '''
     # count the number of times a gene shows up in within-host changes
     all_gene_changes_category={}
     for gene in gene_categories_gene_changes:
@@ -441,12 +470,14 @@ for species_name in good_species_list:
         outFile.write(gene + '\t' + str(all_gene_changes_category[gene]) +'\t' + str(prob_between_hosts) + '\t' + str(prob_present)+ '\t' +  str(prob_pangenome) + '\n')
 
     outFile.write('\n')
-
+    '''
     # store the nulls:
-    all_species_null={'between_host_genes':all_gene_changes_null_between_host,'present_genes': all_gene_changes_null_present, 'pangenome_genes': all_gene_changes_null_pangenome, 'between_host_category': all_gene_changes_category_null_between_host, 'present_category':all_gene_changes_category_null_present, 'pangenome_category':all_gene_changes_category_null_pangenome}
+    #all_species_null={'between_host_genes':all_gene_changes_null_between_host,'present_genes': all_gene_changes_null_present, 'pangenome_genes': all_gene_changes_null_pangenome, 'between_host_category': all_gene_changes_category_null_between_host, 'present_category':all_gene_changes_category_null_present, 'pangenome_category':all_gene_changes_category_null_pangenome}
+    all_species_null={'between_host_genes':all_gene_changes_null_between_host,'present_genes': all_gene_changes_null_present, 'pangenome_genes': all_gene_changes_null_pangenome}
 
     #store all the data 
-    all_data[species_name]={'gene_changes':all_species_gene_changes, 'gene_changes_category':all_species_gene_changes_category, 'null':all_species_null}
+    #all_data[species_name]={'gene_changes':all_gene_changes, 'gene_changes_category':all_species_gene_changes_category, 'null':all_species_null}
+    all_data[species_name]={'gene_changes':all_gene_changes, 'null':all_species_null}
 
 if other_species_str=="":
     pickle.dump( all_data, open( "/pollard/home/ngarud/tmp_intermediate_files/all_species_gene_changes.p", "wb" ) )
