@@ -85,17 +85,19 @@ total_null_snp_modification_map = {}
 total_gene_modification_map = {}
 total_null_gene_modification_map = {}
 
-total_snps = {var_type:0 for var_type in variant_types}
-total_opportunities = {var_type:0 for var_type in variant_types}
+# Variant type distribution of SNPs
+total_snps = {var_type:0 for var_type in variant_types} # observed variant_type distribution
+total_random_null_snps = {var_type:0 for var_type in variant_types} # expectation from randomly drawing sites on genome (mutation)
+total_between_null_snps = {var_type:0 for var_type in variant_types} # expectation from randomly drawing sites that vary between samples (recombination) 
+
+total_snp_mutrevs = {'muts': 0, 'revs':0}
+total_between_null_snp_mutrevs = {'mut': 0, 'rev':0}
+
+total_gene_gainlosses = {'gains':0, 'losses':0}
+total_between_null_gene_gainlosses = {'gains':0, 'losses':0}
 
 pooled_snp_change_distribution = []
 pooled_gene_change_distribution = []
-
-total_snp_muts = 0
-total_snp_revs = 0
-
-total_gene_gains = 0
-total_gene_losses = 0
 
 for species_name in good_species_list:
 
@@ -140,22 +142,14 @@ for species_name in good_species_list:
     snp_samples = dummy_samples
     
     opportunity_matrices = {}
+    difference_matrices = {}
     
-    dummy_samples, difference_matrix, opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '1D', allowed_samples=snp_samples)
+    for var_type in variant_types:
+        
+        dummy_samples, difference_matrix, opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, var_type, allowed_samples=snp_samples)
     
-    opportunity_matrices['1D'] = opportunity_matrix
-    
-    #dummy_samples, difference_matrix, opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '2D', allowed_samples=snp_samples)
-    
-    #opportunity_matrices['2D'] = opportunity_matrix
-    
-    #dummy_samples, difference_matrix, opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '3D', allowed_samples=snp_samples)
-    
-    #opportunity_matrices['3D'] = opportunity_matrix
-    
-    dummy_samples, difference_matrix, opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '4D', allowed_samples=snp_samples)
-    
-    opportunity_matrices['4D'] = opportunity_matrix
+        difference_matrices[var_type] = difference_matrix
+        opportunity_matrices[var_type] = opportunity_matrix
     
     snp_substitution_rate =     snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
     sys.stderr.write("Done!\n")
@@ -238,23 +232,43 @@ for species_name in good_species_list:
             total_snp_modification_map[species_name] += num_snp_changes
             total_null_snp_modification_map[species_name] += perr
             
-            for var_type in variant_types:
-                total_opportunities[var_type] += opportunity_matrices[var_type][i,j]
-                
-            total_snp_muts += num_mutations
-            total_snp_revs += num_reversions
-            
+            # Count up variant types of observed mutations
+            variant_type_counts = {var_type: 0 for var_type in variant_types}
             for snp_change in mutations:
                 if snp_change[3] in variant_types:
-                    total_snps[snp_change[3]] += 1
+                    variant_type_counts[snp_change[3]] += 1
                 else:
-                    print snp_change[3]
+                    pass
                     
             for snp_change in reversions:
                 if snp_change[3] in variant_types:
-                    total_snps[snp_change[3]] += 1
+                    variant_type_counts[snp_change[3]] += 1
                 else:
-                    print snp_change[3]
+                    pass
+            
+            # Add them to running total
+            # & form running total for this sample only
+            observed_sample_size = 0
+            for var_type in variant_types:
+                total_snps[var_type] += variant_type_counts[var_type]
+                observed_sample_size += variant_type_counts[var_type]
+            
+            # Now get a null from randomly drawing from genome
+            total_opportunities = sum([opportunity_matrices[var_type][i,j] for var_type in variant_types])
+            
+            for var_type in variant_types:
+                total_random_null_snps[var_type] += observed_sample_size*opportunity_matrices[var_type][i,j]*1.0/total_opportunities  
+            
+            # Now get a null from between-host changes
+            total_between_host_changes = sum([numpy.median(difference_matrices[var_type][i,:]) for var_type in variant_types])
+            for var_type in variant_types:
+                total_between_null_snps[var_type] += observed_sample_size*(numpy.median(difference_matrices[var_type][i,:]))*1.0/total_between_host_changes  
+            
+            
+            # Tally mutations & reversions    
+            total_snp_mutrevs['muts'] += num_mutations
+            total_snp_mutrevs['revs'] += num_reversions
+            
             if num_gene_changes > -0.5:
             
                 pooled_gene_change_distribution.append(num_gene_changes)        
@@ -263,8 +277,8 @@ for species_name in good_species_list:
                 total_gene_modification_map[species_name] += num_gene_changes
                 total_null_gene_modification_map[species_name] += gene_perr   
                 
-                total_gene_gains += num_gains
-                total_gene_losses += num_losses
+                total_gene_gainlosses['gains'] += num_gains
+                total_gene_gainlosses['losses'] += num_losses
     
         temporal_changes.append((sample_i, sample_j, num_snp_changes, num_gene_changes))        
 
@@ -512,7 +526,7 @@ pylab.setp(cl, fontsize=9)
 #fig.text(0.945,0.05,'$\\pi/\\pi_0$',fontsize=12)
 
 cbar.ax.tick_params(labelsize=5)
-change_axis.text(20,25,'SNPs',fontsize=5)
+change_axis.text(20,25,'SNVs',fontsize=5)
 change_axis.text(20,-20,'Genes',fontsize=5)
 
 ######
@@ -555,22 +569,26 @@ pooled_gene_axis.set_yticklabels([])
 # Plot dNdS and expected version
 
 observed_totals = numpy.array([total_snps[var_type] for var_type in variant_types])*1.0
+random_totals = numpy.array([total_random_null_snps[var_type] for var_type in variant_types])*1.0 
+between_totals = numpy.array([total_between_null_snps[var_type] for var_type in variant_types])*1.0 
 
-expected_totals = numpy.array([total_snps['4D']*total_opportunities[var_type]/total_opportunities['4D'] for var_type in variant_types])
+print observed_totals
+print random_totals
+print between_totals
 
-dnds_axis.bar(numpy.arange(1,3), observed_totals, width=0.3, linewidth=0, color='#08519c',label='Obs')
+dnds_axis.bar(numpy.arange(1,3)-0.1, observed_totals, width=0.2, linewidth=0, color='#08519c',label='Obs')
 
-dnds_axis.bar(numpy.arange(1,3)-0.3, expected_totals, width=0.3, linewidth=0, color='#08519c',alpha=0.5,label='Null')
+dnds_axis.bar(numpy.arange(1,3)-0.3, random_totals, width=0.2, linewidth=0, color='k',alpha=0.5,label='Null 1')
 
-dnds_axis.legend(loc='upper right',frameon=False)
+dnds_axis.bar(numpy.arange(1,3)+0.1, between_totals, width=0.2, linewidth=0, color='r',alpha=0.5,label='Null 2')
 
-
+#dnds_axis.legend(loc='upper right',frameon=False, handlelength=1)
 
 # Plot mutations, reversions
 
-mutrev_axis.bar([1-0.2, 2-0.2], [total_snp_muts, total_snp_revs], width=0.4, linewidth=0,color='#08519c')
+mutrev_axis.bar([1-0.2, 2-0.2], [total_snp_mutrevs['muts'], total_snp_mutrevs['revs']], width=0.4, linewidth=0,color='#08519c')
 
-gainloss_axis.bar([1-0.2, 2-0.2], [total_gene_gains, total_gene_losses], width=0.4, linewidth=0,color='#08519c')
+gainloss_axis.bar([1-0.2, 2-0.2], [total_gene_gainlosses['gains'], total_gene_gainlosses['losses']], width=0.4, linewidth=0,color='#08519c')
 
 
 

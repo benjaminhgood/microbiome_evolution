@@ -77,7 +77,7 @@ for species_name in good_species_list:
         else:
             sys.stderr.write("%s intergene LD too high: %g (%g)\n" % (species_name, control_rsquared, rsquareds[0])) 
 
-passed_species = species_phylogeny_utils.sort_phylogenetically(passed_species)
+#passed_species = species_phylogeny_utils.sort_phylogenetically(passed_species)
 num_passed_species = len(passed_species)
 
 

@@ -95,7 +95,7 @@ polymorphism_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[0.3,1]
 between_axis = plt.Subplot(fig, polymorphism_grid[0])
 fig.add_subplot(between_axis)
 
-between_axis.set_ylabel("Consensus distance")
+between_axis.set_ylabel("Avg fixed distance")
 
 #depth_axis.set_ylim([1e01,3e03])
 between_axis.set_xticks([])
@@ -161,7 +161,7 @@ sfs_axis_3.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_3.set_xticklabels([])
 sfs_axis_3.set_xlim([0,50])
 sfs_axis_3.set_yticks([])
-sfs_axis_3.set_ylabel('Fraction of 4D sites')
+sfs_axis_3.set_ylabel('          Fraction of sites')
 
 
 sfs_axis_4 = plt.Subplot(fig, sfs_grid[3])

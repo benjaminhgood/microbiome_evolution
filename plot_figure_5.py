@@ -79,7 +79,7 @@ snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debu
 #
 ####################################################
 
-pylab.figure(1,figsize=(3.43,3))
+pylab.figure(1,figsize=(3.43,3.1))
 fig = pylab.gcf()
 
 
@@ -144,7 +144,7 @@ gene_loss_axis.get_yaxis().tick_left()
 gene_gain_axis = plt.Subplot(fig, differences_grid[2])
 fig.add_subplot(gene_gain_axis)
 
-gene_gain_axis.set_ylabel('Gene changes',labelpad=2)
+gene_gain_axis.set_ylabel('Gene gains',labelpad=2)
 gene_gain_axis.set_ylim([1.2e-01,1e04])
 
 gene_gain_axis.set_xlabel('Sample pairs')
@@ -186,9 +186,10 @@ prevalence_axis.get_yaxis().tick_left()
 linkage_axis = plt.Subplot(fig, gene_grid[1])
 fig.add_subplot(linkage_axis)
 
-linkage_axis.set_ylabel('Fraction of blocks $\geq k$',labelpad=2)
-linkage_axis.set_xlabel('Number of genes in block',labelpad=2)
-linkage_axis.set_xlim([0,1.05])
+linkage_axis.set_ylabel('Fraction of genes $\geq c$',labelpad=2)
+linkage_axis.set_xlabel('Neighboring fold change, $c$',labelpad=2)
+linkage_axis.set_xlim([1,10])
+linkage_axis.set_ylim([0,1])
 #prevalence_axis.set_ylim([0,1.1])
 
 linkage_axis.spines['top'].set_visible(False)
@@ -398,7 +399,6 @@ same_subject_gene_changes = []
 same_subject_gene_gains = []
 same_subject_gene_losses = []
 
-
 within_host_gene_idxs = [] # the indexes of genes that actually changed between samples
 within_host_null_gene_idxs = [] # a null distribution of gene indexes. chosen randomly from genes "present" in genome
 # NRG: why are these null genes chosen?
@@ -408,10 +408,19 @@ within_host_next_fold_changes = []
 within_host_null_next_fold_changes = []
 within_host_between_next_fold_changes = []
 
+within_host_neighbor_fold_changes = []
+within_host_null_neighbor_fold_changes = []
+within_host_between_neighbor_fold_changes = []
+
+
+
+# sizes of estimated blocks of gene changes within hosts
+within_host_blockss = []
+
 total_modification_error_rate = 0
 total_modifications = 0
 
-# what is the objective of this loop? NRG
+# Calculate the gene changes in each host
 for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
 #    
     snp_i = same_subject_snp_idxs[0][sample_pair_idx]
@@ -465,9 +474,17 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
         same_subject_gene_gains.append(gene_gain_matrix[i,j])
         same_subject_gene_losses.append(gene_loss_matrix[i,j])
         #
-        # why are we iterating through modification_pair_idxs? NRG
+        # Only include samples that are deemed to be modifications 
+        # (don't include replacements)
         if sample_pair_idx in modification_pair_idxs:
             #
+            all_gene_changes = gains+losses
+            
+            gene_blocks = gene_diversity_utils.merge_nearby_gene_differences(all_gene_changes)
+            
+            within_host_blockss.append(gene_blocks)
+            
+            
             # Calculate set of genes that are present in at least one sample
             present_gene_idxs = []
             present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,i]>0.5)*(gene_copynum_matrix[:,i]<2))[0] )
@@ -484,6 +501,36 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
             #
             within_host_gene_idxs.extend(pair_specific_gene_idxs)
             within_host_null_gene_idxs.extend(pair_specific_null_gene_idxs)                       #
+            
+            #####
+            # Calculate copynum fold change of neighboring genes
+            neighbor_fold_changes = []
+            null_neighbor_fold_changes = []
+            between_neighbor_fold_changes = []
+            
+            for fold_changes, gene_idxs in zip([neighbor_fold_changes, null_neighbor_fold_changes, between_neighbor_fold_changes], [within_host_gene_idxs, within_host_null_gene_idxs,pair_specific_between_gene_idxs]):
+                
+                neighboring_gene_idxs = []
+                for gene_idx in gene_idxs:
+                    neighboring_gene_idxs.extend( gene_diversity_utils.get_nearby_gene_idxs(gene_names, gene_idx) )
+                
+                neighboring_gene_idxs = numpy.array(neighboring_gene_idxs)
+                
+                # calculate log-fold change
+                logfoldchanges = numpy.fabs( numpy.log2(clipped_gene_copynum_matrix[neighboring_gene_idxs,j] / clipped_gene_copynum_matrix[neighboring_gene_idxs,i] ) )
+                # check if the copy num of either i or j is eithin the accepted range of 0.5 or 3. 
+                good_idxs = numpy.logical_or( good_copynum_matrix[neighboring_gene_idxs, i], good_copynum_matrix[neighboring_gene_idxs, j] ) 
+                good_idxs *= numpy.logical_and( low_copynum_matrix[neighboring_gene_idxs, i], low_copynum_matrix[neighboring_gene_idxs, j] ) 
+                #
+                bad_idxs = numpy.logical_not( good_idxs ) 
+                logfoldchanges[bad_idxs] = -1
+                #
+                fold_changes.extend(logfoldchanges[logfoldchanges>-0.5])
+                    
+            within_host_neighbor_fold_changes.extend(neighbor_fold_changes)
+            within_host_null_neighbor_fold_changes.extend(null_neighbor_fold_changes)
+            within_host_between_neighbor_fold_changes.extend(between_neighbor_fold_changes)
+
             #
             other_fold_changes = []
             null_other_fold_changes = []
@@ -576,11 +623,30 @@ within_host_next_fold_changes = numpy.power(2, within_host_next_fold_changes)
 within_host_between_next_fold_changes = numpy.power(2, within_host_between_next_fold_changes)
 within_host_null_next_fold_changes = numpy.power(2, within_host_null_next_fold_changes)
 
+within_host_neighbor_fold_changes = numpy.power(2, within_host_neighbor_fold_changes)
+within_host_null_neighbor_fold_changes = numpy.power(2, within_host_null_neighbor_fold_changes)
+
+within_host_between_neighbor_fold_changes = numpy.power(2, within_host_between_neighbor_fold_changes)
+
+
 print "%g modifications, %g expected" % (total_modifications, total_modification_error_rate)
 
 
 # Sort all lists by ascending lower bound on SNP changes, then gene changes
 same_subject_snp_changes, same_subject_gene_changes, same_subject_snp_reversions, same_subject_snp_mutations, same_subject_gene_gains, same_subject_gene_losses = (numpy.array(x) for x in zip(*sorted(zip(same_subject_snp_changes, same_subject_gene_changes, same_subject_snp_reversions, same_subject_snp_mutations, same_subject_gene_gains, same_subject_gene_losses))))
+
+# Calculate distribution of num blocks
+within_host_num_blocks = []
+within_host_block_sizes = []
+for within_host_blocks in within_host_blockss:
+    within_host_num_blocks.append(len(within_host_blocks))
+    for block in within_host_blocks:
+        within_host_block_sizes.append(len(block))
+within_host_num_blocks = numpy.array(within_host_num_blocks)
+within_host_num_blocks.sort()
+
+within_host_block_sizes = numpy.array(within_host_block_sizes)
+within_host_block_sizes.sort()
 
 
 # Construct site frequency spectra
@@ -795,12 +861,33 @@ xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_nul
 parallelism_axis.step(xs,ns*1.0/ns[0],'k-',label='Random',zorder=0)
 
 
-parallelism_axis.legend(loc='upper right',frameon=False,fontsize=4)
+#parallelism_axis.legend(loc='upper right',frameon=False,fontsize=4)
 
 snp_axis.legend(loc='upper right',frameon=False,fontsize=4, numpoints=1)
 
 parallelism_axis.semilogx([1],[-1],'k.')
 parallelism_axis.set_xlim([1,10])
+
+# Plot block size distribution
+#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_block_sizes)
+#linkage_axis.step(xs,ns*1.0/ns[0],'b-',zorder=0)
+
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_neighbor_fold_changes)
+linkage_axis.step(xs,ns*1.0/ns[0],'b-',label='Within-host',zorder=2)
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_between_neighbor_fold_changes)
+linkage_axis.step(xs,ns*1.0/ns[0],'r-',label='Between-host',zorder=1)
+
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_null_neighbor_fold_changes)
+linkage_axis.step(xs,ns*1.0/ns[0],'k-',label='Random',zorder=0)
+
+linkage_axis.semilogx([1],[-1],'k.')
+
+linkage_axis.legend(loc='upper right',frameon=False,fontsize=4)
+
+
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_5%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
 sys.stderr.write("Done!\n")

@@ -400,6 +400,10 @@ def calculate_temporal_sample_freqs(allele_counts_map, passed_sites_map, initial
     initial_freqs = []
     final_freqs = []
     gene_names = []
+    chromosomes = []
+    positions = []
+    marginal_initial_depths = []
+    marginal_final_depths = []
     
     
     if allowed_genes == None:
@@ -417,13 +421,25 @@ def calculate_temporal_sample_freqs(allele_counts_map, passed_sites_map, initial
             if len(allele_counts)==0:
                 continue
 
+            chunk_chromosomes = numpy.array([chromosome for chromosome, position in allele_counts_map[gene_name][variant_type]['locations']])
+            
+            chunk_positions = numpy.array([position for chromosome, position in allele_counts_map[gene_name][variant_type]['locations']])
+            
             allele_counts = allele_counts[:,desired_samples,:]            
             depths = allele_counts.sum(axis=2)
             freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
-            joint_passed_sites=(depths>0)[:,0]*(depths>0)[:,1]
-
-            unpolarized_initial_freqs = freqs[joint_passed_sites,0]
-            unpolarized_final_freqs = freqs[joint_passed_sites,1]
+            
+            initial_depths = depths[:,0]
+            final_depths = depths[:,1]
+            
+            marginal_passed_sites = numpy.logical_or((initial_depths>0), (final_depths>0))
+            joint_passed_sites = numpy.logical_and((initial_depths>0), (final_depths>0))
+            
+            initial_depths = initial_depths[marginal_passed_sites]
+            final_depths = final_depths[marginal_passed_sites]
+            
+            unpolarized_initial_freqs = freqs[marginal_passed_sites,0]
+            unpolarized_final_freqs = freqs[marginal_passed_sites,1]
         
             unpolarized_dfs = unpolarized_final_freqs-unpolarized_initial_freqs+normal(0,1e-06,unpolarized_initial_freqs.shape)
         
@@ -436,9 +452,17 @@ def calculate_temporal_sample_freqs(allele_counts_map, passed_sites_map, initial
         
             initial_freqs.extend(polarized_initial_freqs)
             final_freqs.extend(polarized_final_freqs)
-            gene_names.extend([gene_name]*len(polarized_final_freqs))
             
-    return numpy.array(gene_names), numpy.array(initial_freqs), numpy.array(final_freqs)
+            marginal_initial_depths.extend(initial_depths)
+            marginal_final_depths.extend(final_depths)
+            
+            gene_names.extend([gene_name]*len(polarized_final_freqs))
+            chromosomes.extend(chunk_chromosomes[marginal_passed_sites])
+            positions.extend(chunk_positions[marginal_passed_sites])
+        
+    print len(gene_names), len(chromosomes), len(initial_freqs), len(initial_depths)
+            
+    return numpy.array(gene_names), numpy.array(chromosomes), numpy.array(positions), numpy.array(initial_freqs), numpy.array(final_freqs), numpy.array(marginal_initial_depths), numpy.array(marginal_final_depths)
 
 ####################
 

@@ -113,6 +113,8 @@ def calculate_total_from_histogram(histogram):
 ####
 def calculate_unnormalized_survival_from_vector(xs, min_x=None, max_x=None, min_p=1e-10):
 
+    xs = numpy.array(xs)
+
     if min_x==None:
         min_x = xs.min()-1
     

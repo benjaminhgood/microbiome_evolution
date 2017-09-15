@@ -37,4 +37,3 @@ for i in xrange(0,10):
     pylab.semilogy(species_abundance_matrix[i,:],'-')
     
 pylab.savefig('%sspecies_abundances.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
-

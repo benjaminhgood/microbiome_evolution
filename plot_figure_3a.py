@@ -7,6 +7,7 @@ import os.path
 import pylab
 import sys
 import numpy
+from numpy.random import choice
 
 import species_phylogeny_utils
 import diversity_utils
@@ -51,15 +52,20 @@ chunk_size = args.chunk_size
 
 ################################################################################
 
+num_bootstraps = 1000
+
 min_coverage = config.min_median_coverage
 alpha = 0.5 # Confidence interval range for rate estimates
 low_pi_threshold = 1e-03
-low_divergence_threshold = 1e-03
+low_divergence_threshold = 2e-04
 min_change = 0.8
 min_sample_size = 33 # 46 gives at least 1000 pairs
 allowed_variant_types = set(['1D','2D','3D','4D'])
 
 divergence_matrices = {}
+low_divergence_pair_counts = {}
+null_low_divergence_pair_counts = [{} for i in xrange(0,num_bootstraps)]
+
 good_species_list = parse_midas_data.parse_good_species_list()
 
 sys.stderr.write("Loading sample metadata...\n")
@@ -95,10 +101,38 @@ for species_name in good_species_list:
 
     snp_substitution_matrix = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
     
+    # Find closely related samples
+    for i in xrange(0, snp_substitution_matrix.shape[0]):
+        for j in xrange(i+1, snp_substitution_matrix.shape[0]):
+            
+            if snp_substitution_matrix[i,j] >= 0:
+                
+                if snp_substitution_matrix[i,j] <= low_divergence_threshold:
+                
+                    sample_pair = frozenset([snp_samples[i],snp_samples[j]])
+                    
+                    if sample_pair not in low_divergence_pair_counts:
+                        low_divergence_pair_counts[sample_pair] = 0
+                        
+                    low_divergence_pair_counts[sample_pair] += 1
+                    
+                    for bootstrap_idx in xrange(0,num_bootstraps):
+                        
+                        # now draw null pair from 
+                        null_samples = choice(snp_samples,size=2,replace=False)
+                        null_pair = frozenset([null_samples[0], null_samples[1]])
+                    
+                        if null_pair not in null_low_divergence_pair_counts[bootstrap_idx]:
+                            null_low_divergence_pair_counts[bootstrap_idx][null_pair] = 0
+                        
+                        null_low_divergence_pair_counts[bootstrap_idx][null_pair] += 1
+                        
+    
     divergence_matrices[species_name] = snp_substitution_matrix
-
+ 
+# # low divergence strains across species
+# # samples
         
-
 species_names = []
 sample_sizes = []
 
@@ -197,8 +231,65 @@ for species_idx in xrange(0,len(species_names)):
     # Line connecting them
     divergence_axis.semilogy([species_idx,species_idx], [quantiles[0],quantiles[-1]],'-',color='#de2d26')
 
+# Now plot distribution of closely related species per pair
+pylab.figure(2,figsize=(1.5,1))
+fig2 = pylab.gcf()
+# make three panels panels
+outer_grid  = gridspec.GridSpec(1,1)
+
+histogram_axis = plt.Subplot(fig2, outer_grid[0])
+fig2.add_subplot(histogram_axis)
+
+histogram_axis.set_ylabel('Sample pairs')
+histogram_axis.set_xlabel('Low divergence strains')
+histogram_axis.set_xlim([0,4])
+
+histogram_axis.spines['top'].set_visible(False)
+histogram_axis.spines['right'].set_visible(False)
+histogram_axis.get_xaxis().tick_bottom()
+histogram_axis.get_yaxis().tick_left()
+
+ks = numpy.arange(1,4)
+
+# Calculate observed histogram
+low_divergence_counts = numpy.array(low_divergence_pair_counts.values())
+
+observed_histogram = numpy.array([(low_divergence_counts==k).sum() for k in ks])*1.0
+
+null_histogram = numpy.zeros_like(ks)*1.0
+
+pvalue = 0
+
+# Calculate null histogram
+for bootstrap_idx in xrange(0,num_bootstraps):
+    
+    bootstrapped_low_divergence_counts = numpy.array(null_low_divergence_pair_counts[bootstrap_idx].values())
+    
+    bootstrapped_histogram = numpy.array([(bootstrapped_low_divergence_counts==k).sum() for k in ks])*1.0
+
+    null_histogram += bootstrapped_histogram/num_bootstraps
+
+    pvalue += (bootstrapped_histogram[1:].sum() >= observed_histogram[1:].sum())
+
+pvalue = (pvalue+1)/(num_bootstraps+1.0)
+
+print "pvalue for closely related pair distribution =", pvalue
+
+# Plot histograms
+
+histogram_axis.bar(ks-0.3, observed_histogram, width=0.3, linewidth=0, color='r',label='Observed',bottom=1e-03)
+
+histogram_axis.bar(ks, null_histogram, width=0.3, linewidth=0, color='0.7',label='Null',bottom=1e-03)
+
+histogram_axis.semilogy([1e-03,1e-03],[0,4],'k-')
+histogram_axis.set_ylim([1e-01,1e03])
+histogram_axis.set_xticks([1,2,3])
+histogram_axis.legend(loc='upper right',frameon=False)
+
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_3a.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig2.savefig('%s/supplemental_low_divergence_pair_distribution.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+
 sys.stderr.write("Done!\n")
 
  

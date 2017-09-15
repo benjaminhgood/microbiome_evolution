@@ -1,6 +1,7 @@
 import numpy
 import sys
 from scipy.stats import poisson
+from math import fabs
 
 # For each gene in gene_depth_matrix, calculates # of samples 
 # in which it is "present". Returns vector of prevalences
@@ -283,4 +284,71 @@ def calculate_gene_error_rate(i, j, gene_reads_matrix, gene_depth_matrix, marker
         perrs.append(perr)
         
     return numpy.array(perrs)
+
+
+# Fuzzy matching of nearby genes
+def is_nearby(gene_change_1, gene_change_2):
     
+    gene_name_1 = gene_change_1[0]
+    gene_name_2 = gene_change_2[0]
+       
+    gene_items_1 = gene_name_1.split(".")
+    gene_items_2 = gene_name_2.split(".")
+    
+    genome_1 = ".".join([gene_items_1[0],gene_items_1[1]])
+    gene_number_1 = long(gene_items_1[-1])
+    genome_2 = ".".join([gene_items_2[0],gene_items_2[1]])
+    gene_number_2 = long(gene_items_2[-1])
+    
+    if genome_1==genome_2:
+        if fabs(gene_number_1-gene_number_2) < 6:
+            return True        
+    else:
+        return False
+
+def get_nearby_gene_idxs(gene_names, gene_idx, spacing=1, skip_target_gene=True):
+    
+    gene_name = gene_names[gene_idx]
+    
+    gene_items = gene_name.split(".")
+    gene_id = long(gene_items[-1])
+    
+    
+    idxs = []
+    
+    for i in xrange(-spacing,spacing+1):
+    
+        if skip_target_gene==True and i==0:
+            continue
+    
+        gene_name = ".".join(gene_items[:-1]+[str(gene_id+i)])
+        
+        if gene_name in gene_names:
+            idxs.append(gene_names.index(gene_name))
+        
+    return idxs
+        
+# Tries to merge nearby gene differences into blocks  
+def merge_nearby_gene_differences(gene_differences):
+
+    blocks = []
+    
+    for new_difference in gene_differences:
+        print new_difference[0]
+        matched=False
+        for block_idx in xrange(0,len(blocks)):
+            for old_difference in blocks[block_idx]:
+                if is_nearby(new_difference, old_difference):
+                    matched=True
+                    break
+            if matched:
+                blocks[block_idx].append(new_difference)
+                break
+        
+        if not matched:
+            blocks.append([new_difference])
+      
+    print len(gene_differences), len(blocks)        
+    return blocks
+            
+  
