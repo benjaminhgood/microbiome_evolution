@@ -394,9 +394,10 @@ dendrogram_axis.set_ylim([yplotmin/1.4,yplotmax])
 snp_samples = numpy.array(snp_samples)
 
 # Calculate range of distances to compute phylogenetic inconsistency for
+# NRG: How do you know to look at 2e-05 onwards? 
 min_d = snp_substitution_rate[(snp_substitution_rate>=2e-05)].min()+1e-07 # a little bit more than the min
 max_d = snp_substitution_rate.max()-1e-07 # a little bit less than the max
-ds = numpy.logspace(log10(min_d),log10(max_d),15)
+ds = numpy.logspace(log10(min_d),log10(max_d),15) # 15 points are plotted
 print ds
 
 clade_setss = []
@@ -408,7 +409,7 @@ for d in ds:
     
     clade_setss.append(clade_sets)
 
-dstar = 2e-04
+dstar = 2e-04 # what is this? NRG
 
 manual_clade_sets = clade_utils.load_manual_clades(species_name)
 manual_clade_idxss = clade_utils.calculate_clade_idxs_from_clade_sets(snp_samples, clade_sets)

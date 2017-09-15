@@ -865,8 +865,13 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
         # continue parsing site info
         gene_name = info_items[6]
         site_id_items = info_items[0].split("|")
-        contig = site_id_items[0]
-        location = site_id_items[1]
+        # NRG: added this if condition to deal with extra 'accn' in db swap. 
+        if site_id_items[0]=='accn':
+            contig = site_id_items[1]
+            location = site_id_items[2]
+        else:
+            contig = site_id_items[0] 
+            location = site_id_items[1]
         new_site_id_str = "|".join([contig, location, gene_name, variant_type])
         
         
