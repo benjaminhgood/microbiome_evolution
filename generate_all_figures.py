@@ -1,3 +1,4 @@
+import os
 ##################################
 #
 # Plots the figures for our paper
