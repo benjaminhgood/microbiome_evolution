@@ -165,6 +165,7 @@ if __name__=='__main__':
     elif species !='all':
         good_species_list = [species]
 
+    #good_species_list=['Bacteroides_vulgatus_57955'] 
     record_strs = [", ".join(['Species', 'Sample1', 'Sample2', 'Type', 'FalsePositives', 'Change1', '...'])]
 
     for species_name in good_species_list:

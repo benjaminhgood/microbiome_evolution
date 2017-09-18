@@ -124,7 +124,7 @@ if __name__=='__main__':
 
     # header for the output file.
     record_strs = [", ".join(['Species', 'Sample1', 'Sample2', 'Type', 'Num_changes', 'Num_opportunities'])]
-
+    #good_species_list=['Bacteroides_vulgatus_57955']
     for species_name in good_species_list:
 
         sys.stderr.write("Loading haploid samples...\n")

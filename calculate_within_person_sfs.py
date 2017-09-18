@@ -50,7 +50,7 @@ for sample_idx in xrange(0,len(samples)):
 sys.stderr.write("Calculating within-person SFSs...\n")        
 num_sites_processed = 0
 for line in snp_file:
-        
+    #
     items = line.split()
     # Load information about site
     info_items = items[0].split("|")
@@ -59,13 +59,13 @@ for line in snp_file:
     gene_name = info_items[2]
     variant_type = info_items[3]
     pvalue = float(info_items[4])
-        
+    #    
     if variant_type not in allowed_variant_types:
         continue
-        
+    #    
     if len(allowed_genes)>0 and (gene_name not in allowed_genes):
         continue
-        
+    #    
     # Load alt and depth counts
     alts = []
     depths = []
@@ -76,22 +76,25 @@ for line in snp_file:
     alts = numpy.array(alts)
     depths = numpy.array(depths)
     refs = depths-alts
-
+    print alts
+    print depths
+    #
     # population_freq returns the fraction of people for which the alt is the major allele.
     # This is a very important quantity being computed! It is later used for identifying CPS samples. 
     population_freq = ((alts>=refs)*(depths>0)).sum()*1.0/(depths>0).sum()
-        
+    #    
     for i in xrange(0,len(alts)):
         site = (depths[i],alts[i])
-            
+        #
         if site not in site_map[i][variant_type]:
             site_map[i][variant_type][site] = [0,0.0]
-                
+        #        
         site_map[i][variant_type][site][0] += 1
         site_map[i][variant_type][site][1] += population_freq # weight of polarization reversals
-        
-            
+        #
+        #
     num_sites_processed+=1
+    print num_sites_processed
     if num_sites_processed%50000==0:
         sys.stderr.write("%dk sites processed...\n" % (num_sites_processed/1000))   
         if debug:

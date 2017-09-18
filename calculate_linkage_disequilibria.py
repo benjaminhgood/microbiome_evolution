@@ -139,7 +139,8 @@ if __name__=='__main__':
         good_species_list = good_species_list[:3]
     elif species !='all':
         good_species_list = [species]
-        
+
+    #good_species_list=['Bacteroides_vulgatus_57955'] 
     # better binning scheme (multiple of 3)
     distance_bin_locations = numpy.arange(0,1002)*3.0
     distance_bins = numpy.arange(-1,1002)*3+1.5
