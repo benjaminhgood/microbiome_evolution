@@ -296,7 +296,7 @@ for species_name in good_species_list:
             sfs_axes[panel_idx].plot(f0s[in_gene], f1s[in_gene],'.',alpha=0.75,markersize=4,markeredgewidth=0)
     
         
-        sfs_axes[panel_idx].set_ylabel('%s\n%s,%s' % (figure_utils.get_pretty_species_name(species_name), sample_i, sample_j))
+        sfs_axes[panel_idx].set_ylabel('%s\n%s,%s' % (figure_utils.get_abbreviated_species_name(species_name), sample_i, sample_j))
     
 fig.savefig('%s/all_diploid_sweeps.png' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=300)
 sys.stderr.write("Done!\n")

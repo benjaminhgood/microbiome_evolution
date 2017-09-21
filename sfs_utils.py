@@ -7,7 +7,7 @@ import numpy
 import config
 from math import log10
 
-def calculate_binned_sfs_from_sfs_map(sfs_map,bins=[]):
+def calculate_binned_sfs_from_sfs_map(sfs_map, bins=[], folding='minor'):
 
     alts = []
     depths = []
@@ -50,6 +50,10 @@ def calculate_binned_sfs_from_sfs_map(sfs_map,bins=[]):
     
     # should already be normalized, but just to make sure...
     pfs /= pfs.sum()
+    
+    if folding=='major':
+        pfs = pfs[::-1]
+        fs = (1.0-fs)[::-1]
     
     return fs,pfs
     

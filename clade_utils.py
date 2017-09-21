@@ -131,11 +131,22 @@ def cluster_samples_within_clades(distance_matrix, clade_idxss=[], d=1e09):
 
 
  
-def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clusters, allowed_variant_types=set(['1D','2D','3D','4D']), allowed_genes=set([]), min_freq=0, min_change=0.8):
+def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, proposed_clusters, allowed_variant_types=set(['1D','2D','3D','4D']), allowed_genes=set([])):
  
+    clusters = []
     anticlusters = []
-    for cluster_idxs in clusters:
-        anticlusters.append( numpy.logical_not(cluster_idxs) )
+    for cluster_idxs in proposed_clusters:
+        
+        #print cluster_idxs.sum(), numpy.logical_not(cluster_idxs).sum()
+        
+        if cluster_idxs.sum() > 1.5: # Need at least two guys in a cluster to look for polymorphisms
+            
+            anticluster_idxs = numpy.logical_not(cluster_idxs)
+            
+            if anticluster_idxs.sum() > 1.5: # Likewise for the anticluster
+                
+                clusters.append(cluster_idxs)
+                anticlusters.append( anticluster_idxs )
  
     total_genes = set(passed_sites_map.keys())
  
@@ -153,119 +164,122 @@ def calculate_phylogenetic_consistency(allele_counts_map, passed_sites_map, clus
     polymorphic_variant_types = {variant_type: 0 for variant_type in allowed_variant_types}
     inconsistent_variant_types = {variant_type: 0 for variant_type in allowed_variant_types}
     null_inconsistent_variant_types = {variant_type: 0 for variant_type in allowed_variant_types}
+    
+    if len(clusters)>0: # Can only do stuff if there are clusters!
+        
      
-    for gene_name in allowed_genes:
+        for gene_name in allowed_genes:
          
-        for variant_type in passed_sites_map[gene_name].keys():
+            for variant_type in passed_sites_map[gene_name].keys():
               
-            if variant_type not in allowed_variant_types:
-                continue
+                if variant_type not in allowed_variant_types:
+                    continue
          
-            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
-            if len(allele_counts)==0:
-                continue
+                allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
+                if len(allele_counts)==0:
+                    continue
                 
-            # good to go, let's get calculating
+                # good to go, let's get calculating
                 
-            # take consensus approximation
-            genotype_matrix, passed_sites_matrix = diversity_utils.calculate_consensus_genotypes(allele_counts)
+                # take consensus approximation
+                genotype_matrix, passed_sites_matrix = diversity_utils.calculate_consensus_genotypes(allele_counts)
              
-            population_prevalence = (genotype_matrix*passed_sites_matrix).sum(axis=1)
-            population_max_prevalence = (passed_sites_matrix).sum(axis=1)
+                population_prevalence = (genotype_matrix*passed_sites_matrix).sum(axis=1)
+                population_max_prevalence = (passed_sites_matrix).sum(axis=1)
             
-            population_minor_prevalence = numpy.fmin(population_prevalence, population_max_prevalence - population_prevalence)
+                population_minor_prevalence = numpy.fmin(population_prevalence, population_max_prevalence - population_prevalence)
             
-            population_freqs = population_prevalence*1.0/(population_max_prevalence+10*(population_max_prevalence<0.5))
-            population_freqs = numpy.fmin(population_freqs, 1-population_freqs)
+                population_freqs = population_prevalence*1.0/(population_max_prevalence+10*(population_max_prevalence<0.5))
+                population_freqs = numpy.fmin(population_freqs, 1-population_freqs)
      
-            is_polymorphic = numpy.zeros(genotype_matrix.shape[0])
-            is_inconsistent = numpy.zeros(genotype_matrix.shape[0])
+                is_polymorphic = numpy.zeros(genotype_matrix.shape[0])
+                is_inconsistent = numpy.zeros(genotype_matrix.shape[0])
      
-            for cluster_idxs,anticluster_idxs in zip(clusters,anticlusters):
+                for cluster_idxs,anticluster_idxs in zip(clusters,anticlusters):
              
                 
-                cluster_prevalence = (genotype_matrix[:,cluster_idxs]*passed_sites_matrix[:,cluster_idxs]).sum(axis=1)
-                cluster_min_prevalence = 1-1e-09
-                cluster_max_prevalence = (passed_sites_matrix[:,cluster_idxs]).sum(axis=1)-1+1e-09
+                    cluster_prevalence = (genotype_matrix[:,cluster_idxs]*passed_sites_matrix[:,cluster_idxs]).sum(axis=1)
+                    cluster_min_prevalence = 1-1e-09
+                    cluster_max_prevalence = (passed_sites_matrix[:,cluster_idxs]).sum(axis=1)-1+1e-09
                 
-                cluster_freqs = cluster_prevalence*1.0/(cluster_max_prevalence+10*(cluster_max_prevalence<0.5))
-                cluster_freqs = numpy.fmin(cluster_freqs, 1-cluster_freqs)
+                    cluster_freqs = cluster_prevalence*1.0/(cluster_max_prevalence+10*(cluster_max_prevalence<0.5))
+                    cluster_freqs = numpy.fmin(cluster_freqs, 1-cluster_freqs)
              
-                anticluster_prevalence = (genotype_matrix[:,anticluster_idxs]*passed_sites_matrix[:,anticluster_idxs]).sum(axis=1)
-                anticluster_min_prevalence = 1-1e-09
-                anticluster_max_prevalence = (passed_sites_matrix[:,anticluster_idxs]).sum(axis=1) -1+1e-09
+                    anticluster_prevalence = (genotype_matrix[:,anticluster_idxs]*passed_sites_matrix[:,anticluster_idxs]).sum(axis=1)
+                    anticluster_min_prevalence = 1-1e-09
+                    anticluster_max_prevalence = (passed_sites_matrix[:,anticluster_idxs]).sum(axis=1) -1+1e-09
              
-                # Those that are polymorphic in the clade!
-                polymorphic_sites = (cluster_prevalence>=cluster_min_prevalence)*(cluster_prevalence<=cluster_max_prevalence)
+                    # Those that are polymorphic in the clade!
+                    polymorphic_sites = (cluster_prevalence>=cluster_min_prevalence)*(cluster_prevalence<=cluster_max_prevalence)
                  
-                # Those that are also polymorphic in the remaining population!
-                inconsistent_sites = polymorphic_sites*(anticluster_prevalence>=anticluster_min_prevalence)*(anticluster_prevalence<=anticluster_max_prevalence)
+                    # Those that are also polymorphic in the remaining population!
+                    inconsistent_sites = polymorphic_sites*(anticluster_prevalence>=anticluster_min_prevalence)*(anticluster_prevalence<=anticluster_max_prevalence)
              
-                is_polymorphic = numpy.logical_or(is_polymorphic, polymorphic_sites)
-                is_inconsistent = numpy.logical_or(is_inconsistent, inconsistent_sites)
+                    is_polymorphic = numpy.logical_or(is_polymorphic, polymorphic_sites)
+                    is_inconsistent = numpy.logical_or(is_inconsistent, inconsistent_sites)
             
-            if is_polymorphic.sum() > 0:
+                if is_polymorphic.sum() > 0:
             
-                is_singleton = (numpy.fabs(population_minor_prevalence-1)<1e-08)*is_polymorphic
+                    is_singleton = (numpy.fabs(population_minor_prevalence-1)<1e-08)*is_polymorphic
                 
-                is_polymorphic = (population_minor_prevalence>1.5)*is_polymorphic
+                    is_polymorphic = (population_minor_prevalence>1.5)*is_polymorphic
                 
-                singleton_freqs.extend( population_freqs[is_singleton] )
-                singleton_variant_types[variant_type] += is_singleton.sum()
+                    singleton_freqs.extend( population_freqs[is_singleton] )
+                    singleton_variant_types[variant_type] += is_singleton.sum()
                 
-                polymorphic_freqs.extend( population_freqs[is_polymorphic] )
-                polymorphic_variant_types[variant_type] += is_polymorphic.sum()
+                    polymorphic_freqs.extend( population_freqs[is_polymorphic] )
+                    polymorphic_variant_types[variant_type] += is_polymorphic.sum()
                 
-                if is_inconsistent.sum() > 0:
-                    #inconsistent_freqs.extend( cluster_freqs[is_inconsistent] )
-                    inconsistent_freqs.extend( population_freqs[is_inconsistent] )
-                    inconsistent_variant_types[variant_type] += is_inconsistent.sum()
+                    if is_inconsistent.sum() > 0:
+                        #inconsistent_freqs.extend( cluster_freqs[is_inconsistent] )
+                        inconsistent_freqs.extend( population_freqs[is_inconsistent] )
+                        inconsistent_variant_types[variant_type] += is_inconsistent.sum()
                 
-                # now try to compute a null expectation for a completely unlinked genome
-                polymorphic_idxs = numpy.arange(0,genotype_matrix.shape[0])[is_polymorphic]
-                # Loop over sites that were polymorphic, generate a "null" draw for them
-                for site_idx in polymorphic_idxs:
+                    # now try to compute a null expectation for a completely unlinked genome
+                    polymorphic_idxs = numpy.arange(0,genotype_matrix.shape[0])[is_polymorphic]
+                    # Loop over sites that were polymorphic, generate a "null" draw for them
+                    for site_idx in polymorphic_idxs:
                     
-                    genotypes = genotype_matrix[site_idx,:]
-                    passed_sites = passed_sites_matrix[site_idx,:]
-                    population_freq = population_freqs[site_idx]
+                        genotypes = genotype_matrix[site_idx,:]
+                        passed_sites = passed_sites_matrix[site_idx,:]
+                        population_freq = population_freqs[site_idx]
                     
-                    permuted_idxs = numpy.arange(0,len(genotypes))
+                        permuted_idxs = numpy.arange(0,len(genotypes))
                     
-                    is_polymorphic = False
-                    is_inconsistent = False
-                    # loop until we find a polymorphic site
-                    while not is_polymorphic:
-                    
-                        # permute indexes 
-                        shuffle(permuted_idxs)
-                        
-                        permuted_genotypes = genotypes[permuted_idxs]
-                        permuted_passed_sites = passed_sites[permuted_idxs]
-                        
-                        # loop through clusters
+                        is_polymorphic = False
                         is_inconsistent = False
-                        for cluster_idxs,anticluster_idxs in zip(clusters,anticlusters):
+                        # loop until we find a polymorphic site
+                        while not is_polymorphic:
+                    
+                            # permute indexes 
+                            shuffle(permuted_idxs)
+                        
+                            permuted_genotypes = genotypes[permuted_idxs]
+                            permuted_passed_sites = passed_sites[permuted_idxs]
+                        
+                            # loop through clusters
+                            is_inconsistent = False
+                            for cluster_idxs,anticluster_idxs in zip(clusters,anticlusters):
              
                             
-                            cluster_prevalence = (permuted_genotypes[cluster_idxs]*permuted_passed_sites[cluster_idxs]).sum()
-                            cluster_min_prevalence = 0.5
-                            cluster_max_prevalence = (permuted_passed_sites[cluster_idxs]).sum()-0.5
+                                cluster_prevalence = (permuted_genotypes[cluster_idxs]*permuted_passed_sites[cluster_idxs]).sum()
+                                cluster_min_prevalence = 0.5
+                                cluster_max_prevalence = (permuted_passed_sites[cluster_idxs]).sum()-0.5
                 
                     
-                            anticluster_prevalence = (permuted_genotypes[anticluster_idxs]*permuted_passed_sites[anticluster_idxs]).sum()
-                            anticluster_min_prevalence = 0.5
-                            anticluster_max_prevalence = (permuted_passed_sites[anticluster_idxs]).sum() - 0.5
+                                anticluster_prevalence = (permuted_genotypes[anticluster_idxs]*permuted_passed_sites[anticluster_idxs]).sum()
+                                anticluster_min_prevalence = 0.5
+                                anticluster_max_prevalence = (permuted_passed_sites[anticluster_idxs]).sum() - 0.5
              
-                            polymorphic_in_cluster = ((cluster_prevalence>cluster_min_prevalence)*(cluster_prevalence<cluster_max_prevalence))
-                            inconsistent_in_cluster = (polymorphic_in_cluster*(anticluster_prevalence>anticluster_min_prevalence)*(anticluster_prevalence<anticluster_max_prevalence))
+                                polymorphic_in_cluster = ((cluster_prevalence>cluster_min_prevalence)*(cluster_prevalence<cluster_max_prevalence))
+                                inconsistent_in_cluster = (polymorphic_in_cluster*(anticluster_prevalence>anticluster_min_prevalence)*(anticluster_prevalence<anticluster_max_prevalence))
                             
-                            is_polymorphic = is_polymorphic or polymorphic_in_cluster
-                            is_inconsistent = is_inconsistent or inconsistent_in_cluster
+                                is_polymorphic = is_polymorphic or polymorphic_in_cluster
+                                is_inconsistent = is_inconsistent or inconsistent_in_cluster
                     
-                    if is_inconsistent:
-                        null_inconsistent_freqs.append(population_freq)
-                        null_inconsistent_variant_types[variant_type] += 1
+                        if is_inconsistent:
+                            null_inconsistent_freqs.append(population_freq)
+                            null_inconsistent_variant_types[variant_type] += 1
                         
     singleton_freqs = numpy.array(singleton_freqs)            
     polymorphic_freqs = numpy.array(polymorphic_freqs)

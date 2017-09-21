@@ -19,6 +19,7 @@ import calculate_substitution_rates
 import calculate_linkage_disequilibria
 import stats_utils
 import sfs_utils
+import figure_utils
 
 from scipy.optimize import least_squares, newton, brentq
       
@@ -28,7 +29,7 @@ from math import log10,ceil
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from numpy.random import randint
+from numpy.random import randint, multinomial
 import matplotlib.colors as mcolors
 
 from math import log
@@ -122,12 +123,15 @@ example_axis.set_xlabel('Distance between SNPs, $\ell$')
 
 example_axis.spines['top'].set_visible(False)
 example_axis.spines['right'].set_visible(False)
+example_axis.spines['bottom'].set_zorder(22)
+
 example_axis.get_xaxis().tick_bottom()
 example_axis.get_yaxis().tick_left()
 
 example_axis.set_xlim([2,1e04])
 example_axis.set_ylim([1e-02,1])
 
+example_axis.text(6e03,5.3e-03,'Genome-\nwide', horizontalalignment='center',fontsize='5')
 
 species_axis = plt.Subplot(fig, species_grid[0])
 fig.add_subplot(species_axis)
@@ -136,12 +140,15 @@ species_axis.set_xlim([-1.5,num_passed_species-0.5])
 
 species_axis.spines['top'].set_visible(False)
 species_axis.spines['right'].set_visible(False)
+
+
 species_axis.get_xaxis().tick_bottom()
 species_axis.get_yaxis().tick_left()
 
 xticks = numpy.arange(0,num_passed_species)
 #xticklabels = ["%s (%d)" % (species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
-xticklabels = ["%s" % (passed_species[i]) for i in xrange(0, num_passed_species)]
+#xticklabels = ["%s" % (passed_species[i]) for i in xrange(0, num_passed_species)]
+xticklabels = ["%s" % (figure_utils.get_pretty_species_name(passed_species[i])) for i in xrange(0, num_passed_species)]
 
 species_axis.set_xticks(xticks)
 species_axis.set_xticklabels(xticklabels, rotation='vertical',fontsize=4)
@@ -171,7 +178,7 @@ rbymu_axis.get_yaxis().tick_left()
 
 xticks = numpy.arange(0,num_passed_species)
 #xticklabels = ["%s (%d)" % (species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
-xticklabels = ["%s" % (passed_species[i]) for i in xrange(0, num_passed_species)]
+xticklabels = ["%s" % (figure_utils.get_pretty_species_name(passed_species[i])) for i in xrange(0, num_passed_species)]
 
 rbymu_axis.set_xticks(xticks)
 rbymu_axis.set_xticklabels(xticklabels, rotation='vertical',fontsize=4)
@@ -230,7 +237,7 @@ for species_idx in xrange(0,num_passed_species):
     
     # smooth this stuff:
     smoothed_distances = distances
-    window_width = 10**(0.2)
+    window_width = 10**(0.1)
     
     dmins = smoothed_distances/(window_width**0.5)
     dmaxs = smoothed_distances*(window_width**0.5)
@@ -294,26 +301,93 @@ for species_idx in xrange(0,num_passed_species):
     
     if species_name.startswith('Bacteroides_vulgatus'):
         
+        num_bootstraps = 10
+        
+        bootstrapped_sigmasquareds = [] # will eventually be a matrix where first index is window_idx and second index is bootstrap index (sorted from lowest to highest)
+        # Estimate bootstrap intervals for focal species only
+        for dmin,dmax in zip(dmins,dmaxs):
+            binned_numerators = rsquared_numerators[(distances>=dmin)*(distances<=dmax)]
+            binned_denominators = rsquared_denominators[(distances>=dmin)*(distances<=dmax)]
+            binned_counts = ns[(distances>=dmin)*(distances<=dmax)]
+            
+            total_pairs = binned_counts.sum()
+            
+            upper_rsquareds = []
+            lower_rsquareds = []
+            
+            if total_pairs>0:
+            
+                if True: #len(binned_counts)>1:
+                    #print total_pairs
+                    #print binned_counts
+                    ps = binned_counts*1.0/total_pairs
+            
+                    window_bootstrapped_countss = multinomial(total_pairs,ps,size=num_bootstraps)
+            
+                    #print window_bootstrapped_countss.shape
+                    window_bootstrapped_numerators = (window_bootstrapped_countss*binned_numerators[None,:]).sum(axis=1)*1.0/total_pairs
+                    window_bootstrapped_denominators = (window_bootstrapped_countss*binned_denominators[None,:]).sum(axis=1)*1.0/total_pairs
+            
+                    window_bootstrapped_sigmasquareds = window_bootstrapped_numerators/window_bootstrapped_denominators
+            
+                    #print window_bootstrapped_sigmasquareds.shape
+                    window_bootstrapped_sigmasquareds.sort()
+            
+                    bootstrapped_sigmasquareds.append(window_bootstrapped_sigmasquareds)
+                    
+                    print total_pairs
+                    
+                else:
+                    bootstrapped_sigmasquareds.append([binned_numerators/binned_denominators]*num_bootstraps)
+                    
+            else:
+                
+                bootstrapped_sigmasquareds.append([-1]*num_bootstraps)
+                
+        
+        upper_rsquareds = numpy.array([bootstrapped_sigmasquareds[window_idx][long(num_bootstraps*0.95)] for window_idx in xrange(0,len(bootstrapped_sigmasquareds))])
+        lower_rsquareds = numpy.array([bootstrapped_sigmasquareds[window_idx][long(num_bootstraps*0.05)] for window_idx in xrange(0,len(bootstrapped_sigmasquareds))])
+        
+        print upper_rsquareds-lower_rsquareds
+        
+        good_distances = (upper_rsquareds>=-0.5)*(lower_rsquareds>=-0.5)
+        
         theory_ls = numpy.logspace(0,log10(distances[-1]),100)
         theory_NRs = theory_ls/200.0
         theory_rsquareds = (10+2*theory_NRs)/(22+26*theory_NRs+4*theory_NRs*theory_NRs)
         
-        example_axis.loglog([all_distances[-1],8e03], [all_rsquareds[-1], all_control_rsquared],':',color='0.7')
-        example_axis.loglog([8e03], [all_control_rsquared],'o',color='0.7',markersize=3,markeredgewidth=0)
+        example_axis.loglog(all_distances, all_rsquareds,'-',color='0.7',label='All samples')
+        example_axis.fill_between(numpy.array([3.3e03,1e04]),numpy.array([1e-02,1e-02]), numpy.array([1,1]),color='w',zorder=20)
+
+        example_axis.loglog([all_distances[-1],6e03], [all_rsquareds[-1], all_control_rsquared],':',color='0.7',zorder=21)
+        example_axis.loglog([6e03], [all_control_rsquared],'o',color='0.7',markersize=3,markeredgewidth=0,zorder=21)
         
-        example_axis.loglog(all_distances, all_rsquareds,'-',color='0.7',label='All')
         
+        
+        example_axis.fill_between(distances[good_distances],lower_rsquareds[good_distances], upper_rsquareds[good_distances], linewidth=0, color='b',alpha=0.5)
         example_axis.loglog(distances, rsquareds,'b-',label='Largest clade')
         example_axis.loglog(early_distances, early_rsquareds,'bo',markersize=2,markeredgewidth=0,alpha=0.5)
         
-        example_axis.loglog([distances[-1],8e03], [rsquareds[-1], control_rsquared],'b:')
-        example_axis.loglog([8e03], [control_rsquared],'bo',markersize=3,markeredgewidth=0)
-        example_axis.set_title(species_name,fontsize=6)
+        example_axis.loglog([distances[-1],6e03], [rsquareds[-1], control_rsquared],'b:',zorder=21)
+        example_axis.loglog([6e03], [control_rsquared],'bo',markersize=3,markeredgewidth=0,zorder=21)
+        #example_axis.set_title(figure_utils.get_pretty_species_name(species_name),fontsize=6,y=0.90)
         
         example_axis.loglog(theory_ls, theory_rsquareds/theory_rsquareds[0]*3e-01,'k-',linewidth=0.3,zorder=0,label='Neutral')
         
         
-        example_axis.legend(loc='lower left',frameon=False)
+        leg = example_axis.legend(loc='lower left',frameon=False,title=figure_utils.get_pretty_species_name(species_name))
+        leg._legend_box.align = "left"
+        
+        line, = example_axis.loglog([distances[-1],distances[-1]],[1e-02,1],'k:')
+        line.set_dashes((0.5,1))
+    
+        example_axis.xaxis.get_major_ticks()[-2].label1.set_visible(False)
+        example_axis.xaxis.get_major_ticks()[-2].tick1line.set_visible(False)
+        
+        for tick_idx in xrange(1,7):
+        
+            example_axis.xaxis.get_minor_ticks()[-tick_idx].tick1line.set_visible(False)
+            example_axis.xaxis.get_minor_ticks()[-tick_idx].tick2line.set_visible(False)
     
     #
     # Don't need this anymore, leaving for reference

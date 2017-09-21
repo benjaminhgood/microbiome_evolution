@@ -22,7 +22,7 @@ from numpy.random import randint
 import config
 import sfs_utils
 import stats_utils
-
+import figure_utils
 
 fontsize = 6
 mpl.rcParams['font.size'] = fontsize
@@ -95,12 +95,12 @@ polymorphism_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[0.3,1]
 between_axis = plt.Subplot(fig, polymorphism_grid[0])
 fig.add_subplot(between_axis)
 
-between_axis.set_ylabel("Avg fixed distance")
+between_axis.set_ylabel("Avg fixed\ndifferences")
 
 #depth_axis.set_ylim([1e01,3e03])
 between_axis.set_xticks([])
 
-between_axis.set_title(species_name,fontsize=fontsize)
+between_axis.set_title(figure_utils.get_pretty_species_name(species_name),fontsize=fontsize)
 
 
 #depth_axis = plt.Subplot(fig, polymorphism_grid[0])
@@ -140,7 +140,7 @@ fig.add_subplot(sfs_axis_1)
 sfs_axis_1.set_title('Sample 1 (D=%d)' % sample_coverage_map[sample_1],fontsize=5,y=0.9)
 sfs_axis_1.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_1.set_xticklabels([])
-sfs_axis_1.set_xlim([0,50])
+sfs_axis_1.set_xlim([50,100])
 sfs_axis_1.set_yticks([])
 
 sfs_axis_2 = plt.Subplot(fig, sfs_grid[1])
@@ -149,7 +149,7 @@ fig.add_subplot(sfs_axis_2)
 sfs_axis_2.set_title('Sample 2 (D=%d)' % sample_coverage_map[sample_2],fontsize=5,y=0.9)
 sfs_axis_2.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_2.set_xticklabels([])
-sfs_axis_2.set_xlim([0,50])
+sfs_axis_2.set_xlim([50,100])
 sfs_axis_2.set_yticks([])
 #sfs_axis_2.set_ylabel('Fraction of 4D sites')
 
@@ -159,19 +159,19 @@ fig.add_subplot(sfs_axis_3)
 sfs_axis_3.set_title('Sample 3 (D=%d)' % sample_coverage_map[sample_3],fontsize=5,y=0.9)
 sfs_axis_3.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_3.set_xticklabels([])
-sfs_axis_3.set_xlim([0,50])
+sfs_axis_3.set_xlim([50,100])
 sfs_axis_3.set_yticks([])
-sfs_axis_3.set_ylabel('          Fraction of sites')
+sfs_axis_3.set_ylabel('                  Fraction of sites')
 
 
 sfs_axis_4 = plt.Subplot(fig, sfs_grid[3])
 fig.add_subplot(sfs_axis_4)
 
 sfs_axis_4.set_title('Sample 4 (D=%d)' % sample_coverage_map[sample_4],fontsize=5,y=0.9)
-sfs_axis_3.set_xlabel('Minor allele freq (%)')
+sfs_axis_4.set_xlabel('Major allele freq (%)')
 
 sfs_axis_4.set_xticks([10*i for i in xrange(0,11)])
-sfs_axis_4.set_xlim([0,50])
+sfs_axis_4.set_xlim([50,100])
 sfs_axis_4.set_yticks([])
 
 ##############################################################################
@@ -306,7 +306,7 @@ for rank_idx in xrange(0,len(within_rates)):
 ###################################
 
 # Sample 1
-fs,pfs = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_1])
+fs,pfs = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_1],folding='major')
 df = fs[1]-fs[0]
 
 within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample_1])
@@ -316,16 +316,16 @@ pmax = between_line
 
 print between_sites*1.0/total_sites
 
-sfs_axis_1.fill_between([0,20],[0,0],[1,1],color='0.8')
+sfs_axis_1.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 #sfs_axis_1.fill_between([20,100],[0,0],[1,1],color='0.8')
 sfs_axis_1.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
-line, = sfs_axis_1.plot([20,100], [between_line,between_line], 'k-',linewidth=0.35)
+line, = sfs_axis_1.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
 line.set_dashes((1.5,1))
 sfs_axis_1.set_ylim([0,pmax*3])
 
 # Sample 2
-fs,pfs = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_2])
+fs,pfs = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_2],folding='major')
 df = fs[1]-fs[0]
 within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample_2])
 between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
@@ -335,16 +335,16 @@ print between_sites*1.0/total_sites
 
 #pmax = numpy.max([pfs[(fs>0.1)*(fs<0.95)].max(), between_line])
 pmax = between_line
-sfs_axis_2.fill_between([0,20],[0,0],[1,1],color='0.8')
+sfs_axis_2.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 sfs_axis_2.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
-line, = sfs_axis_2.plot([20,100], [between_line,between_line], 'k-',linewidth=0.35)
+line, = sfs_axis_2.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
 line.set_dashes((1.5,1))
 
 sfs_axis_2.set_ylim([0,pmax*3])
 
 # Sample 3
-fs,pfs = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_3])
+fs,pfs = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_3],folding='major')
 df = fs[1]-fs[0]
 within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample_3])
 between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
@@ -352,16 +352,16 @@ between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 pmax = between_line
 
 print between_sites*1.0/total_sites
-sfs_axis_3.fill_between([0,20],[0,0],[1,1],color='0.8')
+sfs_axis_3.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 sfs_axis_3.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
-line, = sfs_axis_3.plot([20,100], [between_line,between_line], 'k-',linewidth=0.35)
+line, = sfs_axis_3.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
 line.set_dashes((1.5,1))
 
 sfs_axis_3.set_ylim([0,pmax*3])
 
 # Sample 4
-fs,pfs = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_4])
+fs,pfs = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_4],folding='major')
 df = fs[1]-fs[0]
 within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample_4])
 between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
@@ -369,10 +369,10 @@ between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 pmax = between_line
 
 print between_sites*1.0/total_sites
-sfs_axis_4.fill_between([0,20],[0,0],[1,1],color='0.8')
+sfs_axis_4.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 sfs_axis_4.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
-line, = sfs_axis_4.plot([20,100], [between_line,between_line], 'k-',linewidth=0.35)
+line, = sfs_axis_4.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
 line.set_dashes((1.5,1))
 
 sfs_axis_4.set_ylim([0,pmax*3])
@@ -549,6 +549,22 @@ num_haploid_samples = num_haploid_samples[:35]
 num_samples = num_samples[:35]
 haploid_species_names = species_names[:35]
 
+# get better haploid species names
+pretty_haploid_species_names = []
+for species_name in haploid_species_names:
+
+    base_name = figure_utils.get_pretty_species_name(species_name)
+    pretty_name = base_name
+    if pretty_name in pretty_haploid_species_names:
+        idx = 1
+        while pretty_name in pretty_haploid_species_names:
+            idx += 1
+            pretty_name = base_name + (" %d" % (idx))
+    
+    pretty_haploid_species_names.append(pretty_name)
+    
+haploid_species_names = pretty_haploid_species_names
+
 total_temporal_samples = haploid_haploid_samples+haploid_polyploid_samples+polyploid_haploid_samples+polyploid_polyploid_samples
 
 temporal_species_names = species_names[total_temporal_samples>4]
@@ -565,8 +581,8 @@ total_temporal_samples, temporal_species_names, haploid_haploid_samples, haploid
 ys = 0-numpy.arange(0,len(num_haploid_samples))
 width=0.7
 
-haploid_axis.barh(ys, num_haploid_samples,color=haploid_color,linewidth=0,label='CPS',zorder=1)
-haploid_axis.barh(ys, num_samples,color=haploid_color,linewidth=0,label='non-CPS',zorder=0,alpha=0.5)
+haploid_axis.barh(ys, num_haploid_samples,color=haploid_color,linewidth=0,label='CP',zorder=1)
+haploid_axis.barh(ys, num_samples,color=haploid_color,linewidth=0,label='non-CP',zorder=0,alpha=0.5)
 haploid_axis.set_xlim([0,325])
 
 haploid_axis.yaxis.tick_right()
@@ -575,6 +591,8 @@ haploid_axis.xaxis.tick_bottom()
 haploid_axis.set_yticks(ys+0.5)
 haploid_axis.set_yticklabels(haploid_species_names,fontsize=4)
 haploid_axis.set_ylim([-1*len(num_haploid_samples)+1,1])
+
+haploid_axis.tick_params(axis='y', direction='out',length=3,pad=1)
 
 haploid_axis.legend(loc='lower right',frameon=False)
 
@@ -593,11 +611,11 @@ polyploid_polyploid_color = diploid_color
 polyploid_polyploid_alpha = 1.0
 
 # Plot bars
-temporal_haploid_axis.barh(ys, haploid_haploid_samples,linewidth=0,label='CPS->CPS',zorder=4, color=haploid_haploid_color, alpha=haploid_haploid_alpha)
+temporal_haploid_axis.barh(ys, haploid_haploid_samples,linewidth=0,label='CP->CP',zorder=4, color=haploid_haploid_color, alpha=haploid_haploid_alpha)
 
-temporal_haploid_axis.barh(ys, haploid_polyploid_samples, left=haploid_haploid_samples, linewidth=0,label='CPS->non',zorder=3, color=haploid_polyploid_color, alpha=haploid_polyploid_alpha)
+temporal_haploid_axis.barh(ys, haploid_polyploid_samples, left=haploid_haploid_samples, linewidth=0,label='CP->non',zorder=3, color=haploid_polyploid_color, alpha=haploid_polyploid_alpha)
 
-temporal_haploid_axis.barh(ys, polyploid_haploid_samples, left=haploid_haploid_samples+haploid_polyploid_samples, linewidth=0,label='non->CPS',zorder=2, color=polyploid_haploid_color, alpha=polyploid_haploid_alpha)
+temporal_haploid_axis.barh(ys, polyploid_haploid_samples, left=haploid_haploid_samples+haploid_polyploid_samples, linewidth=0,label='non->CP',zorder=2, color=polyploid_haploid_color, alpha=polyploid_haploid_alpha)
 
 temporal_haploid_axis.barh(ys, polyploid_polyploid_samples, left=haploid_haploid_samples+haploid_polyploid_samples+polyploid_haploid_samples, linewidth=0,label='non->non',zorder=1, color=polyploid_polyploid_color, alpha=polyploid_polyploid_alpha)
 
@@ -607,6 +625,9 @@ temporal_haploid_axis.xaxis.tick_bottom()
 temporal_haploid_axis.set_yticks(ys+0.5)
 temporal_haploid_axis.set_yticklabels(temporal_species_names,fontsize=4)
 temporal_haploid_axis.set_ylim([-1*len(temporal_species_names)+1,1])
+
+temporal_haploid_axis.tick_params(axis='y', direction='out',length=3,pad=1)
+
 
 temporal_haploid_axis.legend(loc='lower right',frameon=False)
 

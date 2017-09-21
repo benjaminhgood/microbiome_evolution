@@ -517,8 +517,10 @@ total_polymorphic_sites = numpy.array(total_polymorphic_sites)
 total_inconsistent_sites = numpy.array(total_inconsistent_sites)
 total_null_inconsistent_sites = numpy.array(total_null_inconsistent_sites)
   
-fraction_inconsistent = total_inconsistent_sites*1.0/total_polymorphic_sites
-null_fraction_inconsistent = total_null_inconsistent_sites*1.0/total_polymorphic_sites
+fraction_inconsistent = total_inconsistent_sites*1.0/(total_polymorphic_sites+(total_polymorphic_sites==0))
+null_fraction_inconsistent = total_null_inconsistent_sites*1.0/(total_polymorphic_sites+(total_polymorphic_sites==0))
+
+good_inconsistency_idxs = (total_polymorphic_sites>0)
     
 sys.stderr.write("Done!\n")
 
@@ -529,8 +531,8 @@ inconsistency_axis.set_ylim([yplotmin/1.4,yplotmax])
 inconsistency_axis.set_xlim([0,1])
 inconsistency_axis.set_yticklabels([])
 inconsistency_axis.set_xticks([0,0.5,1])
-inconsistency_axis.plot(fraction_inconsistent, ds, 'r.-',markersize=2,zorder=1,label='Observed')
-inconsistency_axis.plot(null_fraction_inconsistent, ds, '.-',color='0.7',markersize=2,zorder=0,label='Unlinked')
+inconsistency_axis.plot(fraction_inconsistent[good_inconsistency_idxs], ds[good_inconsistency_idxs], 'r.-',markersize=2,zorder=1,label='Observed')
+inconsistency_axis.plot(null_fraction_inconsistent[good_inconsistency_idxs], ds[good_inconsistency_idxs], '.-',color='0.7',markersize=2,zorder=0,label='Unlinked')
 
 inconsistency_axis.legend(loc='lower right',frameon=False,numpoints=1,fontsize=4)
 
