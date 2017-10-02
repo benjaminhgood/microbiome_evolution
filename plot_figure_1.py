@@ -81,7 +81,7 @@ desired_median_coverages = numpy.array([sample_coverage_map[sample] for sample i
 pylab.figure(1,figsize=(5,2.7))
 fig = pylab.gcf()
 # make three panels
-outer_grid  = gridspec.GridSpec(1,3, width_ratios=[1.5, 1, 1.3], wspace=0.25)
+outer_grid  = gridspec.GridSpec(1,2, width_ratios=[2.7, 1.1], wspace=0.05)
 
 ##############################################################################
 #
@@ -89,18 +89,14 @@ outer_grid  = gridspec.GridSpec(1,3, width_ratios=[1.5, 1, 1.3], wspace=0.25)
 #
 ##############################################################################
 
-polymorphism_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[0.3,1],
-                subplot_spec=outer_grid[0], hspace=0.1)
+focal_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[1,1.6],
+                subplot_spec=outer_grid[0], wspace=0.5)
 
-between_axis = plt.Subplot(fig, polymorphism_grid[0])
-fig.add_subplot(between_axis)
+polymorphism_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[0.075,1],
+                subplot_spec=focal_grid[1], hspace=0.05)
 
-between_axis.set_ylabel("Avg fixed\ndifferences")
 
-#depth_axis.set_ylim([1e01,3e03])
-between_axis.set_xticks([])
 
-between_axis.set_title(figure_utils.get_pretty_species_name(species_name),fontsize=fontsize)
 
 
 #depth_axis = plt.Subplot(fig, polymorphism_grid[0])
@@ -123,6 +119,8 @@ polymorphism_axis.set_ylabel("Within-sample polymorphism")
 polymorphism_axis.set_ylim([1e-06,2e-01])
 polymorphism_axis.set_xticks([])
 
+polymorphism_axis.set_title(figure_utils.get_pretty_species_name(species_name),fontsize=fontsize)
+
 #polymorphism_axis.set_title(species_name,fontsize=fontsize)
 
 ##############################################################################
@@ -132,7 +130,7 @@ polymorphism_axis.set_xticks([])
 ##############################################################################
 
 sfs_grid = gridspec.GridSpecFromSubplotSpec(4, 1, height_ratios=[1,1,1,1],
-                subplot_spec=outer_grid[1], hspace=0.25)
+                subplot_spec=focal_grid[0], hspace=0.25)
                 
 sfs_axis_1 = plt.Subplot(fig, sfs_grid[0])
 fig.add_subplot(sfs_axis_1)
@@ -142,6 +140,8 @@ sfs_axis_1.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_1.set_xticklabels([])
 sfs_axis_1.set_xlim([50,100])
 sfs_axis_1.set_yticks([])
+sfs_axis_1.xaxis.tick_bottom()
+
 
 sfs_axis_2 = plt.Subplot(fig, sfs_grid[1])
 fig.add_subplot(sfs_axis_2)
@@ -151,6 +151,8 @@ sfs_axis_2.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_2.set_xticklabels([])
 sfs_axis_2.set_xlim([50,100])
 sfs_axis_2.set_yticks([])
+sfs_axis_2.xaxis.tick_bottom()
+
 #sfs_axis_2.set_ylabel('Fraction of 4D sites')
 
 sfs_axis_3 = plt.Subplot(fig, sfs_grid[2])
@@ -161,7 +163,8 @@ sfs_axis_3.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_3.set_xticklabels([])
 sfs_axis_3.set_xlim([50,100])
 sfs_axis_3.set_yticks([])
-sfs_axis_3.set_ylabel('                  Fraction of sites')
+sfs_axis_3.set_ylabel('              Fraction of synonymous sites')
+sfs_axis_3.xaxis.tick_bottom()
 
 
 sfs_axis_4 = plt.Subplot(fig, sfs_grid[3])
@@ -173,6 +176,7 @@ sfs_axis_4.set_xlabel('Major allele freq (%)')
 sfs_axis_4.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_4.set_xlim([50,100])
 sfs_axis_4.set_yticks([])
+sfs_axis_4.xaxis.tick_bottom()
 
 ##############################################################################
 #
@@ -180,10 +184,11 @@ sfs_axis_4.set_yticks([])
 #
 ##############################################################################
 
-haploid_axis = plt.Subplot(fig, outer_grid[2])
+haploid_axis = plt.Subplot(fig, outer_grid[1])
 fig.add_subplot(haploid_axis)
 
 haploid_axis.set_xlabel("Number of samples")
+
 
 ####################################################
 #
@@ -249,6 +254,38 @@ copynum_axis_4.set_xlabel('Estimated gene copynum')
 #copynum_axis_4.set_xlim([0,4])
 copynum_axis_4.set_yticks([])
 
+
+pylab.figure(4,figsize=(3.42,3.42))
+avg_distance_fig = pylab.gcf()
+# make three panels
+outer_grid  = gridspec.GridSpec(2, 1, height_ratios=[0.3,1], hspace=0.1)
+
+##############################################################################
+#
+# Panel (a). Rank ordered within-host polymorhpism rate for focal species
+#
+##############################################################################
+
+between_axis = plt.Subplot(avg_distance_fig, outer_grid[0])
+avg_distance_fig.add_subplot(between_axis)
+
+between_axis.set_ylabel("Avg fixed\ndifferences")
+
+between_axis.set_xticks([])
+
+between_axis.set_title(figure_utils.get_pretty_species_name(species_name),fontsize=fontsize)
+
+supplemental_polymorphism_axis = plt.Subplot(avg_distance_fig, outer_grid[1])
+avg_distance_fig.add_subplot(supplemental_polymorphism_axis)
+
+supplemental_polymorphism_axis.set_xlabel("Ranked samples (n=%d)" % len(desired_samples))
+supplemental_polymorphism_axis.set_ylabel("Within-sample polymorphism")
+
+supplemental_polymorphism_axis.set_ylim([1e-06,2e-01])
+supplemental_polymorphism_axis.set_xticks([])
+
+#polymorphism_axis.set_title(species_name,fontsize=fontsize)
+
 ###################################
 #
 # Calculate within polymorphism rates
@@ -273,8 +310,8 @@ for sample in desired_samples:
     between_rates.append(between_rate)
     within_rates.append(within_rate)
     
-    # Calculate 50% confidence intervals
-    within_rate_lower, within_rate_upper = stats_utils.calculate_poisson_rate_interval(within_sites, total_sites)
+    # Calculate 95% confidence intervals
+    within_rate_lower, within_rate_upper = stats_utils.calculate_poisson_rate_interval(within_sites, total_sites,alpha=0.05)
     within_rate_lowers.append(within_rate_lower)
     within_rate_uppers.append(within_rate_upper)
    
@@ -294,6 +331,8 @@ within_rate_lowers = numpy.clip(within_rate_lowers, 1e-09,1)
 for rank_idx in xrange(0,len(within_rates)):
     
     polymorphism_axis.semilogy([rank_idx,rank_idx], [within_rate_lowers[rank_idx],within_rate_uppers[rank_idx]],'-',color=haploid_color,linewidth=0.25)
+    supplemental_polymorphism_axis.semilogy([rank_idx,rank_idx], [within_rate_lowers[rank_idx],within_rate_uppers[rank_idx]],'-',color=haploid_color,linewidth=0.25)
+    
     between_axis.semilogy([rank_idx], [between_rates[rank_idx]],'.',color=haploid_color,markersize=2.5,alpha=0.5,markeredgewidth=0)
     #depth_axis.semilogy([rank_idx], [median_depths[rank_idx]],'.',color=haploid_color,markersize=2.5,alpha=0.5,markeredgewidth=0)
     
@@ -310,11 +349,15 @@ fs,pfs = sfs_utils.calculate_binned_sfs_from_sfs_map(sfs_map[sample_1],folding='
 df = fs[1]-fs[0]
 
 within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample_1])
+
+    
+
 between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 #pmax = numpy.max([pfs[(fs>0.1)*(fs<0.95)].max(), between_line])
 pmax = between_line
 
-print between_sites*1.0/total_sites
+within_rate = within_sites*1.0/total_sites
+print within_rate, between_sites*1.0/total_sites
 
 sfs_axis_1.fill_between([80,100],[0,0],[1,1],color='0.8')
 
@@ -330,7 +373,8 @@ df = fs[1]-fs[0]
 within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample_2])
 between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 
-print between_sites*1.0/total_sites
+within_rate = within_sites*1.0/total_sites
+print within_rate, between_sites*1.0/total_sites
 
 
 #pmax = numpy.max([pfs[(fs>0.1)*(fs<0.95)].max(), between_line])
@@ -351,7 +395,8 @@ between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 #pmax = numpy.max([pfs[(fs>0.1)*(fs<0.95)].max(), between_line])
 pmax = between_line
 
-print between_sites*1.0/total_sites
+within_rate = within_sites*1.0/total_sites
+print within_rate, between_sites*1.0/total_sites
 sfs_axis_3.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 sfs_axis_3.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
@@ -368,7 +413,8 @@ between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 #pmax = numpy.max([pfs[(fs>0.1)*(fs<0.95)].max(), between_line])
 pmax = between_line
 
-print between_sites*1.0/total_sites
+within_rate = within_sites*1.0/total_sites
+print within_rate, between_sites*1.0/total_sites
 sfs_axis_4.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 sfs_axis_4.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
@@ -646,6 +692,10 @@ sys.stderr.write("Done!\n")
 
 sys.stderr.write("Saving figure...\t")
 fig2.savefig('%s/supplemental_temporal_haploid.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
+sys.stderr.write("Done!\n")
+
+sys.stderr.write("Saving figure...\t")
+avg_distance_fig.savefig('%s/supplemental_avg_distance.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
 

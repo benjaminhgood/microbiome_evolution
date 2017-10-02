@@ -872,8 +872,6 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
         else:
             contig = site_id_items[0] 
             location = site_id_items[1]
-        new_site_id_str = "|".join([contig, location, gene_name, variant_type])
-        
         
     
         # now parse allele count info
@@ -909,9 +907,16 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
         
         
         # polarize SNP based on consensus in entire dataset
+        # Polarization = "R" (same as reference) or "A" (not reference, alt)
         if total_alts>total_refs:
+            polarization = "A"
             alts,refs = refs,alts
             total_alts, total_refs = total_refs, total_alts
+        else:
+            polarization = "R"
+            
+        new_site_id_str = "|".join([contig, location, gene_name, variant_type, polarization])
+        
         
         # print string
         read_strs = ["%g,%g" % (A,A+R) for A,R in zip(alts, refs)]
@@ -1005,7 +1010,14 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
         location = long(info_items[1])
         gene_name = info_items[2]
         variant_type = info_items[3]
-        pvalue = float(info_items[4])
+        
+        if len(info_items) > 5: # for backwards compatability
+            polarization = info_items[4]
+            pvalue = float(info_items[5])
+        else: 
+            polarization="R" # not correct, but avoids a crash
+            pvalue = float(info_items[4])
+            
         
         if num_sites_processed >= chunk_size and gene_name!=previous_gene_name:
             # We are done for now!
@@ -1117,84 +1129,6 @@ def parse_within_sample_pi_new(species_name, allowed_genes=set([]), allowed_vari
     return samples, total_pi, total_opportunities
     
 
-###############################################################################
-#
-# Calculates within-sample synonymous pi directly from annotated_snps.txt.bz2. 
-# Ugly hack (since it does not encourage code re-use and puts pop-gen logic
-# in the basic parsing scripts) but we need it so that we can call parse_snps 
-# on subsets of samples later on to improve performance
-#
-# returns vector of samples, vector of pi_s (raw counts), vector of opportunities
-#
-###############################################################################
-def parse_within_sample_pi(species_name, allowed_genes=set([]), allowed_variant_types=set(['4D']), debug=False):
-    
-    # Open post-processed MIDAS output
-    snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")
-    
-    line = snp_file.readline() # header
-    items = line.split()[1:]
-    samples = parse_merged_sample_names(items)
-    
-    
-    
-    total_opportunities = numpy.zeros(len(samples))*1.0
-    total_pi = numpy.zeros(len(samples))*1.0
-    
-    num_sites_processed = 0
-    for line in snp_file:
-        
-        items = line.split()
-        # Load information about site
-        info_items = items[0].split("|")
-        chromosome = info_items[0]
-        location = long(info_items[1])
-        gene_name = info_items[2]
-        variant_type = info_items[3]
-        pvalue = float(info_items[4])
-        
-        if variant_type not in allowed_variant_types:
-            continue
-        
-        if len(allowed_genes)>0 and (gene_name not in allowed_genes):
-            continue
-        
-        # Load alt and depth counts
-        alts = []
-        depths = []
-        for item in items[1:]:
-            subitems = item.split(",")
-            alts.append(float(subitems[0]))
-            depths.append(float(subitems[1]))
-        alts = numpy.array(alts)
-        depths = numpy.array(depths)
-        refs = depths-alts
-
-        passed_sites = (depths>0)*1.0
-        
-        # zero out non-passed sites
-        # (shouldn't be needed anymore)    
-        refs = refs*passed_sites
-        alts = alts*passed_sites
-        depths = depths*passed_sites
-        
-        alt_lower_threshold = numpy.ceil(depths*0.05)+0.5 #at least one read above 5%.
-        alts[alts<alt_lower_threshold] = 0
-        alt_upper_threshold = numpy.floor(depths*0.95)-0.5 #at least one read below 95%
-        alts[alts>alt_upper_threshold] = depths[alts>alt_upper_threshold]
-        
-        total_pi += 2*alts*(depths-alts)*1.0/(depths*(depths-1)+(depths<1.1))
-        total_opportunities += passed_sites
-        
-        num_sites_processed+=1
-        if num_sites_processed%50000==0:
-            sys.stderr.write("%dk sites processed...\n" % (num_sites_processed/1000))   
-            if debug:
-                break
-    
-    snp_file.close()
-
-    return numpy.array(samples), total_pi, total_opportunities
 
 ###############################################################################
 #

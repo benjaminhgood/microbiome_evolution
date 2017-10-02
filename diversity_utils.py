@@ -662,7 +662,7 @@ def calculate_singletons(allele_counts_map, passed_sites_map, allowed_sample_idx
     return singletons
 
 
-def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
+def calculate_mutation_reversion_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
 upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min_change):
 
     total_genes = set(passed_sites_map.keys())
@@ -674,10 +674,13 @@ upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min
     
     if len(allowed_variant_types)==0:
         allowed_variant_types = set(['1D','2D','3D','4D'])    
-                    
-    fixation_matrix = numpy.zeros_like(passed_sites_map.values()[0].values()[0]['sites'])*1.0  
-    passed_sites = numpy.zeros_like(fixation_matrix)*1.0
+         
+    mut_fixation_matrix = numpy.zeros_like( passed_sites_map.values()[0].values()[0]['sites'] )*1.0   
+    rev_fixation_matrix = numpy.zeros_like(mut_fixation_matrix)
     
+    mut_opportunity_matrix = numpy.zeros_like(mut_fixation_matrix)
+    rev_opportunity_matrix = numpy.zeros_like(rev_fixation_matrix)
+              
     for gene_name in allowed_genes:
         
         for variant_type in passed_sites_map[gene_name].keys():
@@ -685,7 +688,8 @@ upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min
             if variant_type not in allowed_variant_types:
                 continue
         
-            passed_sites += passed_sites_map[gene_name][variant_type]['sites']
+        
+            passed_sites = passed_sites_map[gene_name][variant_type]['sites']
    
             allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
             if len(allele_counts)==0:
@@ -694,29 +698,54 @@ upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min
             depths = allele_counts.sum(axis=2)
             freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
             
-            intermediate_freq_sites = (freqs>lower_threshold)*(freqs<upper_threshold)
-   
+            derived_sites = (freqs>=upper_threshold)
+            ancestral_sites = (freqs<=lower_threshold)
+            
+            # Sites where the major allele is at sufficiently high frequency
+            high_freq_sites = numpy.logical_or(ancestral_sites, derived_sites)
+            # Those where it is not
+            intermediate_freq_sites = numpy.logical_not(high_freq_sites)
+            
+            # site*sample*sample matrix of sites with sufficient coverage in both samples
             passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
 
-            # NRG: what exactly is happening in bad_sites?
-            bad_sites = numpy.logical_or(intermediate_freq_sites[:,:,None],intermediate_freq_sites[:,None,:])*passed_depths
+            # site*sample*sample matrix of sites where we can look for differences            
+            confident_sites = numpy.logical_and(high_freq_sites[:,:,None], high_freq_sites[:,None,:])*passed_depths
             
-            delta_freqs = numpy.fabs(freqs[:,:,None]-freqs[:,None,:])*passed_depths
+
+            # site*sample*sample matrix of sites that are missing data 
+            # based on allele freqs, but which had sufficient coverage
+            # (we need to remove these from opportunities below)
+            missing_data_sites = numpy.logical_or(intermediate_freq_sites[:,:,None],intermediate_freq_sites[:,None,:])*passed_depths
+              
+            # Calculate mutations and reversions
+            mutations = (ancestral_sites[:,:,None])*(derived_sites[:,None,:])*passed_depths
             
-            # one version 
-            #fixations = (delta_freqs>=min_change)
+            reversions = (derived_sites[:,:,None])*(ancestral_sites[:,None,:])*passed_depths
             
-            # other version
-            mutations = ((freqs[:,:,None]<=lower_threshold)*(freqs[:,None,:]>=upper_threshold)*passed_depths)
-            reversions = ((freqs[:,:,None]>=upper_threshold)*(freqs[:,None,:]<=lower_threshold)*passed_depths)
+            # sites were you could have had a reversion
+            reversion_opportunities = derived_sites[:,:,None]*numpy.ones_like(passed_depths)
             
-            fixations = mutations+reversions
+            mut_fixation_matrix += (mutations).sum(axis=0)
+            rev_fixation_matrix += (reversions).sum(axis=0)
             
-            fixation_matrix += fixations.sum(axis=0) # sum over sites
+            rev_opportunity_matrix += (reversion_opportunities).sum(axis=0)
+            mut_opportunity_matrix += (passed_sites - missing_data_sites.sum(axis=0) - reversion_opportunities.sum(axis=0) ) 
             
-            passed_sites -= bad_sites.sum(axis=0)
-            
-    return fixation_matrix, passed_sites  
+    return mut_fixation_matrix, rev_fixation_matrix, mut_opportunity_matrix, rev_opportunity_matrix
+    
+    
+
+def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
+upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min_change):
+    
+    mut_fixation_matrix, rev_fixation_matrix, mut_opportunity_matrix, rev_opportunity_matrix = calculate_mutation_reversion_matrix(allele_counts_map, passed_sites_map, allowed_variant_types, allowed_genes, lower_threshold, 
+upper_threshold, min_change)
+
+    fixation_matrix = mut_fixation_matrix + rev_fixation_matrix
+    opportunity_matrix = mut_opportunity_matrix + rev_opportunity_matrix
+    
+    return fixation_matrix, opportunity_matrix
     
     
 # same as above, but returns two matrices with counts of 

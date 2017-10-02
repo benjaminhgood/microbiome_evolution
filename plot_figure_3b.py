@@ -220,9 +220,9 @@ for species_idx in xrange(0,len(species_names)):
     all_non_opportunities.extend( non_opportunities[species_name] )
     
     if species_name.startswith('Bacteroides_vulgatus'):
-        divergence_axis.loglog(pS2s, pNpSs, 'r.', markersize=2,markeredgewidth=0,zorder=1,label=("%s" % species_name))
-    
-    divergence_axis.loglog(pSs, pNpSs, '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0)
+        divergence_axis.loglog(pS2s, pNpSs, 'r.', markersize=2,markeredgewidth=0,zorder=1,label=("%s" % species_name),rasterized=True)
+    else:
+        divergence_axis.loglog(pSs, pNpSs, '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0,rasterized=True)
     
 all_syn_differences = numpy.array(all_syn_differences,dtype=numpy.int32)
 all_syn_opportunities = numpy.array(all_syn_opportunities,dtype=numpy.int32)
@@ -295,7 +295,7 @@ cumulative_axis.set_xlim([1e-05,1e-02])
 cumulative_axis.set_ylim([1e-01,1])
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_3b.png' % (parse_midas_data.analysis_directory),bbox_inches='tight', dpi=600)
+fig.savefig('%s/figure_3b.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight', dpi=600)
 
 sys.stderr.write("Done!\n")
 

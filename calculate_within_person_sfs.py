@@ -58,7 +58,14 @@ for line in snp_file:
     location = long(info_items[1])
     gene_name = info_items[2]
     variant_type = info_items[3]
-    pvalue = float(info_items[4])
+    
+    if len(info_items) > 5: # for backwards compatability
+            polarization = info_items[4]
+            pvalue = float(info_items[5])
+    else: 
+        polarization="?"
+        pvalue = float(info_items[4])
+        
     #    
     if variant_type not in allowed_variant_types:
         continue
@@ -76,8 +83,8 @@ for line in snp_file:
     alts = numpy.array(alts)
     depths = numpy.array(depths)
     refs = depths-alts
-    print alts
-    print depths
+    #print alts
+    #print depths
     #
     # population_freq returns the fraction of people for which the alt is the major allele.
     # This is a very important quantity being computed! It is later used for identifying CPS samples. 
@@ -94,7 +101,7 @@ for line in snp_file:
         #
         #
     num_sites_processed+=1
-    print num_sites_processed
+    #print num_sites_processed
     if num_sites_processed%50000==0:
         sys.stderr.write("%dk sites processed...\n" % (num_sites_processed/1000))   
         if debug:

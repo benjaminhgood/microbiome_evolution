@@ -91,13 +91,16 @@ total_random_null_snps = {var_type:0 for var_type in variant_types} # expectatio
 total_between_null_snps = {var_type:0 for var_type in variant_types} # expectation from randomly drawing sites that vary between samples (recombination) 
 
 total_snp_mutrevs = {'muts': 0, 'revs':0}
-total_between_null_snp_mutrevs = {'mut': 0, 'rev':0}
+total_random_null_snp_mutrevs = {'muts':0, 'revs':0}
+total_between_null_snp_mutrevs = {'muts': 0, 'revs':0}
 
 total_gene_gainlosses = {'gains':0, 'losses':0}
 total_between_null_gene_gainlosses = {'gains':0, 'losses':0}
 
 pooled_snp_change_distribution = []
 pooled_gene_change_distribution = []
+
+replacement_map = {}
 
 for species_name in good_species_list:
 
@@ -137,9 +140,14 @@ for species_name in good_species_list:
 
     sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
     substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
-    sys.stderr.write("Calculating matrix...\n")
-    dummy_samples, snp_difference_matrix, snp_opportunity_matrix =    calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
+    sys.stderr.write("Calculating SNV matrix...\n")
+    dummy_samples, snp_mut_difference_matrix, snp_rev_difference_matrix, snp_mut_opportunity_matrix, snp_rev_opportunity_matrix = calculate_substitution_rates.calculate_mutrev_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
     snp_samples = dummy_samples
+    
+    dummy_samples, gene_loss_difference_matrix, gene_gain_difference_matrix, gene_loss_opportunity_matrix, gene_gain_opportunity_matrix = calculate_substitution_rates.calculate_mutrev_matrices_from_substitution_rate_map(substitution_rate_map, 'genes', allowed_samples=snp_samples)
+    
+    gene_difference_matrices = {'gains': gene_gain_difference_matrix, 'losses': gene_loss_difference_matrix}
+    gene_opportunity_matrix = gene_loss_opportunity_matrix
     
     opportunity_matrices = {}
     difference_matrices = {}
@@ -150,7 +158,15 @@ for species_name in good_species_list:
     
         difference_matrices[var_type] = difference_matrix
         opportunity_matrices[var_type] = opportunity_matrix
+
+    difference_matrices['muts'] = snp_mut_difference_matrix
+    difference_matrices['revs'] = snp_rev_difference_matrix
+    opportunity_matrices['muts'] = snp_mut_opportunity_matrix
+    opportunity_matrices['revs'] = snp_rev_opportunity_matrix
     
+    snp_difference_matrix = snp_mut_difference_matrix+snp_rev_difference_matrix
+    snp_opportunity_matrix = snp_mut_opportunity_matrix+snp_rev_opportunity_matrix
+        
     snp_substitution_rate =     snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
     sys.stderr.write("Done!\n")
 
@@ -227,7 +243,14 @@ for species_name in good_species_list:
     
         if (num_snp_changes>-0.5):
             pooled_snp_change_distribution.append(num_snp_changes)
-        
+            
+        if (num_snp_changes>=modification_difference_threshold):
+            sample_pair = (sample_i, sample_j)
+            if sample_pair not in replacement_map:
+                replacement_map[sample_pair] = []
+            replacement_map[sample_pair].append(species_name)
+            
+            
         if (num_snp_changes<modification_difference_threshold) and (num_snp_changes>-0.5):
             total_snp_modification_map[species_name] += num_snp_changes
             total_null_snp_modification_map[species_name] += perr
@@ -260,25 +283,58 @@ for species_name in good_species_list:
                 total_random_null_snps[var_type] += observed_sample_size*opportunity_matrices[var_type][i,j]*1.0/total_opportunities  
             
             # Now get a null from between-host changes
-            total_between_host_changes = sum([numpy.median(difference_matrices[var_type][i,:]) for var_type in variant_types])
-            for var_type in variant_types:
-                total_between_null_snps[var_type] += observed_sample_size*(numpy.median(difference_matrices[var_type][i,:]))*1.0/total_between_host_changes  
+            good_comparison_idxs = (snp_opportunity_matrix[i,:]>0.5)
             
+            total_between_host_changes = sum([numpy.median(difference_matrices[var_type][i,good_comparison_idxs]) for var_type in variant_types])
+            
+            for var_type in variant_types:
+                total_between_null_snps[var_type] += observed_sample_size*(numpy.median(difference_matrices[var_type][i, good_comparison_idxs]))*1.0/total_between_host_changes  
+            
+            # Now do the same thing, except for SNV mutations/reversions
             
             # Tally mutations & reversions    
             total_snp_mutrevs['muts'] += num_mutations
             total_snp_mutrevs['revs'] += num_reversions
             
+            observed_sample_size = num_mutations+num_reversions
+            
+            # Now get a null from randomly drawing from genome
+            total_opportunities = opportunity_matrices['muts'][i,j]+opportunity_matrices['revs'][i,j]
+            for type in ['muts','revs']:
+                total_random_null_snp_mutrevs[type] += observed_sample_size*opportunity_matrices[type][i,j]*1.0/total_opportunities
+                
+            # Now get a null from between-host changes
+            total_between_host_changes = sum([numpy.median(difference_matrices[type][i,good_comparison_idxs]) for type in ['muts','revs']])
+            for type in ['muts','revs']:
+                total_between_null_snp_mutrevs[type] += observed_sample_size*(numpy.median(difference_matrices[type][i,good_comparison_idxs]))*1.0/total_between_host_changes  
+            
             if num_gene_changes > -0.5:
             
                 pooled_gene_change_distribution.append(num_gene_changes)        
     
-             
                 total_gene_modification_map[species_name] += num_gene_changes
                 total_null_gene_modification_map[species_name] += gene_perr   
                 
                 total_gene_gainlosses['gains'] += num_gains
                 total_gene_gainlosses['losses'] += num_losses
+                
+                if num_gene_changes>0.5: # you actually have some genes to draw a null ffrom...
+                    gene_i = i
+                    good_comparison_idxs = (gene_opportunity_matrix[i,:]>0.5)
+                    
+                    if good_comparison_idxs.sum() < 0.5:
+                        print sample_i, "no gene comparisons!" 
+                    else:
+                        observed_sample_size = num_gains+num_losses
+                
+                        # Now get a null from between-host changes
+                        total_between_host_changes = sum([numpy.median(gene_difference_matrices[type][gene_i,good_comparison_idxs]) for type in ['gains','losses']])
+                
+                        if total_between_host_changes < 0.5:
+                            print sample_i, num_gene_changes, gene_difference_matrices['gains'][gene_i,:], gene_difference_matrices['losses'][gene_i,:], gene_difference_matrices['losses'][gene_i,:], gene_opportunity_matrix[gene_i,:]
+                
+                        for type in ['gains','losses']:
+                            total_between_null_gene_gainlosses[type] += observed_sample_size*(numpy.median(gene_difference_matrices[type][gene_i,:]))*1.0/total_between_host_changes  
     
         temporal_changes.append((sample_i, sample_j, num_snp_changes, num_gene_changes))        
 
@@ -369,13 +425,19 @@ change_axis.get_yaxis().tick_left()
 cax = plt.Subplot(fig, outer_grid[1])
 fig.add_subplot(cax)
 
-pylab.figure(2,figsize=(3.42,1.9))
+
+##############
+#
+# Real figure
+#
+###############
+pylab.figure(2,figsize=(3.42,2))
 fig2 = pylab.gcf()
 # make three panels panels
 
-outer_grid  = gridspec.GridSpec(2,1,height_ratios=[1.1,1.9],hspace=0.3)
+outer_grid  = gridspec.GridSpec(2,1, height_ratios=[2,1],hspace=0.65)
 
-upper_grid = gridspec.GridSpecFromSubplotSpec(1,3, width_ratios=[1,1,1],wspace=0.45,subplot_spec=outer_grid[0])
+upper_grid = gridspec.GridSpecFromSubplotSpec(1,4, width_ratios=[1,1,1,0.6],wspace=0.45,subplot_spec=outer_grid[1])
 
 dnds_axis = plt.Subplot(fig2, upper_grid[0])
 fig2.add_subplot(dnds_axis)
@@ -388,7 +450,7 @@ dnds_axis.get_yaxis().tick_left()
 
 dnds_axis.set_xlim([0.3,2.7])
 dnds_axis.set_xticks([1,2])
-dnds_axis.set_xticklabels(['1D','4D'])
+dnds_axis.set_xticklabels(['non','syn'])
 
 # Mutation / reversion
 mutrev_axis = plt.Subplot(fig2, upper_grid[1])
@@ -400,6 +462,8 @@ mutrev_axis.get_xaxis().tick_bottom()
 mutrev_axis.get_yaxis().tick_left()
 
 mutrev_axis.set_xlim([0.3,2.7])
+mutrev_axis.set_ylim([0,345])
+mutrev_axis.set_yticks([0,100,200,300])
 mutrev_axis.set_xticks([1,2])
 mutrev_axis.set_xticklabels(['mut','rev'])
 #mutrev_axis.set_yticklabels([])
@@ -414,12 +478,28 @@ gainloss_axis.spines['right'].set_visible(False)
 gainloss_axis.get_xaxis().tick_bottom()
 gainloss_axis.get_yaxis().tick_left()
 gainloss_axis.set_xlim([0.3,2.7])
+gainloss_axis.set_ylim([0,1100])
 gainloss_axis.set_xticks([1,2])
-gainloss_axis.set_xticklabels(['gain','loss'])
+gainloss_axis.set_xticklabels(['loss','gain'])
 #gainloss_axis.set_yticklabels([])
 
 
-pooled_grid = gridspec.GridSpecFromSubplotSpec(1,2,width_ratios=[1,1],wspace=0.15,subplot_spec=outer_grid[1])
+legend_axis = plt.Subplot(fig2, upper_grid[3])
+fig2.add_subplot(legend_axis)
+
+legend_axis.set_ylim([0,1])
+legend_axis.set_xlim([0,1])
+
+legend_axis.spines['top'].set_visible(False)
+legend_axis.spines['right'].set_visible(False)
+legend_axis.spines['left'].set_visible(False)
+legend_axis.spines['bottom'].set_visible(False)
+
+legend_axis.set_xticks([])
+legend_axis.set_yticks([])
+
+
+pooled_grid = gridspec.GridSpecFromSubplotSpec(1,2,width_ratios=[1,1],wspace=0.15,subplot_spec=outer_grid[0])
 
 pooled_snp_axis = plt.Subplot(fig2, pooled_grid[0])
 fig2.add_subplot(pooled_snp_axis)
@@ -576,6 +656,14 @@ print observed_totals
 print random_totals
 print between_totals
 
+legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#08519c',label='Within-host')
+legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='r', alpha=0.5, label='Between-host')
+legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='k', alpha=0.5, label='De novo')
+
+legend_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
+
+
+
 dnds_axis.bar(numpy.arange(1,3)-0.1, observed_totals, width=0.2, linewidth=0, color='#08519c',label='Obs')
 
 dnds_axis.bar(numpy.arange(1,3)-0.3, random_totals, width=0.2, linewidth=0, color='k',alpha=0.5,label='Null 1')
@@ -586,11 +674,24 @@ dnds_axis.bar(numpy.arange(1,3)+0.1, between_totals, width=0.2, linewidth=0, col
 
 # Plot mutations, reversions
 
-mutrev_axis.bar([1-0.2, 2-0.2], [total_snp_mutrevs['muts'], total_snp_mutrevs['revs']], width=0.4, linewidth=0,color='#08519c')
+mutrev_axis.bar([1-0.3, 2-0.3], [total_random_null_snp_mutrevs['muts'], total_random_null_snp_mutrevs['revs']], width=0.2, linewidth=0, color='k',alpha=0.5,label='Null 1')
+ 
+mutrev_axis.bar([1-0.1, 2-0.1], [total_snp_mutrevs['muts'], total_snp_mutrevs['revs']], width=0.2, linewidth=0,color='#08519c')
 
-gainloss_axis.bar([1-0.2, 2-0.2], [total_gene_gainlosses['gains'], total_gene_gainlosses['losses']], width=0.4, linewidth=0,color='#08519c')
+mutrev_axis.bar([1+0.1, 2+0.1], [total_between_null_snp_mutrevs['muts'], total_between_null_snp_mutrevs['revs']], width=0.2, linewidth=0, color='r',alpha=0.5,label='Null 2')
 
 
+# Plot gains and losses
+
+gainloss_axis.bar([1-0.3, 2-0.3], [total_gene_gainlosses['losses']+total_gene_gainlosses['gains'],0], width=0.2, linewidth=0,color='k',alpha=0.5)
+
+gainloss_axis.bar([1-0.1, 2-0.1], [total_gene_gainlosses['losses'], total_gene_gainlosses['gains']], width=0.2, linewidth=0,color='#08519c')
+
+gainloss_axis.bar([1+0.1, 2+0.1], [total_between_null_gene_gainlosses['losses'],total_between_null_gene_gainlosses['gains']], width=0.2, linewidth=0, color='r',alpha=0.5)
+
+print "Printing replacement map!"
+for sample_pair in replacement_map.keys():
+    print sample_pair, len(replacement_map[sample_pair]), replacement_map[sample_pair]
 
 sys.stderr.write("Saving figure...\t")
 fig2.savefig('%s/figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
