@@ -28,10 +28,10 @@ for subject_id in subject_sample_time_map:
         species_lists.append(species_list)
 
         # for each sample, I want to rename the snps and gene directories so that I don't overwrite the old db output.
-        move_command = 'mv ' + os.path.expanduser('~/BenNanditaProject/MIDAS_intermediate_files_hmp/' + dir + '/%s/snps/ ~/BenNanditaProject/MIDAS_intermediate_files_hmp/' + dir + '/%s/snps_new_db') % (sample_id, sample_id)  
-        os.system(move_command)
-        move_command = 'mv ' + os.path.expanduser('~/BenNanditaProject/MIDAS_intermediate_files_hmp/' + dir + '/%s/genes/ ~/BenNanditaProject/MIDAS_intermediate_files_hmp/' + dir + '/%s/genes_new_db') % (sample_id, sample_id)  
-        os.system(move_command)
+        #move_command = 'mv ' + os.path.expanduser('~/BenNanditaProject/MIDAS_intermediate_files_hmp/' + dir + '/%s/snps/ ~/BenNanditaProject/MIDAS_intermediate_files_hmp/' + dir + '/%s/snps_new_db') % (sample_id, sample_id)  
+        #os.system(move_command)
+        #move_command = 'mv ' + os.path.expanduser('~/BenNanditaProject/MIDAS_intermediate_files_hmp/' + dir + '/%s/genes/ ~/BenNanditaProject/MIDAS_intermediate_files_hmp/' + dir + '/%s/genes_new_db') % (sample_id, sample_id)  
+        #os.system(move_command)
 
  
     # find the union of the different time points:
