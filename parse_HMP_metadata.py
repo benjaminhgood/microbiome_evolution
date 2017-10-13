@@ -1,140 +1,86 @@
 import os
 import pylab
 
+# Read in file matching sample id with visit number
+visNo_FN= '/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/phs000228.v3.pht001193.v3.p1.c1.EMMES_HMP_GTV.HMP.txt'
+visNo   = open(visNo_FN, "r")
 
-
-# relevant input files
-days_FN    ='/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/phs000228.v3.pht002157.v1.p1.c1.EMMES_HMP_DTP_DHX_DVD.HMP.txt'
-HMP_ids_FN ='/Users/nanditagarud/Dropbox (Gladstone)/ben_nandita_collaboration/midas_python_code/HMP_ids.txt'
-IDs_FN     ='/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/SRS2RAND.txt'
-visNo_FN   ='/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/project_catalog.csv'
-SRA_mapping_FN = '/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/sra_mapping_HMP.txt'
-visNo2_FN= '/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/phs000228.v3.pht001193.v3.p1.c1.EMMES_HMP_GTV.HMP.txt'
-
-days    = open(days_FN,"r")
-HMP_ids = open(HMP_ids_FN,"r")
-IDs     = open(IDs_FN,"r")
-visNo   = open(visNo_FN,"r")
-SRA_mapping = open(SRA_mapping_FN, "r")
-visNo2     = open(visNo2_FN, "r")
-
-# read HMP_ids into a dictionary with run_accession as the key
-HMP_ids_dict={}
-HMP_header=HMP_ids.readline() #header
-for line in HMP_ids:
-    run_accession=line.split('\t')[2]
-    HMP_ids_dict[run_accession]=line.strip().split('\t')
-
-
-# read days_FN into a dictionary with RANDSID and VISNO as the key and [dbGaP.SubjID, study_day] as the values
-
-
-days_dict={}
-days.readline() #header
-for line in days:
-    fields=line.strip().split('\t')
-    RANDSID=fields[162]
-    dbGaP_SubjID=fields[0]
-    VISNO=fields[5]
-    study_day=fields[6]
-    if RANDSID not in days_dict.keys():
-        days_dict[RANDSID]={}
-    days_dict[RANDSID][VISNO]=[dbGaP_SubjID, study_day]
-
-# read IDs into a dictionary with run_accession as the key
-IDs_dict={}
-IDs.readline() #header
-
-for line in IDs:
-    fields=line.strip().split('\t')
-    run_accession=fields[0]
-    RANDSID=fields[1]
-    IDs_dict[run_accession]=RANDSID
-
-# read the visit numbers into a dicationary with run_accession as the key
 visNo_dict={}
-visNo.readline() #header
-for line in visNo:
-    fields=line.strip().split(',')
-    run_accession=fields[0]
-    visno_string=fields[2].split()
-    visit_number=0
-    subject=0
-    for i in range(0, len(visno_string)):
-        if visno_string[i]=='number':
-            visit_number=visno_string[i+1]
-        elif visno_string[i]=='subject':
-            subject=visno_string[i+1]  
-    visNo_dict[run_accession]=[visit_number, subject]
-
-
-
-
-# read the SRA_mapping to a dictionary with sample_accession as key
-SRA_dict={}
-SRA_mapping.readline()
-
-for line in SRA_mapping:
-    run_accession=line.strip().split()[0]
-    sample_accession=line.strip().split()[1]
-    SRA_dict[run_accession]=sample_accession
-
-visNo2_dict = {}
-visNo2_dict_alt={}
 
 for i in range(0,10):
-    visNo2.readline()
+    visNo.readline()
 
-header_visno=visNo2.readline()
+header_visno=visNo.readline()
 
-for line in visNo2:
-    VISNO=line.strip().split('\t')[8][1]
-    sample_id=line.strip().split('\t')[10]
-    sample_id_alt=line.strip().split('\t')[6]
+for line in visNo:
+    day = line.strip().split('\t')[5] 
+    VISNO=line.strip().split('\t')[7][1]
+    sample_id=line.strip().split('\t')[6]
     RANDSID= line.strip().split('\t')[13]
-    visNo2_dict[sample_id]=VISNO
-    visNo2_dict_alt[sample_id_alt]=[VISNO, RANDSID]
+    visNo_dict[sample_id]=[VISNO, day]
 
 # outFile:
-# open the HMP file again to read in each line to match up the subject ID and sample ID to the metadata. 
+# open the HMP file to read in each line to match up the subject ID and sample ID to the metadata. 
+HMP_ids_FN= '/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/HMP_ids.txt'
 HMP_ids = open(HMP_ids_FN,"r")
 HMP_header=HMP_ids.readline() #header
 
 outFN='/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/HMP_ids_time.txt'
 outFile=open(outFN,'w')
-outFile.write(HMP_header.strip() +'\tVISNO\tstudy_day\n')
+outFile.write(HMP_header.strip() +'\tVISNO\n')
 
-# match all the dictionaries:
-counter=0
 for line in HMP_ids:  
-    RANDSID=line.split('\t')[0]
     sample_id=line.split('\t')[1]
-    run_accession=line.split('\t')[2] 
-    if run_accession in SRA_dict.keys():
-        SRS=SRA_dict[run_accession]
-        if SRS in visNo_dict.keys():
-            VISNO=str(visNo_dict[SRS][0])
-            RANDSID=IDs_dict[SRS]
-            study_day=days_dict[RANDSID][VISNO][1]
-            counter +=1
-            outFile.write(line.strip() +'\t' + VISNO + '\t' + study_day +'\n')
-        else:
-            if sample_id in visNo2_dict.keys():
-                VISNO=visNo2_dict[sample_id]
-                study_day=days_dict[RANDSID][VISNO][1]
-                counter +=1
-                outFile.write(line.strip() +'\t' + VISNO + '\t' + study_day +'\n')
-            elif sample_id in visNo2_dict_alt.keys():
-                if visNo2_dict_alt[sample_id][1] == RANDSID:
-                    VISNO=visNo2_dict_alt[sample_id][0]
-                    study_day=days_dict[RANDSID][VISNO][1] 
-                    counter +=1
-                    outFile.write(line.strip() +'\t' + VISNO + '\t' + study_day +'\n')
-                else:
-                    print line
-            else:
-                print line.strip() +'\tNA\tNA\n'
+    VISNO=visNo_dict[sample_id][0]
+    day=visNo_dict[sample_id][1]
+    outFile.write(line.strip() +'\t' + VISNO + '\n' ) 
 
 
-print counter
+# other files to cross-check the visnos:
 
+
+'''
+# read in the accessions from the HMP1-2 data file from the web:
+# for now I am not using this data, but can be used to get the visnos as well 
+inFN_HMP2='/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/HMP_samples_website.txt'
+HMP2=open(inFN_HMP2)
+header_HMP2=HMP2.readline()
+
+visNo_web_dict={} #sample_id -> visno, site
+for line in HMP2:
+    sample_id=line.strip().split('\t')[0]
+    subject_id=line.strip().split('\t')[1]
+    visno=line.strip().split('\t')[2]
+    site=line.strip().split('\t')[3]
+    accession=line.strip().split('\t')[6]
+    visNo_web_dict[sample_id] = [visno, site]
+
+
+# read in data from Owen White
+SRA_mapping_FN = '/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/sra_mapping.txt'
+SRA_mapping = open(SRA_mapping_FN, "r")
+
+SRA_dict={}
+SRA_mapping.readline()
+for line in SRA_mapping:
+    sample_id=line.strip().split()[2]
+    SRS=line.strip().split()[1]
+    SRA_dict[SRS]=sample_id
+
+
+inFN_OW='/Users/nanditagarud/Documents/microbiome/BenNanditaProject/HMP_metadata/wgs_sample_info.csv'
+inFile_OW=open(inFN_OW,'r')
+header_OW=inFile_OW.readline()
+visno_OW_dict = {} #sample_id ->visno
+
+for line in inFile_OW:
+    items=line.strip().split(',')
+    SRS=items[3]
+    visno=items[4]
+    if SRS in SRA_dict.keys():
+        sample_id=SRA_dict[SRS]
+    else:
+        print SRS +'\tnot in SRA dict'
+    visno_OW_dict[sample_id]=visno
+
+'''
