@@ -79,25 +79,26 @@ snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debu
 #
 ####################################################
 
-pylab.figure(1,figsize=(3.43,3.1))
+#pylab.figure(1,figsize=(3.43,3.1))
+pylab.figure(1,figsize=(1.7,3.1))
+
 fig = pylab.gcf()
 
 
 # make 2 panels
-outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1], wspace=0.4)
+#outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1], wspace=0.4)
 
-differences_grid = gridspec.GridSpecFromSubplotSpec(3, 1, height_ratios=[1,1,1],
-                subplot_spec=outer_grid[0], hspace=0.1)
+#differences_grid = gridspec.GridSpecFromSubplotSpec(3, 1, height_ratios=[1,1,1], subplot_spec=outer_grid[0], hspace=0.1)
                 
-gene_grid = gridspec.GridSpecFromSubplotSpec(3, 1, height_ratios=[1,1,1],
-                subplot_spec=outer_grid[1], hspace=0.5)
-
+#gene_grid = gridspec.GridSpecFromSubplotSpec(3, 1, height_ratios=[1,1,1], subplot_spec=outer_grid[1], hspace=0.5)
 
 ## Supp figure
-pylab.figure(2,figsize=(3,2))
-supplemental_fig = pylab.gcf()
+pylab.figure(2,figsize=(5,0.9))
+fig2 = pylab.gcf()
 
-supplemental_outer_grid  = gridspec.GridSpec(1,1)
+differences_grid = gridspec.GridSpec(3, 1, height_ratios=[1,1,1], hspace=0.1)
+                
+gene_grid = gridspec.GridSpec(1,3, width_ratios=[1,1,1], wspace=0.35)
 
 ###################
 #
@@ -114,7 +115,7 @@ snp_axis.set_ylabel('SNV changes',labelpad=2)
 snp_axis.set_ylim([1.2e-01,1e05])
 
 snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'b.',markersize=1.5,label='Within-host')
-snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'r.',linewidth=0.35,markersize=1.5,label='Between-host')
+snp_axis.semilogy([1e-09,1e-09],[1e08,1e08],'r.',linewidth=0.35,markersize=1.5,label='Between-host (lowest)')
 
 
 snp_axis.spines['top'].set_visible(False)
@@ -164,8 +165,8 @@ gene_gain_axis.fill_between([-1e06,1e06],[1e-01,1e-01],[0.6,0.6],color='0.8')
 #
 ##############################################################################
 
-prevalence_axis = plt.Subplot(fig, gene_grid[0])
-fig.add_subplot(prevalence_axis)
+prevalence_axis = plt.Subplot(fig2, gene_grid[0])
+fig2.add_subplot(prevalence_axis)
 
 prevalence_axis.set_ylabel('Fraction genes $\leq p$',labelpad=2)
 prevalence_axis.set_xlabel('Prevalence, $p$',labelpad=2)
@@ -183,8 +184,8 @@ prevalence_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-linkage_axis = plt.Subplot(fig, gene_grid[1])
-fig.add_subplot(linkage_axis)
+linkage_axis = plt.Subplot(fig2, gene_grid[1])
+fig2.add_subplot(linkage_axis)
 
 linkage_axis.set_ylabel('Fraction of genes $\geq c$',labelpad=2)
 linkage_axis.set_xlabel('Neighboring fold change, $c$',labelpad=2)
@@ -206,21 +207,21 @@ linkage_axis.get_yaxis().tick_left()
 
 #multiplicity_axis = plt.Subplot(fig, gene_grid[1])
 #fig.add_subplot(multiplicity_axis)
-multiplicity_axis = plt.Subplot(supplemental_fig, supplemental_outer_grid[0])
-supplemental_fig.add_subplot(multiplicity_axis)
+#multiplicity_axis = plt.Subplot(supplemental_fig, supplemental_outer_grid[0])
+#supplemental_fig.add_subplot(multiplicity_axis)
 
 
-multiplicity_axis.set_ylabel('Fraction gene changes',labelpad=2)
-multiplicity_axis.set_xlabel('Gene multiplicity, $m$',labelpad=2)
-multiplicity_axis.set_xlim([0.5,3.5])
-multiplicity_axis.set_ylim([0,1.05])
+#multiplicity_axis.set_ylabel('Fraction gene changes',labelpad=2)
+#multiplicity_axis.set_xlabel('Gene multiplicity, $m$',labelpad=2)
+#multiplicity_axis.set_xlim([0.5,3.5])
+#multiplicity_axis.set_ylim([0,1.05])
 
-multiplicity_axis.set_xticks([1,2,3])
+#multiplicity_axis.set_xticks([1,2,3])
 
-multiplicity_axis.spines['top'].set_visible(False)
-multiplicity_axis.spines['right'].set_visible(False)
-multiplicity_axis.get_xaxis().tick_bottom()
-multiplicity_axis.get_yaxis().tick_left()
+#multiplicity_axis.spines['top'].set_visible(False)
+#multiplicity_axis.spines['right'].set_visible(False)
+#multiplicity_axis.get_xaxis().tick_bottom()
+#multiplicity_axis.get_yaxis().tick_left()
 
 ##############################################################################
 #
@@ -228,8 +229,8 @@ multiplicity_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-parallelism_axis = plt.Subplot(fig, gene_grid[2])
-fig.add_subplot(parallelism_axis)
+parallelism_axis = plt.Subplot(fig2, gene_grid[2])
+fig2.add_subplot(parallelism_axis)
 #parallelism_axis = plt.Subplot(supplemental_fig, supplemental_outer_grid[0])
 #supplemental_fig.add_subplot(parallelism_axis)
 
@@ -327,6 +328,11 @@ diff_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene
 
 # Calculate median between-host differences
 #modification_divergence_threshold = numpy.median(snp_substitution_rate[diff_subject_snp_idxs])/4.0
+
+median_between_host_nucleotide_changes = numpy.median(snp_difference_matrix[diff_subject_snp_idxs])
+median_between_host_gene_gains = numpy.median(gene_gain_matrix[diff_subject_gene_idxs])
+median_between_host_gene_losses = numpy.median(gene_loss_matrix[diff_subject_gene_idxs])
+
 
 # Calculate subset of "modification timepoints" 
 modification_pair_idxs = set([])
@@ -733,7 +739,7 @@ low_divergence_between_host_gene_prevalences = numpy.array(low_divergence_betwee
 
 # Done calculating... now plot figure!
 
-
+# First plot within-host changes
 y = 0
 for snp_changes, snp_mutations, snp_reversions, gene_changes, gene_gains, gene_losses in zip(same_subject_snp_changes, same_subject_snp_mutations, same_subject_snp_reversions, same_subject_gene_changes, same_subject_gene_gains, same_subject_gene_losses):
 
@@ -759,11 +765,30 @@ for snp_changes, snp_mutations, snp_reversions, gene_changes, gene_gains, gene_l
     
     print "Mutations=%g, Reversions=%g, Gains=%g, Losses=%g" % (snp_mutations, snp_reversions, gene_gains, gene_losses)
 
-y-=4
+ymin = y-3
+ymax = 3
 
-y=0    
+snp_axis.set_xlim([ymin,ymax])
+gene_loss_axis.set_xlim([ymin,ymax])    
+gene_gain_axis.set_xlim([ymin,ymax])    
+snp_axis.set_xticks([])
+gene_loss_axis.set_xticks([])
+gene_gain_axis.set_xticks([])
+
+# Plot typical between-host values
+line, = snp_axis.semilogy([ymin,ymax],[median_between_host_nucleotide_changes, median_between_host_nucleotide_changes],'r-',zorder=0,linewidth=0.25,alpha=0.5)
+#line.set_dashes((0.5,0.5))
+line, = gene_loss_axis.semilogy([ymin,ymax],[median_between_host_gene_losses, median_between_host_gene_losses],'r-',zorder=0,alpha=0.5)
+#line.set_dashes((0.5,0.5))
+line, = gene_gain_axis.semilogy([ymin,ymax],[median_between_host_gene_gains, median_between_host_gene_gains],'r-',zorder=0,alpha=0.5)
+#line.set_dashes((0.5,0.5))
+
+num_to_plot = 50
+dy = (ymax-ymin)*1.0/num_to_plot
+
+y=ymax    
     
-for snp_changes, gene_changes, gene_gains, gene_losses in zip(diff_subject_snp_changes, diff_subject_gene_changes, diff_subject_gene_gains, diff_subject_gene_losses)[0:50]:
+for snp_changes, gene_changes, gene_gains, gene_losses in zip(diff_subject_snp_changes, diff_subject_gene_changes, diff_subject_gene_gains, diff_subject_gene_losses)[0:num_to_plot]:
 
     
     if snp_changes>-0.5 and snp_changes<0.5:
@@ -773,22 +798,13 @@ for snp_changes, gene_changes, gene_gains, gene_losses in zip(diff_subject_snp_c
         gene_changes = 0.3
     
 
-    y-=1
+    y-=dy
     
     snp_axis.semilogy([y],[snp_changes],'r.',linewidth=0.35,markersize=1.5,zorder=0)
     gene_loss_axis.semilogy([y], [gene_losses],'r.',linewidth=0.35,markersize=1.5,zorder=0)
     gene_gain_axis.semilogy([y], [gene_gains],'r.',linewidth=0.35,markersize=1.5,zorder=0)
-    
-y-=4
-
-snp_axis.set_xlim([y-1,0])
-gene_loss_axis.set_xlim([y-1,0])    
-gene_gain_axis.set_xlim([y-1,0])    
 
 
-snp_axis.set_xticks([])
-gene_loss_axis.set_xticks([])
-gene_gain_axis.set_xticks([])
 
 #snp_axis.legend(loc='upper right',frameon=False)
 
@@ -844,9 +860,9 @@ within_host_multiplicity_histogram = numpy.histogram(within_host_gene_multiplici
 
 
 
-multiplicity_axis.bar(multiplicity_locs, between_host_multiplicity_histogram*1.0/between_host_multiplicity_histogram.sum(), width=0.3,color='r',linewidth=0)
+#multiplicity_axis.bar(multiplicity_locs, between_host_multiplicity_histogram*1.0/between_host_multiplicity_histogram.sum(), width=0.3,color='r',linewidth=0)
 
-multiplicity_axis.bar(multiplicity_locs-0.3, within_host_multiplicity_histogram*1.0/within_host_multiplicity_histogram.sum(), width=0.3,color='g',linewidth=0)
+#multiplicity_axis.bar(multiplicity_locs-0.3, within_host_multiplicity_histogram*1.0/within_host_multiplicity_histogram.sum(), width=0.3,color='g',linewidth=0)
 
 
 #prevalence_axis.set_ylim([0,0.6])
@@ -855,7 +871,7 @@ xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_nex
 parallelism_axis.step(xs,ns*1.0/ns[0],'b-',label='Within-host',zorder=2)
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_between_next_fold_changes)
-parallelism_axis.step(xs,ns*1.0/ns[0],'r-',label='Between-host',zorder=1)
+parallelism_axis.step(xs,ns*1.0/ns[0],'r-',label='Between-host (lowest)',zorder=1)
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_host_null_next_fold_changes)
 parallelism_axis.step(xs,ns*1.0/ns[0],'k-',label='Random',zorder=0)
@@ -863,7 +879,11 @@ parallelism_axis.step(xs,ns*1.0/ns[0],'k-',label='Random',zorder=0)
 
 #parallelism_axis.legend(loc='upper right',frameon=False,fontsize=4)
 
-snp_axis.legend(loc='upper right',frameon=False,fontsize=4, numpoints=1)
+#snp_axis.legend(loc='upper right',frameon=False,fontsize=4, numpoints=1)
+
+snp_axis.legend(loc=(0.05,0.95),frameon=False,fontsize=4, ncol=2, numpoints=1,handlelength=1)
+
+
 
 parallelism_axis.semilogx([1],[-1],'k.')
 parallelism_axis.set_xlim([1,10])
@@ -890,6 +910,7 @@ linkage_axis.legend(loc='upper right',frameon=False,fontsize=4)
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_5%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
+fig2.savefig('%s/supplemental_figure_5%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
     

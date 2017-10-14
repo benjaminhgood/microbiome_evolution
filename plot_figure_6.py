@@ -61,7 +61,7 @@ min_sample_size = 5
 
 variant_types = ['1D','4D']
 
-modification_difference_threshold = 100
+modification_difference_threshold = 1000
 
 # Must compete divergence matrix on the fly! 
             
@@ -99,6 +99,9 @@ total_between_null_gene_gainlosses = {'gains':0, 'losses':0}
 
 pooled_snp_change_distribution = []
 pooled_gene_change_distribution = []
+
+pooled_between_snp_change_distribution = []
+pooled_between_gene_change_distribution = []
 
 replacement_map = {}
 
@@ -144,7 +147,7 @@ for species_name in good_species_list:
     dummy_samples, snp_mut_difference_matrix, snp_rev_difference_matrix, snp_mut_opportunity_matrix, snp_rev_opportunity_matrix = calculate_substitution_rates.calculate_mutrev_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
     snp_samples = dummy_samples
     
-    dummy_samples, gene_loss_difference_matrix, gene_gain_difference_matrix, gene_loss_opportunity_matrix, gene_gain_opportunity_matrix = calculate_substitution_rates.calculate_mutrev_matrices_from_substitution_rate_map(substitution_rate_map, 'genes', allowed_samples=snp_samples)
+    gene_samples, gene_loss_difference_matrix, gene_gain_difference_matrix, gene_loss_opportunity_matrix, gene_gain_opportunity_matrix = calculate_substitution_rates.calculate_mutrev_matrices_from_substitution_rate_map(substitution_rate_map, 'genes', allowed_samples=snp_samples)
     
     gene_difference_matrices = {'gains': gene_gain_difference_matrix, 'losses': gene_loss_difference_matrix}
     gene_opportunity_matrix = gene_loss_opportunity_matrix
@@ -166,6 +169,8 @@ for species_name in good_species_list:
     
     snp_difference_matrix = snp_mut_difference_matrix+snp_rev_difference_matrix
     snp_opportunity_matrix = snp_mut_opportunity_matrix+snp_rev_opportunity_matrix
+    
+    gene_difference_matrix = gene_gain_difference_matrix + gene_loss_difference_matrix
         
     snp_substitution_rate =     snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
     sys.stderr.write("Done!\n")
@@ -243,6 +248,7 @@ for species_name in good_species_list:
     
         if (num_snp_changes>-0.5):
             pooled_snp_change_distribution.append(num_snp_changes)
+            pooled_between_snp_change_distribution.append( numpy.median(snp_difference_matrix[i,:]) )
             
         if (num_snp_changes>=modification_difference_threshold):
             sample_pair = (sample_i, sample_j)
@@ -310,7 +316,12 @@ for species_name in good_species_list:
             
             if num_gene_changes > -0.5:
             
-                pooled_gene_change_distribution.append(num_gene_changes)        
+                gene_i = i
+                good_comparison_idxs = (gene_opportunity_matrix[i,:]>0.5)
+                    
+            
+                pooled_gene_change_distribution.append(num_gene_changes)  
+                pooled_between_gene_change_distribution.append( numpy.median(gene_difference_matrix[gene_i, good_comparison_idxs]) )      
     
                 total_gene_modification_map[species_name] += num_gene_changes
                 total_null_gene_modification_map[species_name] += gene_perr   
@@ -319,8 +330,6 @@ for species_name in good_species_list:
                 total_gene_gainlosses['losses'] += num_losses
                 
                 if num_gene_changes>0.5: # you actually have some genes to draw a null ffrom...
-                    gene_i = i
-                    good_comparison_idxs = (gene_opportunity_matrix[i,:]>0.5)
                     
                     if good_comparison_idxs.sum() < 0.5:
                         print sample_i, "no gene comparisons!" 
@@ -616,18 +625,25 @@ change_axis.text(20,-20,'Genes',fontsize=5)
 ######
 
 pooled_snp_change_distribution = numpy.array(pooled_snp_change_distribution)
+pooled_between_snp_change_distribution = numpy.array(pooled_between_snp_change_distribution)
 
 print "Mean =", pooled_snp_change_distribution.mean()
 print "Median =", numpy.median(pooled_snp_change_distribution)
 
 pooled_snp_change_distribution = numpy.clip(pooled_snp_change_distribution, 3e-01,1e08)
+pooled_between_snp_change_distribution = numpy.clip(pooled_between_snp_change_distribution, 3e-01,1e08)
+
+pooled_snp_axis.fill_between([1e03,1e05],[1,1],[1e03,1e03],color='0.8')
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
+
+pooled_snp_axis.step(xs,ns,'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host')
+
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
+pooled_snp_axis.step(xs,ns,'-',color='#08519c',linewidth=1, label='Within-host')
 
-pooled_snp_axis.fill_between([1e03,1e05],[1,1],[1e03,1e03],color='0.8')
-#pooled_snp_axis.text(1e03,100,'Replacement',fontsize=4)
-pooled_snp_axis.step(xs,ns,'-',color='#08519c',linewidth=1)
 pooled_snp_axis.loglog([1e-01,1e05],[1,1],'k:')
 
 pooled_snp_axis.set_ylim([1,1e03])
@@ -635,16 +651,28 @@ pooled_snp_axis.set_ylim([1,1e03])
 
 # Now do same thing for genes
 
+pooled_gene_change_distribution = numpy.array(pooled_gene_change_distribution)
+pooled_between_gene_change_distribution = numpy.array(pooled_between_gene_change_distribution)
+
 
 pooled_gene_change_distribution = numpy.clip(pooled_gene_change_distribution, 3e-01,1e08)
+pooled_between_gene_change_distribution = numpy.clip(pooled_between_gene_change_distribution, 3e-01,1e08)
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_gene_axis.step(xs,ns,'-',color='#08519c',linewidth=1)
+pooled_gene_axis.step(xs,ns,'-',color='#08519c',linewidth=1, label='Within-host',zorder=1)
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_gene_change_distribution, min_x=1e-02, max_x=1e09)
+
+pooled_gene_axis.step(xs,ns,'-',color='r',linewidth=0.5, label='Between-host',zorder=0,alpha=0.5)
+
+
 pooled_gene_axis.loglog([1e-01,1e05],[1,1],'k:')
 
 pooled_gene_axis.set_ylim([1,1e03])
 pooled_gene_axis.set_yticklabels([])
+
+#pooled_gene_axis.legend(loc='upper center', frameon=False, fontsize=5, numpoints=1, ncol=2, handlelength=1)
 
 # Plot dNdS and expected version
 

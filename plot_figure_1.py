@@ -16,7 +16,7 @@ import matplotlib as mpl
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from numpy.random import randint
+from numpy.random import randint,binomial
 
 
 import config
@@ -92,7 +92,7 @@ outer_grid  = gridspec.GridSpec(1,2, width_ratios=[2.7, 1.1], wspace=0.05)
 focal_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[1,1.6],
                 subplot_spec=outer_grid[0], wspace=0.5)
 
-polymorphism_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[0.075,1],
+polymorphism_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[0.01,1],
                 subplot_spec=focal_grid[1], hspace=0.05)
 
 
@@ -284,7 +284,43 @@ supplemental_polymorphism_axis.set_ylabel("Within-sample polymorphism")
 supplemental_polymorphism_axis.set_ylim([1e-06,2e-01])
 supplemental_polymorphism_axis.set_xticks([])
 
-#polymorphism_axis.set_title(species_name,fontsize=fontsize)
+
+####################################################
+#
+# Set up Suppplemental Fig (diversity haploid correlation)
+#
+####################################################
+
+pylab.figure(5,figsize=(3.42,2.5))
+correlation_fig = pylab.gcf()
+# make three panels panels
+outer_grid  = gridspec.GridSpec(1,1)
+
+correlation_axis = plt.Subplot(correlation_fig, outer_grid[0])
+correlation_fig.add_subplot(correlation_axis)
+correlation_axis.set_xlabel('Fraction non-CP samples')
+correlation_axis.set_ylabel('Avg within-host polymorphism')
+
+####################################################
+#
+# Set up Suppplemental Fig (haploid_distribution)
+#
+####################################################
+
+pylab.figure(6,figsize=(5,1.7))
+haploid_distribution_fig = pylab.gcf()
+# make three panels panels
+outer_grid  = gridspec.GridSpec(1,2,wspace=0.3,width_ratios=[1,1])
+
+haploid_distribution_axis = plt.Subplot(haploid_distribution_fig, outer_grid[0])
+haploid_distribution_fig.add_subplot(haploid_distribution_axis)
+haploid_distribution_axis.set_xlabel('# species per sample')
+haploid_distribution_axis.set_ylabel('# CP species per sample')
+
+haploid_cdf_axis = plt.Subplot(haploid_distribution_fig, outer_grid[1])
+haploid_distribution_fig.add_subplot(haploid_cdf_axis)
+haploid_cdf_axis.set_xlabel('Fraction CP species per sample, $p$')
+haploid_cdf_axis.set_ylabel('Fraction samples $\geq p$')
 
 ###################################
 #
@@ -357,7 +393,7 @@ between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 pmax = between_line
 
 within_rate = within_sites*1.0/total_sites
-print within_rate, between_sites*1.0/total_sites
+print "Sample 1: within =", within_rate, "avg-distance =", between_sites*1.0/total_sites
 
 sfs_axis_1.fill_between([80,100],[0,0],[1,1],color='0.8')
 
@@ -374,7 +410,7 @@ within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rate
 between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 
 within_rate = within_sites*1.0/total_sites
-print within_rate, between_sites*1.0/total_sites
+print "Sample 2: within =", within_rate, "avg-distance =", between_sites*1.0/total_sites
 
 
 #pmax = numpy.max([pfs[(fs>0.1)*(fs<0.95)].max(), between_line])
@@ -396,7 +432,7 @@ between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 pmax = between_line
 
 within_rate = within_sites*1.0/total_sites
-print within_rate, between_sites*1.0/total_sites
+print "Sample 3: within =", within_rate, "avg-distance =", between_sites*1.0/total_sites
 sfs_axis_3.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 sfs_axis_3.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
@@ -414,7 +450,7 @@ between_line = between_sites*1.0/total_sites/((fs>0.2)*(fs<0.5)).sum()
 pmax = between_line
 
 within_rate = within_sites*1.0/total_sites
-print within_rate, between_sites*1.0/total_sites
+print "Sample 4: within =", within_rate, "avg-distance =", between_sites*1.0/total_sites
 sfs_axis_4.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 sfs_axis_4.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
@@ -492,21 +528,33 @@ species_names = []
 num_samples = []
 num_haploid_samples = []
 ploidy_changes = []
+avg_within_rates = []
+fraction_haploids = []
+fraction_polyploids = []
+
+sample_haploid_species = {}
+sample_highcoverage_species = {}
 
 for species_name in good_species_list:
     
-    # Load genomic coverage distributions
-    sample_coverage_histograms, samples = parse_midas_data.parse_coverage_distribution(species_name)
-    median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
-    sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
-    samples = numpy.array(samples)
-
-    median_coverages = numpy.array([sample_coverage_map[samples[i]] for i in xrange(0,len(samples))])
-
-    # Only plot samples above a certain depth threshold
-    desired_samples = samples[(median_coverages>=min_coverage)]
-    desired_median_coverages = numpy.array([sample_coverage_map[sample] for sample in desired_samples])
+    desired_samples = diversity_utils.calculate_highcoverage_samples(species_name)
     
+    for sample in desired_samples:
+        if sample not in sample_highcoverage_species:
+            sample_highcoverage_species[sample] = []
+            sample_haploid_species[sample] = []
+            
+        sample_highcoverage_species[sample].append(species_name)
+    
+    sample_ploidy_map = {sample: 'polyploid' for sample in desired_samples}
+    
+    haploid_samples = diversity_utils.calculate_haploid_samples(species_name)
+    n_haploids = len(haploid_samples)
+    
+    for sample in haploid_samples:
+        sample_ploidy_map[sample] = 'haploid'
+        sample_haploid_species[sample].append(species_name)
+        
     if len(desired_samples)<10:
         continue
     
@@ -516,22 +564,16 @@ for species_name in good_species_list:
     sys.stderr.write("Done!\n")
 
     
-    n_haploids = 0
-    
-    sample_ploidy_map = {}
-    
-    
+    avg_within_sites = 0.0
+    avg_total_sites = 0.0
     for sample in desired_samples:
         within_sites, between_sites, total_sites = sfs_utils.calculate_polymorphism_rates_from_sfs_map(sfs_map[sample])
-    
-        if within_sites <= config.threshold_within_between_fraction*between_sites:
-            
-            sample_ploidy_map[sample] = 'haploid'
-            n_haploids += 1    
-        else:
-            sample_ploidy_map[sample] = 'polyploid'
-            
-    
+        avg_within_sites += within_sites
+        avg_total_sites += total_sites
+        
+    avg_within_sites /= len(desired_samples)
+    avg_total_sites /= len(desired_samples)
+        
     ploidy_change_map = {'haploid->haploid':0, 'haploid->polyploid':0,'polyploid->haploid':0, 'polyploid->polyploid':0}     
 
     # Calculate which pairs of idxs belong to the same sample, which to the same subject
@@ -547,22 +589,35 @@ for species_name in good_species_list:
         
         ploidy_change_map[ploidy_change_str] += 1
         
-        
-        
-        
+            
     species_names.append(species_name)
     num_samples.append(len(desired_samples))
     num_haploid_samples.append(n_haploids)
     ploidy_changes.append(ploidy_change_map)
+    avg_within_rates.append( avg_within_sites/avg_total_sites )
+    fraction_haploids.append( len(haploid_samples)*1.0/len(desired_samples) )
+    fraction_polyploids.append( (len(desired_samples)-len(haploid_samples)+1)*1.0/(len(desired_samples)+1))
  
 # Sort by num haploids    
-num_haploid_samples, num_samples, ploidy_changes, species_names = zip(*sorted(zip(num_haploid_samples, num_samples, ploidy_changes, species_names),reverse=True))
+num_haploid_samples, num_samples, ploidy_changes, species_names, avg_within_rates, fraction_haploids, fraction_polyploids = zip(*sorted(zip(num_haploid_samples, num_samples, ploidy_changes, species_names, avg_within_rates, fraction_haploids, fraction_polyploids),reverse=True))
 
 num_haploid_samples = numpy.array(num_haploid_samples)
 num_samples = numpy.array(num_samples)
 species_names = numpy.array(species_names)
-
+avg_within_rates = numpy.array(avg_within_rates)
+fraction_polyploids = numpy.array(fraction_polyploids)
+fraction_haploids = numpy.array(fraction_haploids)
 total_haploids = num_haploid_samples.sum()
+
+##############
+#
+# Plot correlation between fraction haploids and avg within polymorphism
+#
+#############
+correlation_axis.loglog(fraction_polyploids[num_samples>=10], avg_within_rates[num_samples>=10], 'o', color=haploid_color,alpha=0.5)
+
+correlation_axis.loglog([1e-02,1],[1e-04,1e-02],'-',color=haploid_color)  
+
 
 # Sort by num samples    
 num_samples, num_haploid_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_samples, num_haploid_samples, species_names),reverse=True)))
@@ -572,7 +627,51 @@ haploid_polyploid_samples = []
 polyploid_haploid_samples = []
 polyploid_polyploid_samples = []
 
+#############
+#
+# Plot distribution of percentage haploids per sample
+#
+#############
+sample_highcoverage_counts = []
+sample_haploid_counts = []
+for sample in sample_highcoverage_species.keys():
+    sample_highcoverage_counts.append( len(sample_highcoverage_species[sample]))
+    sample_haploid_counts.append( len(sample_haploid_species[sample]))
     
+sample_highcoverage_counts = numpy.array(sample_highcoverage_counts)
+sample_haploid_counts = numpy.array(sample_haploid_counts)
+
+sample_haploid_fractions = sample_haploid_counts*1.0/(sample_highcoverage_counts+(sample_highcoverage_counts==0))
+
+haploid_distribution_axis.plot(sample_highcoverage_counts+normal(0,0.1,size=sample_highcoverage_counts.shape), sample_haploid_counts+normal(0,0.1,size=sample_highcoverage_counts.shape),'.',color=haploid_color,alpha=0.5,markersize=2)    
+
+pavg = sample_haploid_counts.sum()*1.0/sample_highcoverage_counts.sum()
+
+num_bootstraps=100
+bootstrapped_haploid_countss = []
+for bootstrap_idx in xrange(0,num_bootstraps):
+    
+    bootstrapped_haploid_countss.append( binomial(sample_highcoverage_counts, pavg) )
+    
+pooled_bootstrapped_haploid_fractions = []
+for bootstrap_idx in xrange(0,num_bootstraps):
+    pooled_bootstrapped_haploid_fractions.extend( bootstrapped_haploid_countss[bootstrap_idx][sample_highcoverage_counts>=1]*1.0/sample_highcoverage_counts[sample_highcoverage_counts>=1] )
+pooled_bootstrapped_haploid_fractions = numpy.array( pooled_bootstrapped_haploid_fractions )
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_bootstrapped_haploid_fractions )
+haploid_cdf_axis.step(xs,ns*1.0/ns[0],'-',color='0.7',label='Null')
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(sample_haploid_fractions[sample_highcoverage_counts>=1])
+haploid_cdf_axis.step(xs,ns*1.0/ns[0],'-',color=haploid_color,label='Obs')
+haploid_cdf_axis.set_xlim([0,1])
+
+haploid_cdf_axis.legend(loc='upper right',frameon=False,numpoints=1)
+
+
+#########
+#
+# Haploid distribution
+#
 for species_idx in xrange(0,len(num_haploid_samples)):
         
     print species_names[species_idx], num_haploid_samples[species_idx], num_samples[species_idx]
@@ -636,7 +735,7 @@ haploid_axis.xaxis.tick_bottom()
 
 haploid_axis.set_yticks(ys+0.5)
 haploid_axis.set_yticklabels(haploid_species_names,fontsize=4)
-haploid_axis.set_ylim([-1*len(num_haploid_samples)+1,1])
+haploid_axis.set_ylim([-1*len(num_haploid_samples)+0.5,1.5])
 
 haploid_axis.tick_params(axis='y', direction='out',length=3,pad=1)
 
@@ -679,7 +778,6 @@ temporal_haploid_axis.legend(loc='lower right',frameon=False)
 
 sys.stderr.write("%d haploid samples across species\n" % total_haploids)
 
-   
 
 ####
 #
@@ -696,6 +794,14 @@ sys.stderr.write("Done!\n")
 
 sys.stderr.write("Saving figure...\t")
 avg_distance_fig.savefig('%s/supplemental_avg_distance.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
+
+sys.stderr.write("Saving figure...\t")
+correlation_fig.savefig('%s/supplemental_haploid_correlation.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
+
+sys.stderr.write("Saving figure...\t")
+haploid_distribution_fig.savefig('%s/supplemental_haploid_distribution_fig.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
+
+
 sys.stderr.write("Done!\n")
 
 

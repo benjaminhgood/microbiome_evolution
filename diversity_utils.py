@@ -638,19 +638,6 @@ def calculate_singletons(allele_counts_map, passed_sites_map, allowed_sample_idx
             minor_singleton_idxs = numpy.nonzero(alt_genotypes)[1]
             major_singleton_idxs = numpy.nonzero(ref_genotypes)[1]
 
-            #print "Alts:"
-            #print alt_genotypes
-            #print minor_singleton_idxs
-            #print "Refs:"
-            #print ref_genotypes
-            #print major_singleton_idxs
-            
-
-            #if len(minor_singleton_idxs) != minor_sites.sum():
-            #    print "Problem with minor sites:", len(minor_singleton_idxs), minor_sites.sum()
-            
-            #if len(major_singleton_idxs) != major_sites.sum():
-            #    print "Problem with major sites:", len(major_singleton_idxs), major_sites.sum()
                 
 
             for idx in minor_singleton_idxs:
@@ -661,6 +648,57 @@ def calculate_singletons(allele_counts_map, passed_sites_map, allowed_sample_idx
             
     return singletons
 
+# Returns a vector of singleton counts for each sample
+def calculate_singleton_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set(['1D','2D','3D','4D']), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
+upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min_change):
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+    allowed_genes = allowed_genes & set(passed_sites_map.keys())
+     
+    singleton_count_matrix = numpy.zeros(passed_sites_map.values()[0].values()[0]['sites'].shape[0] )*1.0
+    singleton_opportunity_matrix = numpy.zeros_like(singleton_count_matrix)
+    
+    for gene_name in allowed_genes:
+        
+        for variant_type in allele_counts_map[gene_name].keys():
+            
+            if variant_type not in allowed_variant_types:
+                continue
+   
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+        
+            singleton_opportunity_matrix += numpy.diag(passed_sites_map[gene_name][variant_type]['sites'])
+        
+            if len(allele_counts)==0:
+                continue
+                 
+            genotype_matrix, passed_sites_matrix = calculate_consensus_genotypes(allele_counts,lower_threshold,upper_threshold)
+            prevalences = (genotype_matrix*passed_sites_matrix).sum(axis=1)
+            
+            sample_size = (passed_sites_matrix).sum(axis=1)
+            min_prevalences = 1
+            max_prevalences = sample_size-1
+    
+            ok_sites = (sample_size>1.5)
+            polymorphic_sites = ok_sites*(prevalences>0.5)*(prevalences<(sample_size-0.5))
+             
+            minor_sites = numpy.isclose(prevalences, min_prevalences)*polymorphic_sites
+            major_sites = numpy.isclose(prevalences, max_prevalences)*polymorphic_sites
+            
+            # Get the minor alleles in both cases
+            alt_genotypes = ((genotype_matrix>0.5)*(passed_sites_matrix>0))[minor_sites]
+            ref_genotypes = ((genotype_matrix<0.5)*(passed_sites_matrix>0))[major_sites]
+            
+            singleton_count_matrix += (alt_genotypes.sum(axis=0)+ref_genotypes.sum(axis=0))
+            #singleton_opportunity_matrix += (passed_sites_matrix[ok_sites,:]>0).sum(axis=0) 
+            
+            #print ok_sites.sum()
+            #print (passed_sites_matrix[ok_sites,:]>0).sum(axis=0) 
+
+    #print singleton_opportunity_matrix
+    #print "Returning"
+    return singleton_count_matrix, singleton_opportunity_matrix
 
 def calculate_mutation_reversion_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
 upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min_change):

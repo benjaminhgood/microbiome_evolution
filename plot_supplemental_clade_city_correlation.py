@@ -62,6 +62,7 @@ allowed_variant_types = set(['1D','2D','3D','4D'])
 
 num_bootstraps = 10000
 
+clade_Fst = {}
 Fst = {}
 clade_country_likelihood = {}
 
@@ -107,6 +108,62 @@ for species_name in good_species_list:
     sys.stderr.write("Done!\n")
 
     snp_substitution_matrix = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
+    
+    # Load manually annotated clades
+    clade_sets = clade_utils.load_manual_clades(species_name)
+
+    if len(clade_sets)==0:
+        continue
+    
+    clade_idxss = clade_utils.calculate_clade_idxs_from_clade_sets(snp_samples, clade_sets)
+        
+        
+    nonsingleton_clade_idxss = []
+    for clade_idxs in clade_idxss:
+        if clade_idxs.sum() > 1:
+            nonsingleton_clade_idxss.append(clade_idxs)
+           
+    # Want at least two clades!
+    if len(nonsingleton_clade_idxss)>=2:
+        all_nonsingleton_clade_idxs = numpy.array([False for x in nonsingleton_clade_idxss[0]])
+        for clade_idxs in nonsingleton_clade_idxss:
+            all_nonsingleton_clade_idxs = numpy.logical_or(all_nonsingleton_clade_idxs, clade_idxs)
+    else:
+        all_nonsingleton_clade_idxs = []    
+    
+    # First do Fst with clades!
+    if len(nonsingleton_clade_idxss)>=2:
+        # Calculate Fst between manually defined clades
+        
+        clade_substitution_matrices = []
+        clade_ones_matrices = []
+        clade_pair_idxss = []
+        for clade_idxs in nonsingleton_clade_idxss:
+            
+            clade_substitution_matrices.append( snp_substitution_matrix[numpy.ix_(numpy.nonzero(clade_idxs)[0], numpy.nonzero(clade_idxs)[0])] )
+            
+            clade_ones_matrices.append( numpy.ones_like(clade_substitution_matrices[-1]) )
+            
+            clade_pair_idxss.append(  numpy.triu_indices(clade_substitution_matrices[-1].shape[0], 1) )
+         
+        all_substitution_matrix =  snp_substitution_matrix[ numpy.ix_(numpy.nonzero(all_nonsingleton_clade_idxs)[0], numpy.nonzero(all_nonsingleton_clade_idxs)[0]) ]
+        
+        all_ones_matrix = numpy.ones_like(all_substitution_matrix)
+        
+        all_pair_idxs = numpy.triu_indices(all_substitution_matrix.shape[0], 1)     
+    
+        within_numerator = sum([clade_substitution_matrices[i][clade_pair_idxss[i]].sum() for i in xrange(0,len(clade_substitution_matrices))])
+        
+        within_denominator = sum([clade_ones_matrices[i][clade_pair_idxss[i]].sum() for i in xrange(0,len(clade_substitution_matrices))])
+
+        within_rate = within_numerator*1.0/within_denominator
+        
+        between_rate = (all_substitution_matrix[all_pair_idxs].sum())/(all_ones_matrix[all_pair_idxs].sum())
+        
+        observed_fst = 1.0 - within_rate/between_rate
+        
+        clade_Fst[species_name] = (observed_fst, [])
+    
     
     # Load idxs corresponding to US and China
     us_idxs = numpy.array([sample_country_map[sample_name]=='United States' for sample_name in snp_samples])
@@ -156,27 +213,8 @@ for species_name in good_species_list:
         
         Fst[species_name] = (observed_fst, bootstrapped_fsts)
     
-        # Load manually annotated clades
-        clade_sets = clade_utils.load_manual_clades(species_name)
-
-        if len(clade_sets)==0:
-            continue
-    
-        clade_idxss = clade_utils.calculate_clade_idxs_from_clade_sets(snp_samples, clade_sets)
-        
-        
-        nonsingleton_clade_idxss = []
-        for clade_idxs in clade_idxss:
-            if clade_idxs.sum() > 1:
-                nonsingleton_clade_idxss.append(clade_idxs)
-           
-        # Want at least two clades!
         if len(nonsingleton_clade_idxss)<2:
             continue
-        
-        all_nonsingleton_clade_idxs = numpy.array([False for x in nonsingleton_clade_idxss[0]])
-        for clade_idxs in nonsingleton_clade_idxss:
-            all_nonsingleton_clade_idxs = numpy.logical_or(all_nonsingleton_clade_idxs, clade_idxs)
             
         # Ok, let's get calculating...
         def calculate_LRT(clade_idxss, phenotype_idxs):
@@ -233,18 +271,39 @@ sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
 
 ####################################################
 #
-# Set up Figure (2 panels, arranged in 2x1 grid)
+# Set up Figure (3 panels, arranged in 3x1 grid)
 #
 ####################################################
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(4,2))
+pylab.figure(1,figsize=(4,3))
 fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(2,1,hspace=0.2,height_ratios=[1,1])
+outer_grid  = gridspec.GridSpec(3,1,hspace=0.2,height_ratios=[1,1,1])
 
-fst_axis = plt.Subplot(fig, outer_grid[0])
+clade_fst_axis = plt.Subplot(fig, outer_grid[0])
+fig.add_subplot(clade_fst_axis)
+
+clade_fst_axis.set_ylabel('Fst (clades)')
+clade_fst_axis.set_ylim([-0.05,1.05])
+clade_fst_axis.set_xlim([-1,len(species_names)])
+
+xticks = numpy.arange(0,len(species_names))
+#xticklabels = ["%s (%d)" % (species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
+xticklabels = ["%s" % (species_names[i]) for i in xrange(0,len(species_names))]
+
+clade_fst_axis.set_xticks(xticks)
+clade_fst_axis.set_xticklabels([])
+
+clade_fst_axis.spines['top'].set_visible(False)
+clade_fst_axis.spines['right'].set_visible(False)
+clade_fst_axis.get_xaxis().tick_bottom()
+clade_fst_axis.get_yaxis().tick_left()
+
+
+
+fst_axis = plt.Subplot(fig, outer_grid[1])
 fig.add_subplot(fst_axis)
 
 fst_axis.set_ylabel('Fst (U.S./China)')
@@ -263,7 +322,7 @@ fst_axis.spines['right'].set_visible(False)
 fst_axis.get_xaxis().tick_bottom()
 fst_axis.get_yaxis().tick_left()
 
-lrt_axis = plt.Subplot(fig, outer_grid[1])
+lrt_axis = plt.Subplot(fig, outer_grid[2])
 fig.add_subplot(lrt_axis)
 
 lrt_axis.set_ylabel('LRT statistic, $\\Delta \\ell$')
@@ -287,6 +346,13 @@ lrt_axis.get_yaxis().tick_left()
 for species_idx in xrange(0,len(species_names)):
 
     species_name = species_names[species_idx]
+
+    clade_fst_axis.plot([-1,len(species_names)+1],[0.2,0.2],'k:',linewidth=0.5)
+    
+    if species_name in clade_Fst:
+        observed_fst, bootstrapped_fsts = clade_Fst[species_name]
+    
+        clade_fst_axis.plot([species_idx], [observed_fst],'r^',markersize=3,markeredgewidth=0) 
     
     observed_fst, bootstrapped_fsts = Fst[species_name]
     bootstrapped_fsts.sort()
