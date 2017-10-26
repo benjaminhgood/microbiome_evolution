@@ -61,7 +61,7 @@ min_sample_size = 5
 
 variant_types = ['1D','4D']
 
-modification_difference_threshold = 1000
+modification_difference_threshold = 10
 
 # Must compete divergence matrix on the fly! 
             
@@ -135,7 +135,7 @@ for species_name in good_species_list:
         continue
     
     
-    sys.stderr.write("Proceeding with %d longitudinal comparisons in %d samples!\n" % (sample_size, len(snp_samples)))
+    sys.stderr.write("Proceeding with %d longitudinal comparisons with %d samples!\n" % (sample_size, len(snp_samples)))
     
     sys.stderr.write("Loading SFSs for %s...\t" % species_name)
     dummy_samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])) 
@@ -471,8 +471,8 @@ mutrev_axis.get_xaxis().tick_bottom()
 mutrev_axis.get_yaxis().tick_left()
 
 mutrev_axis.set_xlim([0.3,2.7])
-mutrev_axis.set_ylim([0,345])
-mutrev_axis.set_yticks([0,100,200,300])
+#mutrev_axis.set_ylim([0,645])
+#mutrev_axis.set_yticks([0,100,200,300])
 mutrev_axis.set_xticks([1,2])
 mutrev_axis.set_xticklabels(['mut','rev'])
 #mutrev_axis.set_yticklabels([])
@@ -487,7 +487,7 @@ gainloss_axis.spines['right'].set_visible(False)
 gainloss_axis.get_xaxis().tick_bottom()
 gainloss_axis.get_yaxis().tick_left()
 gainloss_axis.set_xlim([0.3,2.7])
-gainloss_axis.set_ylim([0,1100])
+#gainloss_axis.set_ylim([0,2100])
 gainloss_axis.set_xticks([1,2])
 gainloss_axis.set_xticklabels(['loss','gain'])
 #gainloss_axis.set_yticklabels([])
@@ -633,7 +633,7 @@ print "Median =", numpy.median(pooled_snp_change_distribution)
 pooled_snp_change_distribution = numpy.clip(pooled_snp_change_distribution, 3e-01,1e08)
 pooled_between_snp_change_distribution = numpy.clip(pooled_between_snp_change_distribution, 3e-01,1e08)
 
-pooled_snp_axis.fill_between([1e03,1e05],[1,1],[1e03,1e03],color='0.8')
+pooled_snp_axis.fill_between([modification_difference_threshold,1e05],[1,1],[modification_difference_threshold,modification_difference_threshold],color='0.8')
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
 

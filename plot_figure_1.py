@@ -40,6 +40,7 @@ sample_3 = '700116148'  # "complicated" haploid
 sample_4 = '700023267'  # simple haploid
 
 haploid_color = '#08519c'
+light_haploid_color = '#6699CC'
 diploid_color = '#de2d26' #'#fb6a4a' #
 transition_color = '#756bb1'
 
@@ -114,7 +115,7 @@ polymorphism_axis = plt.Subplot(fig, polymorphism_grid[1])
 fig.add_subplot(polymorphism_axis)
 
 polymorphism_axis.set_xlabel("Ranked samples (n=%d)" % len(desired_samples))
-polymorphism_axis.set_ylabel("Within-sample polymorphism")
+polymorphism_axis.set_ylabel("Within-sample polymorphism ($0.2 \leq f \leq 0.8$)")
 
 polymorphism_axis.set_ylim([1e-06,2e-01])
 polymorphism_axis.set_xticks([])
@@ -163,7 +164,7 @@ sfs_axis_3.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_3.set_xticklabels([])
 sfs_axis_3.set_xlim([50,100])
 sfs_axis_3.set_yticks([])
-sfs_axis_3.set_ylabel('              Fraction of synonymous sites')
+sfs_axis_3.set_ylabel('                  Fraction of synonymous sites')
 sfs_axis_3.xaxis.tick_bottom()
 
 
@@ -269,7 +270,7 @@ outer_grid  = gridspec.GridSpec(2, 1, height_ratios=[0.3,1], hspace=0.1)
 between_axis = plt.Subplot(avg_distance_fig, outer_grid[0])
 avg_distance_fig.add_subplot(between_axis)
 
-between_axis.set_ylabel("Avg fixed\ndifferences")
+between_axis.set_ylabel("Avg genetic\ndistance")
 
 between_axis.set_xticks([])
 
@@ -312,12 +313,12 @@ haploid_distribution_fig = pylab.gcf()
 # make three panels panels
 outer_grid  = gridspec.GridSpec(1,2,wspace=0.3,width_ratios=[1,1])
 
-haploid_distribution_axis = plt.Subplot(haploid_distribution_fig, outer_grid[0])
+haploid_distribution_axis = plt.Subplot(haploid_distribution_fig, outer_grid[1])
 haploid_distribution_fig.add_subplot(haploid_distribution_axis)
 haploid_distribution_axis.set_xlabel('# species per sample')
 haploid_distribution_axis.set_ylabel('# CP species per sample')
 
-haploid_cdf_axis = plt.Subplot(haploid_distribution_fig, outer_grid[1])
+haploid_cdf_axis = plt.Subplot(haploid_distribution_fig, outer_grid[0])
 haploid_distribution_fig.add_subplot(haploid_cdf_axis)
 haploid_cdf_axis.set_xlabel('Fraction CP species per sample, $p$')
 haploid_cdf_axis.set_ylabel('Fraction samples $\geq p$')
@@ -327,6 +328,8 @@ haploid_cdf_axis.set_ylabel('Fraction samples $\geq p$')
 # Calculate within polymorphism rates
 #
 ###################################
+
+sample_names = []
 
 between_rates = []
 
@@ -358,9 +361,10 @@ for sample in desired_samples:
     depth_lowers.append(dlower)
     depth_uppers.append(dupper)
     median_depths.append(dmedian)
-
+    sample_names.append(sample)
+    
 # Sort them all in descending order of within-host diversity    
-within_rates, within_rate_lowers, within_rate_uppers, between_rates, median_depths, depth_lowers, depth_uppers = (numpy.array(x) for x in zip(*sorted(zip(within_rates, within_rate_lowers, within_rate_uppers, between_rates, median_depths,depth_lowers, depth_uppers),reverse=True)))
+within_rates, within_rate_lowers, within_rate_uppers, between_rates, median_depths, depth_lowers, depth_uppers, sample_names = (numpy.array(x) for x in zip(*sorted(zip(within_rates, within_rate_lowers, within_rate_uppers, between_rates, median_depths,depth_lowers, depth_uppers, sample_names),reverse=True)))
 
 within_rate_lowers = numpy.clip(within_rate_lowers, 1e-09,1)
     
@@ -372,8 +376,17 @@ for rank_idx in xrange(0,len(within_rates)):
     between_axis.semilogy([rank_idx], [between_rates[rank_idx]],'.',color=haploid_color,markersize=2.5,alpha=0.5,markeredgewidth=0)
     #depth_axis.semilogy([rank_idx], [median_depths[rank_idx]],'.',color=haploid_color,markersize=2.5,alpha=0.5,markeredgewidth=0)
     
+    # Make label for samples in left
+    left_samples = [sample_1, sample_2, sample_3, sample_4]
+    if sample_names[rank_idx] in left_samples:
+        
+        
+        sample_idx = left_samples.index(sample_names[rank_idx])
+        
+        print "Printing number for", sample, sample_idx+1
 
-
+        polymorphism_axis.text(rank_idx, within_rate_uppers[rank_idx]*1.3,'%d' % (sample_idx+1),horizontalalignment='left', verticalalignment='bottom',fontsize=6)
+        
 ###################################
 #
 # Plot example SFSs
@@ -398,9 +411,9 @@ print "Sample 1: within =", within_rate, "avg-distance =", between_sites*1.0/tot
 sfs_axis_1.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 #sfs_axis_1.fill_between([20,100],[0,0],[1,1],color='0.8')
-sfs_axis_1.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
-line, = sfs_axis_1.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
-line.set_dashes((1.5,1))
+sfs_axis_1.bar((fs-df/2)*100,pfs,width=df, edgecolor=light_haploid_color, color=light_haploid_color)
+#line, = sfs_axis_1.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
+#line.set_dashes((1.5,1))
 sfs_axis_1.set_ylim([0,pmax*3])
 
 # Sample 2
@@ -417,9 +430,9 @@ print "Sample 2: within =", within_rate, "avg-distance =", between_sites*1.0/tot
 pmax = between_line
 sfs_axis_2.fill_between([80,100],[0,0],[1,1],color='0.8')
 
-sfs_axis_2.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
-line, = sfs_axis_2.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
-line.set_dashes((1.5,1))
+sfs_axis_2.bar((fs-df/2)*100,pfs,width=df,edgecolor=light_haploid_color, color=light_haploid_color)
+#line, = sfs_axis_2.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
+#line.set_dashes((1.5,1))
 
 sfs_axis_2.set_ylim([0,pmax*3])
 
@@ -436,8 +449,8 @@ print "Sample 3: within =", within_rate, "avg-distance =", between_sites*1.0/tot
 sfs_axis_3.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 sfs_axis_3.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
-line, = sfs_axis_3.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
-line.set_dashes((1.5,1))
+#line, = sfs_axis_3.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
+#line.set_dashes((1.5,1))
 
 sfs_axis_3.set_ylim([0,pmax*3])
 
@@ -454,8 +467,8 @@ print "Sample 4: within =", within_rate, "avg-distance =", between_sites*1.0/tot
 sfs_axis_4.fill_between([80,100],[0,0],[1,1],color='0.8')
 
 sfs_axis_4.bar((fs-df/2)*100,pfs,width=df,edgecolor=haploid_color,color=haploid_color)
-line, = sfs_axis_4.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
-line.set_dashes((1.5,1))
+#line, = sfs_axis_4.plot([20,80], [between_line,between_line], 'k-',linewidth=0.35)
+#line.set_dashes((1.5,1))
 
 sfs_axis_4.set_ylim([0,pmax*3])
 
@@ -727,9 +740,9 @@ ys = 0-numpy.arange(0,len(num_haploid_samples))
 width=0.7
 
 haploid_axis.barh(ys, num_haploid_samples,color=haploid_color,linewidth=0,label='CP',zorder=1)
-haploid_axis.barh(ys, num_samples,color=haploid_color,linewidth=0,label='non-CP',zorder=0,alpha=0.5)
-haploid_axis.set_xlim([0,325])
-
+haploid_axis.barh(ys, num_samples,color=light_haploid_color,linewidth=0,label='non-CP',zorder=0)
+haploid_axis.set_xlim([0,425])
+haploid_axis.set_xticks([0,100,200,300,400])
 haploid_axis.yaxis.tick_right()
 haploid_axis.xaxis.tick_bottom()
 

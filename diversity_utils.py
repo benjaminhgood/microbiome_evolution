@@ -464,6 +464,75 @@ def calculate_temporal_sample_freqs(allele_counts_map, passed_sites_map, initial
             
     return numpy.array(gene_names), numpy.array(chromosomes), numpy.array(positions), numpy.array(initial_freqs), numpy.array(final_freqs), numpy.array(marginal_initial_depths), numpy.array(marginal_final_depths)
 
+def calculate_triplet_sample_freqs(allele_counts_map, passed_sites_map, i, j, k, allowed_variant_types=set(['1D','2D','3D','4D']), allowed_genes=None):
+
+    desired_samples = numpy.array([i, j, k])
+    
+    initial_freqs = []
+    middle_freqs = []
+    final_freqs = []
+    gene_names = []
+    chromosomes = []
+    positions = []
+    
+    if allowed_genes == None:
+        allowed_genes = set(passed_sites_map.keys())
+ 
+
+    for gene_name in allowed_genes:
+        for variant_type in allele_counts_map[gene_name].keys():
+            
+            if variant_type not in allowed_variant_types:
+                continue
+                
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+
+            if len(allele_counts)==0:
+                continue
+
+            chunk_chromosomes = numpy.array([chromosome for chromosome, position in allele_counts_map[gene_name][variant_type]['locations']])
+            
+            chunk_positions = numpy.array([position for chromosome, position in allele_counts_map[gene_name][variant_type]['locations']])
+            
+            allele_counts = allele_counts[:,desired_samples,:]            
+            depths = allele_counts.sum(axis=2)
+            freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
+        
+            initial_depths = depths[:,0]
+            middle_depths = depths[:,1]
+            final_depths = depths[:,2]
+            
+            joint_passed_sites = (initial_depths>0)*(middle_depths>0)*(final_depths>0)
+            
+            unpolarized_initial_freqs = freqs[joint_passed_sites,0]
+            unpolarized_middle_freqs = freqs[joint_passed_sites,1]
+            unpolarized_final_freqs = freqs[joint_passed_sites,2]
+            
+            # polarize sites
+            flipped_sites = (unpolarized_initial_freqs>0.5)
+            
+            polarized_initial_freqs = unpolarized_initial_freqs + (1-2*unpolarized_initial_freqs)*(flipped_sites)
+            polarized_middle_freqs = unpolarized_middle_freqs + (1-2*unpolarized_middle_freqs)*(flipped_sites)
+            polarized_final_freqs = unpolarized_final_freqs + (1-2*unpolarized_final_freqs)*(flipped_sites)
+        
+            # changed sites
+            changed_sites = (polarized_initial_freqs<=0.2)*numpy.logical_or(polarized_final_freqs>=0.8, polarized_middle_freqs>=0.8)         
+            
+            if changed_sites.sum() > 0:
+            
+                initial_freqs.extend(polarized_initial_freqs[changed_sites])
+                middle_freqs.extend(polarized_middle_freqs[changed_sites])
+                final_freqs.extend(polarized_final_freqs[changed_sites])
+                gene_names.extend( long(changed_sites.sum()) * [gene_name] )
+            
+    
+    freqs = []
+    for f0,f1,f2 in zip(initial_freqs, middle_freqs, final_freqs):
+        freqs.append((f0,f1,f2))
+        
+    return freqs
+    
+
 ####################
 
 def calculate_sample_freqs_2D(allele_counts_map, passed_sites_map, desired_samples, variant_type='4D', allowed_genes=None, fold=True):
@@ -1498,6 +1567,30 @@ def calculate_temporal_samples(species_name, min_coverage=config.min_median_cove
             
     return numpy.array(desired_samples)
 
+# Returns all high coverage samples that are involved in a temporal triplet
+def calculate_triple_temporal_samples(species_name, min_coverage=config.min_median_coverage):
+
+    highcoverage_samples = calculate_highcoverage_samples(species_name, min_coverage)
+    
+    sample_order_map = parse_HMP_data.parse_sample_order_map()
+    # Calculate which triplets of idxs belong to the same subject
+    same_subject_idxs = parse_midas_data.calculate_ordered_subject_triplets(sample_order_map, highcoverage_samples)
+    
+    temporal_samples = set()
+    for sample_triplet_idx in xrange(0,len(same_subject_idxs)):
+        i,j,k = same_subject_idxs[sample_triplet_idx]
+        
+        temporal_samples.add(highcoverage_samples[i])
+        temporal_samples.add(highcoverage_samples[j])
+        temporal_samples.add(highcoverage_samples[k])
+        
+    desired_samples = []
+    for sample in highcoverage_samples:
+        if sample in temporal_samples:
+            desired_samples.append(sample)
+            
+    return numpy.array(desired_samples)
+
 
 
 def calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=[0.6], frequency_bins = numpy.linspace(0,1,21)):
@@ -1515,8 +1608,8 @@ def calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=[0.6], frequen
     pfs = (pfs+pfs[::-1])/2
     
     # Calculate depth distributions
-    D1s, pD1s = sfs_utils.calculate_binned_depth_distribution_from_sfs_map(sfs_map[sample_i])
-    D2s, pD2s = sfs_utils.calculate_binned_depth_distribution_from_sfs_map(sfs_map[sample_j])
+    dummy, D1s, pD1s = sfs_utils.calculate_binned_depth_distribution_from_sfs_map(sfs_map[sample_i])
+    dummy, D2s, pD2s = sfs_utils.calculate_binned_depth_distribution_from_sfs_map(sfs_map[sample_j])
     
     fs = fs[pfs>0]
     pfs = pfs[pfs>0]

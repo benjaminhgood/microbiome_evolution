@@ -17,7 +17,7 @@ os.system('python loop_over_species_wrapper.py %s python postprocess_midas_data.
 os.system('python calculate_substitution_rates.py')
 
 # Calculate linkage disequilibria for the most prevalent species
-os.system('python calculate_linkage_disequilibria.py')
+#os.system('python calculate_linkage_disequilibria.py')
 
 # Calculate temporal changes for the most prevalent species
 os.system('python calculate_temporal_changes.py')

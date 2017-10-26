@@ -57,7 +57,7 @@ def calculate_binned_sfs_from_sfs_map(sfs_map, bins=[], folding='minor'):
     
     return fs,pfs
     
-def calculate_binned_depth_distribution_from_sfs_map(sfs_map,bins=[]):
+def calculate_binned_depth_distribution_from_sfs_map(sfs_map,bins=[],num_bins=30):
 
     alts = []
     depths = []
@@ -75,9 +75,6 @@ def calculate_binned_depth_distribution_from_sfs_map(sfs_map,bins=[]):
     counts = numpy.array(counts)
     weights = counts*1.0/counts.sum()
     
-    freqs = alts*1.0/depths
-    minor_freqs = numpy.fmin(freqs,1-freqs)
-    
     # calculate median depth (or rough approximation)
     sorted_depths, sorted_weights = (numpy.array(x) for x in zip(*sorted(zip(depths, weights))))
     CDF = numpy.cumsum(sorted_weights)
@@ -85,7 +82,7 @@ def calculate_binned_depth_distribution_from_sfs_map(sfs_map,bins=[]):
     
     if len(bins)==0:
         # use this to set up bins
-        bins = numpy.logspace(log10(Dbar/8),log10(Dbar*8),30)
+        bins = numpy.logspace(log10(Dbar/8),log10(Dbar*8),num_bins)
         Ds = bins[0:-1]
         
         
@@ -102,7 +99,7 @@ def calculate_binned_depth_distribution_from_sfs_map(sfs_map,bins=[]):
     # should already be normalized, but just to make sure...
     pDs /= pDs.sum()
     
-    return Ds,pDs
+    return bins, Ds, pDs
 
 def calculate_depth_distribution_from_sfs_map(sfs_map):
     
@@ -120,7 +117,6 @@ def calculate_depth_distribution_from_sfs_map(sfs_map):
     counts = numpy.array([depth_map[d] for d in depths])
     
     return depths, counts
-    return None
 
 def calculate_polymorphism_rates_from_sfs_map(sfs_map,lower_threshold=0.2,upper_threshold=0.8):
     

@@ -403,6 +403,51 @@ def calculate_ordered_subject_pairs(sample_order_map, sample_list=[]):
     return same_sample_idxs, same_subject_idxs, diff_subject_idxs
 
 ###############################################################################
+# For a given list of samples, calculates which belong to different timepoints in same subject
+#
+# Returns same_sample_idxs, same_subject_idxs, diff_subject_idxs, 
+# each of which is a tuple with idx1 and idx2. All pairs are included 
+# only once. 
+#
+###############################################################################
+def calculate_ordered_subject_triplets(sample_order_map, sample_list=[]):
+
+    same_subject_idxs = []
+    
+    for i in xrange(0,len(sample_list)):
+        
+        subject1, order1 = sample_order_map[sample_list[i]]
+        if order1 != 1:
+            continue
+                
+        for j in xrange(0,len(sample_list)):
+            
+            subject2, order2 = sample_order_map[sample_list[j]]
+            
+            if subject2 != subject1:
+                continue
+                
+            if order2 != 2:
+                continue
+                
+            for k in xrange(0,len(sample_list)):
+            
+                subject3, order3 = sample_order_map[sample_list[k]]
+            
+                if subject3 != subject1:
+                    continue
+                    
+                if order3 != 3:
+                    continue
+                    
+                # if you get here, a triplet! 
+                same_subject_idxs.append((i,j,k))    
+            
+    return same_subject_idxs
+
+
+
+###############################################################################
 #
 # Calculates the subset that are sampled three times
 #
@@ -1263,7 +1308,7 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[], c
         gene_name = items[0]
         gene_presences = numpy.array([float(item) for item in items[1:]])[desired_sample_idxs]
         
-        if gene_presences.sum() > 0.5:
+        if True: #gene_presences.sum() > 0.5:
         
             gene_reads = numpy.array([float(item) for item in reads_line.split()[1:]])[desired_sample_idxs]
             gene_depths = numpy.array([float(item) for item in depth_line.split()[1:]])[desired_sample_idxs]
@@ -1310,6 +1355,7 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[], c
 #
 ###############################################################################
 
+
 ####
 #
 # The gene_ids in the pangenome list are the centroids of gene clusters.
@@ -1345,6 +1391,38 @@ def load_centroid_gene_map(desired_species_name):
     gene_info_file.close()
     
     return centroid_gene_map
+
+
+####
+#
+# Returns a map from gene name to (reference corrected centroids)
+#
+###
+def load_gene_centroid_map(desired_species_name):
+    
+    gene_info_file = gzip.open("%span_genomes/%s/gene_info.txt.gz" % (midas_directory, desired_species_name), 'r')
+    
+    gene_info_file.readline() # header
+    
+    gene_centroid_map = {}
+    
+    for line in gene_info_file:
+        
+        items = line.split("\t") 
+        gene_id = items[0].strip()
+        centroid_id = items[3].strip()
+        
+        gene_centroid_map[gene_id] = centroid_id    
+        
+    gene_info_file.close()
+    
+    centroid_new_centroid_map = load_centroid_gene_map(desired_species_name)
+    
+    for gene_id in gene_centroid_map.keys():
+        new_centroid = centroid_new_centroid_map[gene_centroid_map[gene_id]]
+        gene_centroid_map[gene_id] = new_centroid
+        
+    return gene_centroid_map
 
 
 ####

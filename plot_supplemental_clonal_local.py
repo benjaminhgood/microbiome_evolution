@@ -29,7 +29,7 @@ from math import log10,ceil
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from numpy.random import randint, choice
+from numpy.random import randint, choice,normal
 
 mpl.rcParams['font.size'] = 5
 mpl.rcParams['lines.linewidth'] = 0.5
@@ -65,19 +65,9 @@ else:
 ################################################################################
 
 min_coverage = config.min_median_coverage
-alpha = 0.5 # Confidence interval range for rate estimates
-low_pi_threshold = 1e-03
-clade_divergence_threshold = 1e-02
-modification_divergence_threshold = 1e-03
-min_change = 0.8
-include_high_copynum = False
-#include_high_copynum = True
 
 snv_lower_threshold = 0.2
 snv_upper_threshold = 0.8
-
-# half-width of window to zoom in on for gene panels
-window_size = 5000
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
@@ -85,36 +75,25 @@ subject_sample_map = parse_HMP_data.parse_subject_sample_map()
 sample_country_map = parse_HMP_data.parse_sample_country_map()
 sample_order_map = parse_HMP_data.parse_sample_order_map()
 sys.stderr.write("Done!\n")
-  
-  
+
+species_name = 'Bacteroides_vulgatus_57955'
 desired_sample_pairs = {}
-
-desired_sample_pairs['Bacteroides_uniformis_57318'] = []
-desired_sample_pairs['Bacteroides_uniformis_57318'].append(('700023113', '700023720'))
-desired_sample_pairs['Bacteroides_uniformis_57318'].append(('700015245',  '700099803'))
-desired_sample_pairs['Bacteroides_uniformis_57318'].append(('700033502', '700102356'))
-
-desired_sample_pairs['Prevotella_copri_61740'] = []
-desired_sample_pairs['Prevotella_copri_61740'].append(('700024437',  '700106663'))
-desired_sample_pairs['Prevotella_copri_61740'].append(('700024437',  '700106663'))
-desired_sample_pairs['Prevotella_copri_61740'].append(('700024437',  '700106663'))
-  
-
 desired_sample_pairs['Bacteroides_vulgatus_57955'] = []
-desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700024318', '700105372')) # diploid->diploid example # this first one is ignored
-desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700016960', '700101581')) # diploid->haploid example?
-desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700014837', '700098561')) # diploid->diploid example
-#desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700024318', '700105372')) # diploid->diploid example
+# Clonal sweep example
+desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700110812', '700123827')) 
+# Local sweep example
+desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700014837', '700098561')) 
+# Other locals weep example
+desired_sample_pairs['Bacteroides_vulgatus_57955'].append(('700106170', '700163772')) 
+
+num_examples = len(desired_sample_pairs[species_name])
 
 #435590.9.peg.1205       Putative outer membrane protein, probably involved in nutrient binding
 #435590.9.peg.2541       Thiol-activated cytolysin
 
-
 # Locations of SNP changes to zoom in on
 desired_diploid_genes = ['435590.9.peg.1205',  '435590.9.peg.2541'] 
 desired_locations = [('NC_009614', 1567636L), ('NC_009614', 3163600)]
-
-#desired_locations = [('NZ_DS362239', 189868L), ('NZ_DS362220', 116578L)]
 
 desired_sample_pairs = desired_sample_pairs[species_name]
 snp_samples = set()
@@ -134,115 +113,74 @@ sys.stderr.write("Done!\n")
 #
 ####################################################
 
-pylab.figure(1,figsize=(7,1.5))
+pylab.figure(1,figsize=(7,1.25))
 fig = pylab.gcf()
 # make three panels panels
 
-outer_grid  = gridspec.GridSpec(1,2,width_ratios=[1.3,1],wspace=0.1)
+outer_grid  = gridspec.GridSpec(1,2,width_ratios=[num_examples,0.6],wspace=0.2)
 
-transition_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[1,1], wspace=0.05, subplot_spec=outer_grid[0])
+transition_grid = gridspec.GridSpecFromSubplotSpec(1,num_examples, width_ratios=[1 for i in xrange(0,num_examples)], wspace=0.05, subplot_spec=outer_grid[0])
 
-gene_grid = gridspec.GridSpecFromSubplotSpec(4,1, height_ratios=[1,1,1,1], hspace=0.3, subplot_spec=outer_grid[1])
+gene_grid = gridspec.GridSpecFromSubplotSpec(num_examples-1,1, height_ratios=[1 for i in xrange(0,num_examples-1)], hspace=0.05, subplot_spec=outer_grid[1])
 
 sfs_axes = []
+for example_idx in xrange(0,num_examples):
 
-sfs_axis_1 = plt.Subplot(fig, transition_grid[0])
-fig.add_subplot(sfs_axis_1)
-sfs_axis_1.set_ylabel('Final frequency')
-sfs_axis_1.set_xlabel('Initial frequency')
-sfs_axis_1.set_xlim([-0.05,0.51])
-sfs_axis_1.set_ylim([-0.05,1.05])
-sfs_axis_1.plot([0,1],[1,1],'k-')
-sfs_axis_1.plot([0,0],[0,1],'k-')
-#sfs_axis_1.plot([0,0.2],[0.8,0.8],'k-')
-#sfs_axis_1.plot([0.2,0.2],[0.8,1.0],'k-')
 
-sfs_axis_1.plot([0,1],[0,1.0],'k-')
+    sfs_axis = plt.Subplot(fig, transition_grid[example_idx])
+    fig.add_subplot(sfs_axis)
+    sfs_axis.set_xlim([-0.05,1.05])
+    sfs_axis.set_ylim([-0.05,1.05])
+    line, = sfs_axis.plot([0,1],[0.8, 0.8],'-',color='0.7')
+    line.set_dashes((1,1))
+    line, = sfs_axis.plot([0.2,0.2],[0,1],'-',color='0.7')
+    line.set_dashes((1,1))
+    
+    if example_idx==0:
+        sfs_axis.set_ylabel('Final frequency')
+    else:
+        sfs_axis.set_yticklabels([])
+    sfs_axis.set_xlabel('Initial frequency')
+    
+    
+    #sfs_axis.plot([0,1],[0,1.0],'k-')
 
-sfs_axis_1.spines['top'].set_visible(False)
-sfs_axis_1.spines['right'].set_visible(False)
-sfs_axis_1.get_xaxis().tick_bottom()
-sfs_axis_1.get_yaxis().tick_left()
-sfs_axes.append(sfs_axis_1)
+    sfs_axis.spines['top'].set_visible(False)
+    sfs_axis.spines['right'].set_visible(False)
+    sfs_axis.get_xaxis().tick_bottom()
+    sfs_axis.get_yaxis().tick_left()
+    sfs_axes.append(sfs_axis)
 
-sfs_axis_2 = plt.Subplot(fig, transition_grid[1])
-fig.add_subplot(sfs_axis_2)
-sfs_axis_2.set_xlabel('Initial frequency')
-sfs_axis_2.set_xlim([-0.05,0.51])
-sfs_axis_2.set_ylim([-0.05,1.05])
-sfs_axis_2.plot([0,1],[1,1],'k-')
-sfs_axis_2.plot([0,0],[0,1],'k-')
-#sfs_axis_2.plot([0,0.2],[0.8,1.0],'k-')
-sfs_axis_2.plot([0,1],[0,1.0],'k-')
-
-sfs_axis_2.set_yticklabels([])
-sfs_axis_2.spines['top'].set_visible(False)
-sfs_axis_2.spines['right'].set_visible(False)
-sfs_axis_2.get_xaxis().tick_bottom()
-sfs_axis_2.get_yaxis().tick_left()
-sfs_axes.append(sfs_axis_2)
-
-depth_axes = []
 gene_axes = []
-for idx in xrange(0,len(desired_locations)):
+for example_idx in xrange(1, num_examples):
     
-    
-    depth_axis = plt.Subplot(fig, gene_grid[2*idx])
-    fig.add_subplot(depth_axis)
-    depth_axis.set_ylabel('Depth')
-    depth_axis.spines['top'].set_visible(False)
-    depth_axis.spines['right'].set_visible(False)
-    depth_axis.get_xaxis().tick_bottom()
-    depth_axis.get_yaxis().tick_left()
-    
-    #depth_axis.set_ylim([-0.05,1.05])
-    #depth_axis.set_yticks([0,0.5,1])
-    depth_axis.set_xlim([desired_locations[idx][1]-window_size, desired_locations[idx][1]+window_size])
-    depth_axis.set_xticklabels([])
-    depth_axes.append(depth_axis)
-    
-    gene_axis = plt.Subplot(fig, gene_grid[2*idx+1])
+    gene_axis = plt.Subplot(fig, gene_grid[example_idx-1])
     fig.add_subplot(gene_axis)
-    gene_axis.set_ylabel('Freq')
+    
+    
+    gene_axis.semilogx([1e-03],[1],'k.')
+    gene_axis.set_xlim([5e-02,2])
+    
+    if example_idx==1:
+        gene_axis.set_xticklabels([])    
+    else:
+        gene_axis.set_xlabel('Relative coverage')
+        gene_axis.set_ylabel('                       Fraction of sites')
+        
     gene_axis.spines['top'].set_visible(False)
     gene_axis.spines['right'].set_visible(False)
     gene_axis.get_xaxis().tick_bottom()
     gene_axis.get_yaxis().tick_left()
     
-    gene_axis.set_ylim([-0.05,1.05])
-    gene_axis.set_yticks([0,0.5,1])
-    gene_axis.set_xlim([desired_locations[idx][1]-window_size, desired_locations[idx][1]+window_size])
     gene_axis.set_xticklabels([])
     gene_axes.append(gene_axis)
     
-
-gene_axes[1].set_xlabel('Position')
-
 highlighted_gene_names = [[] for i in xrange(0,len(desired_sample_pairs))]
 gene_names = [[] for i in xrange(0,len(desired_sample_pairs))]
 initial_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
 final_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
 
 snp_changes = [[] for i in xrange(0,len(desired_sample_pairs))]
-
-
-if debug==True: # or debug==False:
-    spatial_gene_names = [['test'] for loc in desired_locations]
-    spatial_chromosomes = [['test'] for loc in desired_locations]
-    spatial_positions = [[loc[1]] for loc in desired_locations]
-    spatial_initial_freqs = [[0.1] for loc in desired_locations]
-    spatial_final_freqs = [[1] for loc in desired_locations]
-    spatial_initial_depths = [[10] for loc in desired_locations]
-    spatial_final_depths = [[10] for loc in desired_locations]
-else:
-    spatial_gene_names = [[] for loc in desired_locations]
-    spatial_chromosomes = [[] for loc in desired_locations]
-    spatial_positions = [[] for loc in desired_locations]
-    spatial_initial_freqs = [[] for loc in desired_locations]
-    spatial_final_freqs = [[] for loc in desired_locations]
-    spatial_initial_depths = [[] for loc in desired_locations]
-    spatial_final_depths = [[] for loc in desired_locations]
-
 
 # Analyze SNPs, looping over chunk sizes. 
 # Clunky, but necessary to limit memory usage on cluster
@@ -252,6 +190,7 @@ sys.stderr.write("Loading SNPs for %s...\n" % species_name)
 sys.stderr.write("(not just core genes...)\n")
 initial_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
 final_freqs = [[] for i in xrange(0,len(desired_sample_pairs))]
+initial_depths = [[] for i in xrange(0,len(desired_sample_pairs))]
 
 # First get list of genes with >= 2 fixations
 for pair_idx in xrange(0,len(desired_sample_pairs)):
@@ -322,28 +261,8 @@ while final_line_number >= 0:
     
         gene_names[pair_idx].extend(chunk_gene_names[joint_passed_sites])
         initial_freqs[pair_idx].extend(chunk_initial_freqs[joint_passed_sites])
+        initial_depths[pair_idx].extend(chunk_initial_depths[joint_passed_sites])
         final_freqs[pair_idx].extend(chunk_final_freqs[joint_passed_sites])
-        
-        if pair_idx==2:
-            for spatial_idx in xrange(0,len(desired_locations)):
-                desired_chromosome, desired_position = desired_locations[spatial_idx]
-            
-                desired_sites = (chunk_chromosomes==desired_chromosome)*(numpy.fabs(chunk_positions-desired_position)<window_size)
-            
-                if desired_sites.sum() > 0:
-                    
-                    spatial_gene_names[spatial_idx].extend( chunk_gene_names[desired_sites] )
-                    spatial_positions[spatial_idx].extend( chunk_positions[desired_sites])
-                    
-                    spatial_initial_freqs[spatial_idx].extend( chunk_initial_freqs[desired_sites] )
-                    
-                    spatial_final_freqs[spatial_idx].extend( chunk_final_freqs[desired_sites] )
-                    
-                    spatial_initial_depths[spatial_idx].extend( chunk_initial_depths[desired_sites])
-                    
-                    spatial_final_depths[spatial_idx].extend( chunk_final_depths[desired_sites])
-                    
-        
         
         snp_changes[pair_idx].extend( diversity_utils.calculate_snp_differences_between(initial_sample_idx, final_sample_idx, allele_counts_map, passed_sites_map,lower_threshold=snv_lower_threshold, 
 upper_threshold=snv_upper_threshold) )
@@ -358,13 +277,16 @@ for pair_idx in xrange(0,len(desired_sample_pairs)):
     
 sys.stderr.write("Done!\n")   
 
+highlighted_gene_colors = {}
+highlighted_gene_depths = {}
+
 # Plot joint SFS!
 
-for pair_idx in xrange(1,len(desired_sample_pairs)):
+for pair_idx in xrange(0,num_examples):
 
     initial_sample, final_sample = desired_sample_pairs[pair_idx]
 
-    
+    D0s = numpy.array(initial_depths[pair_idx])
     f0s = initial_freqs[pair_idx]
     f1s = final_freqs[pair_idx]
     
@@ -377,70 +299,73 @@ for pair_idx in xrange(1,len(desired_sample_pairs)):
     # Don't plot a bunch of crap near 0
     good_sites = numpy.logical_or(f0s>0.05, f1s>0.05)
     
-    #sfs_axes[pair_idx-1].plot(f0s[good_sites], f1s[good_sites],'.',alpha=0.1,markersize=2,markeredgewidth=0,color='0.7')
-    
-    sfs_axes[pair_idx-1].plot(f0s[good_sites], f1s[good_sites],'.',alpha=0.1,markersize=2,markeredgewidth=0,color='0.7')
+    sfs_axes[pair_idx].plot(f0s[good_sites], f1s[good_sites],'.',alpha=0.1,markersize=2,markeredgewidth=0,color='0.7')
     
     # Now plot ones in fixed gene set with colors
+    highlighted_gene_colors[pair_idx] = {}
+    highlighted_gene_depths[pair_idx] = {}
+    
     for gene_name in sorted(highlighted_gene_names[pair_idx]):
         
         in_gene = (gene_names[pair_idx]==gene_name)*good_sites
          
-        sfs_axes[pair_idx-1].plot(f0s[in_gene], f1s[in_gene],'.',alpha=0.75,markersize=4,markeredgewidth=0)
-    
+        line, = sfs_axes[pair_idx].plot(f0s[in_gene], f1s[in_gene],'.',alpha=0.75,markersize=4,markeredgewidth=0)
+        
+        highlighted_gene_colors[pair_idx][gene_name] = pylab.getp(line,'color')
+        if in_gene.sum() > 0:
+            highlighted_gene_depths[pair_idx][gene_name] = numpy.median( D0s[in_gene] )
+        else:
+            # No such sites. Plot value off screen
+            highlighted_gene_depths[pair_idx][gene_name] = 1000
+        
     #print initial_sample, final_sample
     #for snp_change in snp_changes[pair_idx]:
     #    print snp_change
     
     
-    sfs_axes[pair_idx-1].set_xlim([0,1.05])
-    sfs_axes[pair_idx-1].set_ylim([0,1.05])
+    sfs_axes[pair_idx].set_xlim([0,1.05])
+    sfs_axes[pair_idx].set_ylim([0,1.05])
     
 
-# Plot spatial snp profiles near fixations
-for spatial_idx in xrange(0,len(desired_locations)):
-    
-    # Sort snps by position on chromosome
-    
-    if len(spatial_positions[spatial_idx]) > 0:
-        positions, gene_names, initial_freqs, final_freqs, initial_depths, final_depths = (numpy.array(x) for x in zip(*sorted(zip(spatial_positions[spatial_idx], spatial_gene_names[spatial_idx], spatial_initial_freqs[spatial_idx], spatial_final_freqs[spatial_idx],spatial_initial_depths[spatial_idx], spatial_final_depths[spatial_idx]))))
-    else:
-        positions, gene_names, initial_freqs, final_freqs, initial_depths, final_depths = (numpy.array([0]) for x in xrange(0,6))
+# Calculate depth distributions
+import sfs_utils
+samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name,     allowed_variant_types=set(['1D','2D','3D','4D'])) 
 
-    # Only looks at sites above a minimum freq threshold
-    #good_sites = numpy.logical_or(initial_freqs>0.05, final_freqs>0.05)
-    # Does nothing:
-    #good_sites = numpy.logical_or(initial_freqs>-1, final_freqs>-1)
-    good_sites = numpy.logical_and(initial_depths>0, final_depths>0)
+for example_idx in xrange(1,num_examples):
     
-    initial_hs = 4*initial_freqs*(1-initial_freqs)
-    final_hs = 4*final_freqs*(1-final_freqs)
+    axis = gene_axes[example_idx-1]
     
+    initial_sample = desired_sample_pairs[example_idx][0]
+
+
  
-    for position, f0, ff, h0, hf in zip(positions[good_sites], initial_freqs[good_sites], final_freqs[good_sites], initial_hs[good_sites], final_hs[good_sites]):
-    
-        # Polarize such that everything is given by the major allele at end. 
-        if ff<0.5:
-            f0 = 1-f0
-            ff = 1-ff 
-        
-        ff += 0.01
-        
-        if (ff>0.8 and f0<0.2) or (ff<0.2 and f0>0.8):
-            color='r'
-        else:
-            color='0.7'
-        
-        gene_axes[spatial_idx].plot([position, position], [f0,ff],'-',color=color,linewidth=0.25)
-        gene_axes[spatial_idx].plot([position],[ff],'.',color=color,markeredgewidth=0, markersize=1.5)
-        
-    # Plot depths
-    for position, D0, Df in zip(positions, initial_depths, final_depths):
-        
-        depth_axes[spatial_idx].plot([position, position], [D0,Df],'b-',linewidth=0.25)
-        depth_axes[spatial_idx].plot([position],[Df],'b.',markeredgewidth=0, markersize=1.5)
+    bins, Ds, pDs =     sfs_utils.calculate_binned_depth_distribution_from_sfs_map(sfs_map[initial_sample])
     
     
+    Dbar = (Ds*pDs).sum()/pDs.sum()
+    
+    bins = bins/Dbar
+    
+    ymax = pDs.max()*1.1
+    
+    haploid_color = '#08519c'
+    
+    #heights,bins,patches = axis.hist(gene_copynums,bins=bins,zorder=1,color=haploid_color,edgecolor=haploid_color)
+    axis.bar(bins[0:-1], pDs,width=(bins[1:]-bins[0:-1]), zorder=1,color=haploid_color,edgecolor=haploid_color)
+    
+    axis.fill_between([0.01, 0.05],[0,0],[ymax,ymax],color='0.8',zorder=0)
+    axis.fill_between([0.5, 2],[0,0],[ymax,ymax],color='0.8',zorder=0)
+    axis.semilogx([2],[-1],'k.')
+    axis.set_ylim([0,ymax])
+    #axis.set_xlim([1e-02,4e00])   
+    axis.set_xlim([5e-02,5])
+
+    for gene_name in sorted(highlighted_gene_names[example_idx]):
+        copynum = highlighted_gene_depths[example_idx][gene_name]/Dbar
+        color = highlighted_gene_colors[example_idx][gene_name]
+        height = ymax/2+(ymax/2)*0.1*normal(0,1)
+        axis.plot([copynum, copynum],[0,height],'-',color=color)
+        axis.plot([copynum],[height],'.',color=color,markersize=3)     
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/supplemental_clonal_local_sweeps%s.png' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight',dpi=600)

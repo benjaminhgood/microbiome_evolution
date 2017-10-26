@@ -163,16 +163,17 @@ divergences = numpy.logspace(-4,-1,10)
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(3.42,4))
+pylab.figure(1,figsize=(3.42,2))
 fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(2,1, height_ratios=[1,1],hspace=0.2)
+outer_grid = gridspec.GridSpec(1,1)
+#outer_grid  = gridspec.GridSpec(2,1, height_ratios=[1,1],hspace=0.2)
 
 singleton_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(singleton_axis)
 
-singleton_axis.set_ylabel('Singleton rate')
-
+singleton_axis.set_ylabel('Relative singleton rate')
+singleton_axis.set_xlabel('Minimum divergence, $d$') 
 singleton_axis.set_xlim([1e-06,1e-01])
 #singleton_axis.set_ylim([0,1])
 
@@ -181,10 +182,15 @@ singleton_axis.spines['right'].set_visible(False)
 singleton_axis.get_xaxis().tick_bottom()
 singleton_axis.get_yaxis().tick_left()
 
-dnds_axis = plt.Subplot(fig, outer_grid[1])
-fig.add_subplot(dnds_axis)
+pylab.figure(2,figsize=(3.42,2))
+fig2 = pylab.gcf()
+# make three panels panels
+outer_grid = gridspec.GridSpec(1,1)
 
-dnds_axis.set_xlabel('Divergence, $d$')
+dnds_axis = plt.Subplot(fig2, outer_grid[0])
+fig2.add_subplot(dnds_axis)
+
+dnds_axis.set_xlabel('Minimum divergence, $d$')
 dnds_axis.set_ylabel('Singleton $dN/dS$')
 dnds_axis.set_xlim([1e-06,1e-01])
 #dnds_axis.set_ylim([0,1])

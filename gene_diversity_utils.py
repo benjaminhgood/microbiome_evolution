@@ -106,7 +106,7 @@ def calculate_gene_differences_between(i, j, gene_reads_matrix, gene_depth_matri
             
     return gene_differences
 
-def calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages,absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2):
+def calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2):
 
     # Look at these two samples
     gene_depth_matrix = gene_depth_matrix[:,[i,j]]
@@ -134,6 +134,33 @@ def calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_
     return changed_genes
     
 
+
+def calculate_triplet_gene_copynums(gene_depth_matrix, marker_coverages, i, j, k, absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2):
+
+    desired_samples = numpy.array([i, j, k])
+    
+    # Look at these three samples
+    gene_depth_matrix = gene_depth_matrix[:,desired_samples]
+    marker_coverages = marker_coverages[desired_samples]
+    
+    gene_copynum_matrix = gene_depth_matrix*1.0/marker_coverages[None,:]
+    
+    # copynum is between 0.5 and 2
+    is_present_copynum = (gene_copynum_matrix>present_lower_threshold)*(gene_copynum_matrix<present_upper_threshold)
+    is_absent_copynum = (gene_copynum_matrix<=absent_threshold)
+    is_low_copynum = (gene_copynum_matrix<present_upper_threshold)
+  
+    changed_idxs = (is_low_copynum.all(axis=1))*(is_present_copynum.any(axis=1))*(is_absent_copynum.any(axis=1))*numpy.logical_or(is_present_copynum[:,0], is_absent_copynum[:,0])
+  
+    copynum_trajectories = []
+    if changed_idxs.sum() > 0:
+  
+        gene_copynum_matrix = gene_copynum_matrix[changed_idxs]
+  
+        for gene_idx in xrange(0,gene_copynum_matrix.shape[0]):
+            copynum_trajectories.append(gene_copynum_matrix[gene_idx,:])
+        
+    return copynum_trajectories
 
 
 ################################################################################
