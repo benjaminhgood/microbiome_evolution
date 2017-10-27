@@ -80,7 +80,7 @@ snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debu
 ####################################################
 
 #pylab.figure(1,figsize=(3.43,3.1))
-pylab.figure(1,figsize=(1.7,3.1))
+pylab.figure(1,figsize=(2.5,4))
 
 fig = pylab.gcf()
 
@@ -881,7 +881,7 @@ parallelism_axis.step(xs,ns*1.0/ns[0],'k-',label='Random',zorder=0)
 
 #snp_axis.legend(loc='upper right',frameon=False,fontsize=4, numpoints=1)
 
-snp_axis.legend(loc=(0.05,0.95),frameon=False,fontsize=4, ncol=2, numpoints=1,handlelength=1)
+snp_axis.legend(loc=(0.05,0.95),frameon=False,fontsize=5, ncol=2, numpoints=1,handlelength=1)
 
 
 

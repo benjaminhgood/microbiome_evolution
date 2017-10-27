@@ -96,7 +96,7 @@ for species_name in good_species_list:
     sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
     substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
     sys.stderr.write("Calculating matrix...\n")
-    dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'core', allowed_samples=snp_samples)
+    dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '4D', allowed_samples=snp_samples)
     snp_samples = dummy_samples
     sys.stderr.write("Done!\n")
 
@@ -107,7 +107,7 @@ for species_name in good_species_list:
     sys.stderr.write("Loading pre-computed singleton rates for %s...\n" % species_name)
     singleton_rate_map = calculate_singletons.load_singleton_rate_map(species_name)
     sys.stderr.write("Calculating matrix...\n")
-    dummy_samples, singleton_vector, singleton_opportunity_vector = calculate_singletons.calculate_matrices_from_singleton_rate_map(singleton_rate_map, 'core', allowed_samples=snp_samples)
+    dummy_samples, singleton_vector, singleton_opportunity_vector = calculate_singletons.calculate_matrices_from_singleton_rate_map(singleton_rate_map, '4D', allowed_samples=snp_samples)
     print numpy.all(dummy_samples == snp_samples)
     
     dummy_samples, syn_singleton_vector, syn_singleton_opportunity_vector = calculate_singletons.calculate_matrices_from_singleton_rate_map(singleton_rate_map, '4D', allowed_samples=snp_samples)
@@ -173,7 +173,7 @@ singleton_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(singleton_axis)
 
 singleton_axis.set_ylabel('Relative singleton rate')
-singleton_axis.set_xlabel('Minimum divergence, $d$') 
+singleton_axis.set_xlabel('Minimum synonymous divergence, $d_S$') 
 singleton_axis.set_xlim([1e-06,1e-01])
 #singleton_axis.set_ylim([0,1])
 

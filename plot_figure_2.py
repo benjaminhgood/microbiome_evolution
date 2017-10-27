@@ -396,6 +396,10 @@ for example_idx in xrange(0,len(examples)):
     
     dendrogram_axis.set_xticks([])
     dendrogram_axis.set_xlim([xmin,xmax])
+    
+    line, = dendrogram_axis.plot([xmin,xmax], [low_divergence_threshold, low_divergence_threshold],'-',color='k',linewidth=0.25)
+line.set_dashes((1,1))
+
 
     #dendrogram_axis.plot([xmin,xmax],[7.3e-03,7.3e-03],'k-',linewidth=0.25)
 

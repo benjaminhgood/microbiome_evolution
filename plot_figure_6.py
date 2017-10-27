@@ -47,12 +47,15 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
 parser.add_argument("--memoize", help="Loads stuff from disk", action="store_true")
 parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
+parser.add_argument("--modification-threshold", type=int, help="max number of SNV differences before calling a modification", default=config.modification_difference_threshold)
+
 
 args = parser.parse_args()
 
 debug = args.debug
 chunk_size = args.chunk_size
 memoize = args.memoize
+modification_difference_threshold = args.modification_threshold
 
 ################################################################################
 
@@ -61,7 +64,7 @@ min_sample_size = 5
 
 variant_types = ['1D','4D']
 
-modification_difference_threshold = 10
+
 
 # Must compete divergence matrix on the fly! 
             
@@ -633,7 +636,7 @@ print "Median =", numpy.median(pooled_snp_change_distribution)
 pooled_snp_change_distribution = numpy.clip(pooled_snp_change_distribution, 3e-01,1e08)
 pooled_between_snp_change_distribution = numpy.clip(pooled_between_snp_change_distribution, 3e-01,1e08)
 
-pooled_snp_axis.fill_between([modification_difference_threshold,1e05],[1,1],[modification_difference_threshold,modification_difference_threshold],color='0.8')
+pooled_snp_axis.fill_between([modification_difference_threshold,1e05],[1,1],[1e03,1e03],color='0.8')
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
@@ -675,6 +678,20 @@ pooled_gene_axis.set_yticklabels([])
 #pooled_gene_axis.legend(loc='upper center', frameon=False, fontsize=5, numpoints=1, ncol=2, handlelength=1)
 
 # Plot dNdS and expected version
+
+observed_nonsynonymous = total_snps['1D']
+expected_nonsynonymous = total_snps['4D']/total_random_null_snps['4D']*total_random_null_snps['1D']
+
+within_dnds = observed_nonsynonymous/expected_nonsynonymous
+print "Within-host dNdS =", within_dnds
+
+
+observed_nonsynonymous = total_between_null_snps['1D']
+expected_nonsynonymous = total_between_null_snps['4D']/total_random_null_snps['4D']*total_random_null_snps['1D']
+
+between_dnds = observed_nonsynonymous/expected_nonsynonymous
+print "Between-host dNdS =", between_dnds
+
 
 observed_totals = numpy.array([total_snps[var_type] for var_type in variant_types])*1.0
 random_totals = numpy.array([total_random_null_snps[var_type] for var_type in variant_types])*1.0 

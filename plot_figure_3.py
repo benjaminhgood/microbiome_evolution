@@ -219,6 +219,8 @@ fig.add_subplot(divergence_axis)
 divergence_axis.set_xlabel('Divergence, $d$')
 divergence_axis.set_xlim([1e-06,1e-01])
 divergence_axis.set_ylim([-1.5,len(species_names)+0.5])
+line, = divergence_axis.plot([low_divergence_threshold, low_divergence_threshold],[-1.5,len(species_names)+0.5],'-',color='k',linewidth=0.25)
+line.set_dashes((1,1))
 
 # get better haploid species names
 pretty_species_names = []

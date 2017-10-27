@@ -25,3 +25,5 @@ fixation_min_change = 0.8
 
 threshold_within_between_fraction = 0.1
 threshold_pi = 1e-03
+
+modification_difference_threshold = 300
