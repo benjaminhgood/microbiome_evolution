@@ -256,40 +256,57 @@ def kegg_pathways_histogram(kegg_ids, gene_names, gene_samples,gene_prevalences=
     
 def calculate_gene_error_rate(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_thresholds=[0.05], present_lower_threshold=0.5, present_upper_threshold=2):
   
+    # Get reads, depths, and marker coverages in sample 1
     N1s = gene_reads_matrix[:,i]
     D1s = gene_depth_matrix[:,i]
     Dm1 = marker_coverages[i]
     
+    # Get reads, depths, and marker coverages in sample 2
     N2s = gene_reads_matrix[:,j]
     D2s = gene_depth_matrix[:,j]
     Dm2 = marker_coverages[j]
     
+    # Calculate gene copy numbers in both samples
     C1s = D1s*1.0/Dm1
     C2s = D2s*1.0/Dm2
     
+    # Get list of genes that are in "normal" range in both samples
     good_idxs_1 = (C1s>=present_lower_threshold)*(C1s<=present_upper_threshold)
     good_idxs_2 = (C2s>=present_lower_threshold)*(C2s<=present_upper_threshold)
   
+  
+    # Calculate empirical prior distribution p(l) from SI 3.5.
+    # For convenience, length_factor = 1/l
     length_factors = []
-    length_factors.extend( D1s[good_idxs_1]*1.0/N1s[good_idxs_1] ) 
-    length_factors.extend( D2s[good_idxs_2]*1.0/N2s[good_idxs_2] ) 
+    if good_idxs_1.sum() > 0:
+        length_factors.extend( D1s[good_idxs_1]*1.0/N1s[good_idxs_1] ) 
+    if good_idxs_2.sum() > 0:
+        length_factors.extend( D2s[good_idxs_2]*1.0/N2s[good_idxs_2] ) 
     length_factors = numpy.array(length_factors)
-    
+    # Will use whole array as prior distribution
+     
+    # Calculate empirical prior distribution p(c) from SI 3.5
     copynum_bins = numpy.linspace(0,2,21)
-    Cs = copynum_bins[1:]-(copynum_bins[1]-copynum_bins[0])
-    copynum_bins[0] = -1
-    copynum_bins[-1] = 1e09
+    Cs = copynum_bins[1:]-(copynum_bins[1]-copynum_bins[0])/2
+    copynum_bins[0] = -1 # Just to make sure we include things with zero copynum
+    copynum_bins[-1] = 1e09 # Assume things with c>2 have copynum 2 (conservative for detecting changes to lower values)
     
+    # Prior distribution p(c) 
     pCs = numpy.histogram(numpy.hstack([C1s,C2s]), bins=copynum_bins)[0]
     pCs = pCs*1.0/pCs.sum()
     
+    # Vectors for matrix calculation
     C_lowers = numpy.ones_like(Cs)*present_lower_threshold
     C_uppers = numpy.ones_like(Cs)*present_upper_threshold
     
+    # The parameter of the poisson distribution of reads in sample 1
     Navg1s = Cs[:,None]*Dm1/length_factors[None,:]
+    # Lower limit of number of reads for normal range
     Nlower1s = C_lowers[:,None]*Dm1/length_factors[None,:]
+    # Upper limit of number of reads for normal range
     Nupper1s = C_uppers[:,None]*Dm1/length_factors[None,:]
     
+    # Same for sample 2
     Navg2s = Cs[:,None]*Dm2/length_factors[None,:]
     Nlower2s = C_lowers[:,None]*Dm2/length_factors[None,:]
     Nupper2s = C_uppers[:,None]*Dm2/length_factors[None,:]
@@ -299,14 +316,18 @@ def calculate_gene_error_rate(i, j, gene_reads_matrix, gene_depth_matrix, marker
         
         C_absents = numpy.ones_like(Cs)*absent_threshold
     
+        # Upper limit of number of reads for "absent" range
         Nabsent1s = C_absents[:,None]*Dm1/length_factors[None,:]
         Nabsent2s = C_absents[:,None]*Dm2/length_factors[None,:]
         
         perr = 0
         perr += (poisson.cdf(Nabsent1s, Navg1s)*(poisson.cdf(Nupper2s,Navg2s)-poisson.cdf(Nlower2s,Navg2s))*pCs[:,None]).sum()
         perr += (poisson.cdf(Nabsent2s, Navg2s)*(poisson.cdf(Nupper1s,Navg1s)-poisson.cdf(Nlower1s,Navg1s))*pCs[:,None]).sum()
+        # To emulate the integral over p(l)
+        perr = perr/len(length_factors)
         
-        perr = perr/len(length_factors)*len(C1s)
+        # To add up all the genes
+        perr = perr*len(C1s)
     
         perrs.append(perr)
         
