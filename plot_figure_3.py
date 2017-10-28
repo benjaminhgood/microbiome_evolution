@@ -60,8 +60,7 @@ chunk_size = args.chunk_size
 num_bootstraps = 1000
 
 min_coverage = config.min_median_coverage
-alpha = 0.5 # Confidence interval range for rate estimates
-low_pi_threshold = 1e-03
+alpha = 0.05 # Confidence interval range for rate estimates
 low_divergence_threshold = 2e-04
 min_change = 0.8
 min_sample_size = 33 # 46 gives at least 1000 pairs
@@ -270,6 +269,9 @@ for species_idx in xrange(0,len(species_names)):
     divergences = numpy.clip(divergences,1e-06,1)
     divergences.sort() # ascending by default
     
+    min_divergence = divergences[0]
+    nextmin_divergence = divergences[1]
+    
     log_divergences = numpy.log(divergences)
     
     kernel = gaussian_kde(log_divergences)
@@ -283,6 +285,10 @@ for species_idx in xrange(0,len(species_names)):
     
     quantiles = numpy.array([divergences[long(n*p)] for p in percentiles])
     quantiles = numpy.clip(quantiles,1e-06,1)
+    
+    # Use second smallest value for robustness. 
+    if quantiles[0]<nextmin_divergence:
+        quantiles[0] = nextmin_divergence
     
     theory_log_divergences = numpy.linspace(log_divergences.min(), log_divergences.max()+1,100)
     theory_divergences = numpy.exp(theory_log_divergences)
@@ -307,7 +313,7 @@ histogram_axis = plt.Subplot(fig, upper_right_grid[0])
 fig.add_subplot(histogram_axis)
 
 histogram_axis.set_ylabel('# sample pairs')
-histogram_axis.set_xlabel('# low $d$ strains')
+histogram_axis.set_xlabel('# closely related\nstrains')
 histogram_axis.set_xlim([0,4])
 
 histogram_axis.spines['top'].set_visible(False)
