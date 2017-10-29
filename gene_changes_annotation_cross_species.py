@@ -53,7 +53,8 @@ for species_name in good_species_list:
     print species_name
     if os.path.isfile("/pollard/home/ngarud/tmp_intermediate_files/%s_gene_changes.p" %species_name):
         all_data_species = pickle.load( open( "/pollard/home/ngarud/tmp_intermediate_files/%s_gene_changes.p" %species_name, "rb" ))
-        all_data[species_name]=all_data_species[species_name]
+        if (len(all_data_species[species_name].keys()) >0): # check if there were any gene changes to be outputted. 
+            all_data[species_name]=all_data_species[species_name]
 
 
 #  sum  all gene changes  across species
@@ -64,6 +65,7 @@ for gene_type in ['gene_changes']:
     #all_data['all_species']['gene_changes_category']={}
 
 for species_name in all_data.keys():
+    print species_name
     if species_name != 'all_species':
 #        for gene_type in ['gene_changes','gene_changes_category']:
         for gene_type in ['gene_changes']:
@@ -83,7 +85,7 @@ for null_type in ['between_host_genes', 'present_genes', 'pangenome_genes']:
 
 for species_name in all_data.keys(): 
     print species_name
-    if species_name != 'all_species' and species_name !='Escherichia_coli_58110': #CHANGE THIS
+    if species_name != 'all_species' : #CHANGE THIS
         for null_type in ['between_host_genes', 'present_genes', 'pangenome_genes']:
             for gene in all_data[species_name]['null'][null_type].keys():
                 if gene not in  all_data['all_species']['null'][null_type].keys():
@@ -209,7 +211,6 @@ keywords['dehydrogenase']=['dehydrogenase']
 keywords['drug']=['drug']
 keywords['cell wall']=['ell wall']
 keywords['primase']=['imase']
-keywords['flagellar']=['Flagellar']
 keywords['resistance']=['resistance']
 keywords['hydrolase']=['ydrolase']
 keywords['topoisomerase']=['opoisomerase']
@@ -217,7 +218,7 @@ keywords['hypothetical'] = ['ypothetical']
 #keywords['other']=['other']
 
 # since this is a greedy algorithm, order the more important keywords first
-keyword_order=['ABC transporter','phage','transposon','mobilization','integrase', 'plasmid','recombinase','tRNA','ATP','excisionase','transmembrane','replication','regulator','transcription','toxin','restriction','replication','transferase','reductase','phosphatase','helicase','kinase','dehydrogenase','drug','cell wall','primase','flagellar','resistance','hydrolase','topoisomerase','hypothetical']
+keyword_order=['ABC transporter','phage','transposon','mobilization','integrase', 'plasmid','recombinase','tRNA','ATP','excisionase','transmembrane','replication','regulator','transcription','toxin','restriction','replication','transferase','reductase','phosphatase','helicase','kinase','dehydrogenase','drug','cell wall','primase','resistance','hydrolase','topoisomerase','hypothetical']
 
 common_genes={}
 
@@ -230,6 +231,7 @@ for keyword in keywords.keys():
 
 
 for gene in all_data['all_species']['gene_changes']:
+  if all_data['all_species']['gene_changes'][gene]['all'][0] > 0: #why are zeros being outputted?
     keyword_found=False
     for keyword in keyword_order:
         for regexp in keywords[keyword]:

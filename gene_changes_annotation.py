@@ -319,9 +319,9 @@ for species_name in good_species_list:
         for snp_change in all_snp_changes:
             snp_genes.add(snp_change[0])
             
-        
         within_host_changes_gene_ids['snps'] = list(snp_genes)
-                
+        gene_change_dictionary['snps']=list(snp_genes) # added @12:08pm
+
         #        
         # construct a null comprising of all genes present at either time point:
         sample_1_gene_idx = same_subject_gene_idxs[0][sample_pair_idx]
@@ -445,7 +445,10 @@ for species_name in good_species_list:
     for change_type in within_host_classes:
         for gene in gene_descriptions_gene_changes[change_type]:
             if gene not in all_gene_changes:
-                all_gene_changes[gene]={0 for c in within_host_classes}
+                #all_gene_changes[gene]={0 for c in within_host_classes}
+                all_gene_changes[gene]={}
+                for c in within_host_classes:
+                    all_gene_changes[gene][c]=0
             all_gene_changes[gene][change_type] +=1
 
     # count the number of times a gene shows up in between-host changes in the num_trials

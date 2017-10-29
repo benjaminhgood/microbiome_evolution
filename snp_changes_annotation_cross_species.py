@@ -53,7 +53,9 @@ for species_name in good_species_list:
     print species_name
     if os.path.isfile("/pollard/home/ngarud/tmp_intermediate_files/%s_gene_changes.p" %species_name):
         all_data_species = pickle.load( open( "/pollard/home/ngarud/tmp_intermediate_files/%s_gene_changes.p" %species_name, "rb" ))
-        all_data[species_name]=all_data_species[species_name]
+        if (len(all_data_species[species_name].keys()) >0): # check if there were any gene changes to be outputted. 
+            all_data[species_name]=all_data_species[species_name]
+
 
 
 #  sum  all gene changes  across species
