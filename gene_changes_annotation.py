@@ -324,8 +324,9 @@ for species_name in good_species_list:
                 
         #        
         # construct a null comprising of all genes present at either time point:
-        sample_1_gene_idx = same_subject_gene_idxs[i]
-        sample_2_gene_idx = same_subject_gene_idxs[j]
+        sample_1_gene_idx = same_subject_gene_idxs[0][sample_pair_idx]
+        sample_2_gene_idx = same_subject_gene_idxs[1][sample_pair_idx]
+        
         present_gene_idxs = []
         present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
         present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
