@@ -83,7 +83,7 @@ for null_type in ['between_host_genes', 'present_genes', 'pangenome_genes']:
 
 for species_name in all_data.keys(): 
     print species_name
-    if species_name != 'all_species' and species_name !='Escherichia_coli_58110':
+    if species_name != 'all_species' and species_name !='Escherichia_coli_58110': #CHANGE THIS
         for null_type in ['between_host_genes', 'present_genes', 'pangenome_genes']:
             for gene in all_data[species_name]['null'][null_type].keys():
                 if gene not in  all_data['all_species']['null'][null_type].keys():
@@ -209,12 +209,15 @@ keywords['dehydrogenase']=['dehydrogenase']
 keywords['drug']=['drug']
 keywords['cell wall']=['ell wall']
 keywords['primase']=['imase']
+keywords['flagellar']=['Flagellar']
+keywords['resistance']=['resistance']
+keywords['hydrolase']=['ydrolase']
 keywords['topoisomerase']=['opoisomerase']
 keywords['hypothetical'] = ['ypothetical']
-keywords['other']=['other']
+#keywords['other']=['other']
 
 # since this is a greedy algorithm, order the more important keywords first
-keyword_order=['ABC transporter','phage','transposon','mobilization','integrase', 'plasmid','recombinase','tRNA','ATP','excisionase','transmembrane','replication','regulator','transcription','toxin','restriction','replication','transferase','reductase','phosphatase','helicase','kinase','dehydrogenase','drug','cell wall','primase','topoisomerase','hypothetical']
+keyword_order=['ABC transporter','phage','transposon','mobilization','integrase', 'plasmid','recombinase','tRNA','ATP','excisionase','transmembrane','replication','regulator','transcription','toxin','restriction','replication','transferase','reductase','phosphatase','helicase','kinase','dehydrogenase','drug','cell wall','primase','flagellar','resistance','hydrolase','topoisomerase','hypothetical']
 
 common_genes={}
 
@@ -236,18 +239,26 @@ for gene in all_data['all_species']['gene_changes']:
                         common_genes[keyword][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
                 common_genes[keyword]['genes'].append(gene)
                 keyword_found=True
-    if keyword_found==False:
+    if keyword_found==False and gene !='':
+        if gene not in common_genes.keys():
+            common_genes[gene]={'all':[0,0,0,0], 'gains':[0,0,0,0], 'losses':[0,0,0,0], 'genes':[]}
         for change_type in ['all','gains','losses']:
             for i in range(0,4):
-                common_genes['other'][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
-        common_genes['other']['genes'].append(gene)
+                common_genes[gene][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
+        common_genes[gene]['genes'].append(gene)
+#    if keyword_found==False:
+#        for change_type in ['all','gains','losses']:
+#            for i in range(0,4):
+#                common_genes['other'][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
+#        common_genes['other']['genes'].append(gene)
 
 #sorted list by total num
+
 genes_sorted={}
 for gene in common_genes.keys():
     genes_sorted[gene]=common_genes[gene]['all'][0]
 
-sorted_genes = sorted(genes_sorted.items(), key=operator.itemgetter(1))
+sorted_genes = sorted(genes_sorted.items(), key=operator.itemgetter(1), reverse=True)
 
 
 outFile_keywords=open('%sgene_changes_accross_species_keywords.txt' %  parse_midas_data.analysis_directory,'w')
@@ -265,7 +276,7 @@ for i in range (0, len(sorted_genes)):
     outFile_keywords.write(string+'\n')
 
 outFile_keywords.close()
-    
+
 
 ###################################################
 # plot CDF of p-values for the different nulls 
