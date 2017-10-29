@@ -370,10 +370,10 @@ within_rate_lowers = numpy.clip(within_rate_lowers, 1e-09,1)
     
 for rank_idx in xrange(0,len(within_rates)):
     
-    polymorphism_axis.semilogy([rank_idx,rank_idx], [within_rate_lowers[rank_idx],within_rate_uppers[rank_idx]],'-',color=haploid_color,linewidth=0.25)
-    supplemental_polymorphism_axis.semilogy([rank_idx,rank_idx], [within_rate_lowers[rank_idx],within_rate_uppers[rank_idx]],'-',color=haploid_color,linewidth=0.25)
+    polymorphism_axis.semilogy([rank_idx,rank_idx], [within_rate_lowers[rank_idx],within_rate_uppers[rank_idx]],'-',color='k',linewidth=0.25)
+    supplemental_polymorphism_axis.semilogy([rank_idx,rank_idx], [within_rate_lowers[rank_idx],within_rate_uppers[rank_idx]],'-',color='k',linewidth=0.25)
     
-    between_axis.semilogy([rank_idx], [between_rates[rank_idx]],'.',color=haploid_color,markersize=2.5,alpha=0.5,markeredgewidth=0)
+    between_axis.semilogy([rank_idx], [between_rates[rank_idx]],'.',color='k',markersize=2.5,alpha=0.5,markeredgewidth=0)
     #depth_axis.semilogy([rank_idx], [median_depths[rank_idx]],'.',color=haploid_color,markersize=2.5,alpha=0.5,markeredgewidth=0)
     
     # Make label for samples in left

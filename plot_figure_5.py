@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from numpy.random import randint, choice
 
-mpl.rcParams['font.size'] = 5
+mpl.rcParams['font.size'] = 6
 mpl.rcParams['lines.linewidth'] = 0.5
 mpl.rcParams['legend.frameon']  = False
 mpl.rcParams['legend.fontsize']  = 'small'
@@ -60,8 +60,8 @@ else:
 ################################################################################
 
 min_coverage = config.min_median_coverage
-clade_divergence_threshold = 1e-02
-modification_divergence_threshold = 1e-03 #the threshold for deciding when something is a modification vs a replacement. Like most other things, it is an arbitrary choice. 
+clade_divergence_threshold = 1e-02 # specifically tuned for B. vulgatus
+modification_divergence_threshold = 3e-04 #the threshold for deciding when something is a modification vs a replacement. Like most other things, it is an arbitrary choice. in this case, specifically tuned for B. vulgatus. 
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
@@ -80,7 +80,7 @@ snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debu
 ####################################################
 
 #pylab.figure(1,figsize=(3.43,3.1))
-pylab.figure(1,figsize=(2.5,4))
+pylab.figure(1,figsize=(2.5,4.2))
 
 fig = pylab.gcf()
 
@@ -123,6 +123,8 @@ snp_axis.spines['right'].set_visible(False)
 snp_axis.get_xaxis().tick_bottom()
 snp_axis.get_yaxis().tick_left()
 
+#snp_axis.set_title('SNV changes',fontsize=5)
+
 within_snp_axis = snp_axis 
 
 ###################
@@ -135,6 +137,7 @@ gene_loss_axis = plt.Subplot(fig, differences_grid[1])
 fig.add_subplot(gene_loss_axis)
 
 gene_loss_axis.set_ylabel('Gene losses',labelpad=2)
+#gene_loss_axis.set_title('Gene losses', fontsize=5,y=0.9)
 gene_loss_axis.set_ylim([1.2e-01,1e04])
 
 gene_loss_axis.spines['top'].set_visible(False)
@@ -146,6 +149,7 @@ gene_gain_axis = plt.Subplot(fig, differences_grid[2])
 fig.add_subplot(gene_gain_axis)
 
 gene_gain_axis.set_ylabel('Gene gains',labelpad=2)
+#gene_gain_axis.set_title('Gene gains', fontsize=5,y=0.9)
 gene_gain_axis.set_ylim([1.2e-01,1e04])
 
 gene_gain_axis.set_xlabel('Sample pairs')
@@ -881,7 +885,7 @@ parallelism_axis.step(xs,ns*1.0/ns[0],'k-',label='Random',zorder=0)
 
 #snp_axis.legend(loc='upper right',frameon=False,fontsize=4, numpoints=1)
 
-snp_axis.legend(loc=(0.05,0.95),frameon=False,fontsize=5, ncol=2, numpoints=1,handlelength=1)
+snp_axis.legend(loc=(0.05,0.9),frameon=False,fontsize=5, ncol=2, numpoints=1,handlelength=1)
 
 
 

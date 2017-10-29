@@ -255,6 +255,28 @@ def calculate_unique_samples(subject_sample_map, sample_list=[]):
     
     return unique_idxs
     
+### 
+#
+# Returns a vector of true false values 
+#
+###
+def calculate_samples_in_different_subjects(subject_sample_map, sample_list, focal_sample):
+
+    # invert subject sample map
+    sample_subject_map = {}
+    for subject in subject_sample_map.keys():
+        for sample in subject_sample_map[subject].keys():
+            sample_subject_map[sample] = subject
+
+    in_different_subject = []
+    for sample in sample_list:
+        if sample_subject_map[sample] == sample_subject_map[focal_sample]:
+            in_different_subject.append(False)
+        else:
+            in_different_subject.append(True)
+                        
+    return numpy.array(in_different_subject)
+    
     
 ###############################################################################
 #

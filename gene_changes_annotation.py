@@ -70,10 +70,13 @@ if other_species=="":
 else:
     outFile=open('%sgene_changes_shuffle_%s.txt' %(parse_midas_data.analysis_directory, species_name) , 'w' )   
 
-modification_divergence_threshold = 1e-03 #the threshold for deciding when something is a modification vs a replacement. Like most other things, it is an arbitrary choice. 
-min_coverage=20
-clade_divergence_threshold = 1e-02
+modification_difference_threshold = config.modification_difference_threshold
+min_coverage = config.min_median_coverage
+clade_divergence_threshold = 1e-02 # TODO: change to top level clade definition later
 num_trials=100
+min_sample_size = 5
+
+within_host_classes = ['gains','losses','all','snps']
 
 if other_species_str == "":
     good_species_list = parse_midas_data.parse_good_species_list()
@@ -96,9 +99,30 @@ for species_name in good_species_list:
     ####################
     # Analyze the data #
     ####################
-    # find CPS samples:
-    snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
+    
+    # Only plot samples above a certain depth threshold that are "haploids"
+    haploid_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
 
+    if len(haploid_samples) < min_sample_size:
+        continue
+
+    same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, haploid_samples)
+
+    snp_samples = set()
+    sample_size = 0        
+    for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
+   
+        i = same_subject_idxs[0][sample_pair_idx]
+        j = same_subject_idxs[1][sample_pair_idx]
+
+        snp_samples.add(haploid_samples[i])
+        snp_samples.add(haploid_samples[j])
+            
+        sample_size += 1
+            
+    snp_samples = list(snp_samples)
+    allowed_sample_set = set(snp_samples)
+    
     # load pre-computed data:
     sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
     substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
@@ -126,12 +150,11 @@ for species_name in good_species_list:
     # load the kegg ids for all genomes corresponding to this species:
     kegg_ids=parse_patric.load_kegg_annotations(genome_ids)    
     
-
     # store null data in this to see how the actual data compares. 
     between_host_changes_gene_ids_null={} #dictionary which stores different trials (trial=key)
     present_gene_null={}
     pangenome_null={}
-    for change_type in ['gains','losses','all']:
+    for change_type in within_host_classes:
         between_host_changes_gene_ids_null[change_type]={}
         present_gene_null[change_type]={}
         pangenome_null[change_type]={}
@@ -176,6 +199,9 @@ for species_name in good_species_list:
     snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)
     gene_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, gene_samples)
 
+    same_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_same_subject_idxs)  
+    same_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_same_subject_idxs)  
+
     diff_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_diff_subject_idxs)  
     diff_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_diff_subject_idxs)  
 
@@ -199,47 +225,111 @@ for species_name in good_species_list:
     #######################
 
     # store the actual data in this:
-    within_host_changes_gene_ids={}
-    within_host_changes_gene_ids['gains']=[]
-    within_host_changes_gene_ids['losses']=[]
-    within_host_changes_gene_ids['all']=[]   #gains + losses 
+    within_host_changes_gene_ids={type:[] for type in within_host_classes}
 
-    for sample_pair in temporal_change_map.keys():
-        sample_1=sample_pair[0]
-        sample_2=sample_pair[1]
-        if sample_1 in gene_samples and sample_2 in gene_samples:
-            sample_1_gene_idx=gene_samples.index(sample_1)
-            sample_2_gene_idx=gene_samples.index(sample_2)
-            #check if the marker coverages are in range:
-            if (marker_coverages[sample_2_gene_idx]>min_coverage) and (marker_coverages[sample_2_gene_idx]>min_coverage): 
-                # find the index of sample_1 and sample_2 in snp_samples to see if this is a CPS sample pair:
-                if sample_1 in snp_samples and sample_2 in snp_samples:
-                    sample_1_idx=snp_samples.index(sample_1)
-                    sample_2_idx=snp_samples.index(sample_2)
-                    # check if this pair underwent a replacement event. If so, ignore, otherwise stats get messed up.
-                    if snp_substitution_rate[sample_1_idx, sample_2_idx] < modification_divergence_threshold:
-                        gene_perr, gains, losses=calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_1, sample_2, lower_threshold=0.05)
-                        all_changes=gains+losses
-                        gene_change_dictionary={'gains':gains, 'losses':losses,'all':all_changes}
-                        #iterate through all_changes to store the gene_ids.
-                        for change_type in ['gains','losses','all']:
-                            for i in range(0, len(gene_change_dictionary[change_type])):
-                                within_host_changes_gene_ids[change_type].append(gene_change_dictionary[change_type][i][0])
-                        #        
-                        # construct a null comprising of all genes present at either time point:
-                        present_gene_idxs = []
-                        present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
-                        present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
-                        #
-                        # sample 100x the number of within-host gene changes from the three different nulls:
-                        for change_type in ['gains','losses','all']:
-                            for trial in range(0,num_trials):
-                                between_gene_null_idxs = choice(between_host_gene_idxs, len(gene_change_dictionary[change_type]))
-                                present_gene_null_idxs = choice(present_gene_idxs, len(gene_change_dictionary[change_type]))
-                                # get the gene_ids for these idxs:
-                                between_host_changes_gene_ids_null[change_type][trial].extend(gene_names[between_gene_null_idxs].tolist())
-                                present_gene_null[change_type][trial].extend(gene_names[present_gene_null_idxs].tolist())                
-                                pangenome_null[change_type][trial].extend(random.sample(pangenome_gene_names, len(all_changes)))
+    # BG: Can't do it this way! Will pick up lots of diploids!
+    #for sample_pair in temporal_change_map.keys():
+    #    sample_1=sample_pair[0]
+    #    sample_2=sample_pair[1]
+     
+    for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
+#    
+        i = same_subject_snp_idxs[0][sample_pair_idx]
+        j = same_subject_snp_idxs[1][sample_pair_idx]
+    
+        sample_i = snp_samples[i] 
+        sample_j = snp_samples[j]
+        
+        if not ((sample_i in allowed_sample_set) and (sample_j in allowed_sample_set)):
+            continue
+        
+        # Load SNP and gene changes!
+        
+        # First SNP changes
+        perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        
+        # Look at higher threshold if error rate is too high
+        if perr>=0.5:
+            
+            # Calculate a more fine grained value!
+        
+            dfs = numpy.array([0.6,0.7,0.8,0.9])
+            perrs = diversity_utils.calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=dfs) * snp_opportunity_matrix[i, j]
+    
+            if (perrs<0.5).any():
+                # take most permissive one!
+                perr_idx = numpy.nonzero(perrs<0.5)[0][0]
+                df = dfs[perr_idx]
+                perr = perrs[perr_idx]
+            
+                # recalculate stuff!    
+                perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j,lower_threshold=(1-df)/2.0, upper_threshold=(1+df)/2.0)
+                
+            else:
+                df = 2
+                perr = 1
+                mutations = None
+                reversions = None
+    
+        if mutations==None or perr>=0.5:
+            num_mutations = 0
+            num_reversions = 0
+            num_snp_changes = -1
+        else:
+            num_mutations = len(mutations)
+            num_reversions = len(reversions)
+            num_snp_changes = num_mutations+num_reversions
+    
+        # Now do gene changes
+        gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        
+        if (gains==None) or (gene_perr<-0.5) or (gene_perr>0.5):
+            num_gains = 0
+            num_losses = 0
+            num_gene_changes = -1
+        else:
+            num_gains = len(gains)
+            num_losses = len(losses)
+            num_gene_changes = num_gains+num_losses
+    
+        # Don't want to look at modifications or things with high error rates!
+        if num_snp_changes<0 or num_snp_changes>=modification_difference_threshold:
+            continue
+         
+        gene_change_dictionary={'gains':gains, 'losses':losses, 'all':all_changes}
+                        
+        #iterate through all_changes to store the gene_ids.
+        for change_type in ['gains','losses','all']:
+            for i in range(0, len(gene_change_dictionary[change_type])):
+                within_host_changes_gene_ids[change_type].append( gene_change_dictionary[change_type][i][0])
+                
+        # do same thing for SNP changes
+        all_snp_changes = mutations+reversions
+        snp_genes = set() # don't double count genes w/ 2 snps. probably same transfer event
+        for snp_change in all_snp_changes:
+            snp_genes.add(snp_change[0])
+            
+        
+        within_host_changes_gene_ids['snps'] = list(snp_genes)
+                
+        #        
+        # construct a null comprising of all genes present at either time point:
+        sample_1_gene_idx = same_subject_gene_idxs[i]
+        sample_2_gene_idx = same_subject_gene_idxs[j]
+        present_gene_idxs = []
+        present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
+        present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
+        
+        #
+        # sample 100x the number of within-host gene changes from the three different nulls:
+        for change_type in within_host_classes:
+            for trial in range(0,num_trials):
+                between_gene_null_idxs = choice(between_host_gene_idxs, len(gene_change_dictionary[change_type]))
+                present_gene_null_idxs = choice(present_gene_idxs, len(gene_change_dictionary[change_type]))
+                # get the gene_ids for these idxs:
+                between_host_changes_gene_ids_null[change_type][trial].extend( gene_names[between_gene_null_idxs].tolist() )
+                present_gene_null[change_type][trial].extend( gene_names[present_gene_null_idxs].tolist())                
+                pangenome_null[change_type][trial].extend( random.sample(pangenome_gene_names, len(all_changes)))
                 
 
 
@@ -254,7 +344,7 @@ for species_name in good_species_list:
     kegg_pathways_gene_changes={} # store the pathways in this vector
     gene_categories_gene_changes={} #stor categories in this vector
 
-    for change_type in ['gains','losses','all']:
+    for change_type in within_host_classes:
         gene_descriptions_gene_changes[change_type]=[]
         kegg_pathways_gene_changes[change_type]=[]
         gene_categories_gene_changes[change_type]=[]
@@ -280,7 +370,7 @@ for species_name in good_species_list:
     kegg_pathways_gene_changes_null_pangenome={}
     gene_categories_gene_changes_null_pangenome={}
 
-    for change_type in ['gains','losses','all']:
+    for change_type in within_host_classes:
         gene_descriptions_gene_changes_null_between_host[change_type]={}
         kegg_pathways_gene_changes_null_between_host[change_type]={}
         gene_categories_gene_changes_null_between_host[change_type]={}
@@ -341,10 +431,10 @@ for species_name in good_species_list:
 
     # count the number of times a gene shows up in within-host changes
     all_gene_changes={}
-    for change_type in ['gains','losses','all']:
+    for change_type in within_host_classes:
         for gene in gene_descriptions_gene_changes[change_type]:
             if gene not in all_gene_changes:
-                all_gene_changes[gene]={'gains':0,'losses':0,'all':0}
+                all_gene_changes[gene]={0 for c in within_host_classes}
             all_gene_changes[gene][change_type] +=1
 
     # count the number of times a gene shows up in between-host changes in the num_trials
@@ -355,13 +445,13 @@ for species_name in good_species_list:
 
     for trial in range(0,num_trials):
         for gene in gene_descriptions_gene_changes_null_between_host['all'][trial]:
-            all_gene_changes_null_between_host[gene]={'gains':[],'losses':[],'all':[]}
+            all_gene_changes_null_between_host[gene] = {c : [] for c in within_host_classes}
         for gene in gene_descriptions_gene_changes_null_present['all'][trial]: 
-            all_gene_changes_null_present[gene]={'gains':[],'losses':[],'all':[]}
+            all_gene_changes_null_present[gene] = {c : [] for c in within_host_classes}
         for gene in gene_descriptions_gene_changes_null_pangenome['all'][trial]: 
-            all_gene_changes_null_pangenome[gene]={'gains':[],'losses':[],'all':[]}
+            all_gene_changes_null_pangenome[gene] = {c : [] for c in within_host_classes}
 
-    for change_type in ['gains','losses','all']:
+    for change_type in within_host_classes:
         for trial in range(0,num_trials): # iterate through the 100 trials
             for gene in all_gene_changes_null_between_host.keys():
                 num_occurrences=gene_descriptions_gene_changes_null_between_host[change_type][trial].count(gene)

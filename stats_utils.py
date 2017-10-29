@@ -169,6 +169,8 @@ def calculate_IQR_from_histogram(histogram):
     
     return xs[upper_idx]-xs[lower_idx]
     
+
+    
 ####
 #
 # Calculates "confidence intervals" on rate from Poisson distribution 

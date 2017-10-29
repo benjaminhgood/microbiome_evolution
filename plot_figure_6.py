@@ -100,11 +100,17 @@ total_between_null_snp_mutrevs = {'muts': 0, 'revs':0}
 total_gene_gainlosses = {'gains':0, 'losses':0}
 total_between_null_gene_gainlosses = {'gains':0, 'losses':0}
 
+# observed within host value
 pooled_snp_change_distribution = []
 pooled_gene_change_distribution = []
 
+# typical value, median other sample
 pooled_between_snp_change_distribution = []
 pooled_between_gene_change_distribution = []
+
+# closest other sample
+pooled_min_between_snp_change_distribution = []
+pooled_min_between_gene_change_distribution = []
 
 replacement_map = {}
 
@@ -249,9 +255,18 @@ for species_name in good_species_list:
             num_losses = len(losses)
             num_gene_changes = num_gains+num_losses
     
+    
         if (num_snp_changes>-0.5):
             pooled_snp_change_distribution.append(num_snp_changes)
-            pooled_between_snp_change_distribution.append( numpy.median(snp_difference_matrix[i,:]) )
+            
+            good_idxs = parse_midas_data.calculate_samples_in_different_subjects( subject_sample_map, snp_samples, sample_i)
+
+            # typical
+            pooled_between_snp_change_distribution.append( numpy.median(snp_difference_matrix[i, good_idxs]) )
+            
+            # minimum
+            pooled_min_between_snp_change_distribution.append( snp_difference_matrix[i, good_idxs].min() )
+            
             
         if (num_snp_changes>=modification_difference_threshold):
             sample_pair = (sample_i, sample_j)
@@ -293,6 +308,8 @@ for species_name in good_species_list:
             
             # Now get a null from between-host changes
             good_comparison_idxs = (snp_opportunity_matrix[i,:]>0.5)
+            good_comparison_idxs *= parse_midas_data.calculate_samples_in_different_subjects( subject_sample_map, snp_samples, sample_i)
+
             
             total_between_host_changes = sum([numpy.median(difference_matrices[var_type][i,good_comparison_idxs]) for var_type in variant_types])
             
@@ -321,11 +338,17 @@ for species_name in good_species_list:
             
                 gene_i = i
                 good_comparison_idxs = (gene_opportunity_matrix[i,:]>0.5)
-                    
+                 
+                good_comparison_idxs *= parse_midas_data.calculate_samples_in_different_subjects( subject_sample_map, gene_samples, sample_i)
+    
             
                 pooled_gene_change_distribution.append(num_gene_changes)  
+                
+                # Typical value
                 pooled_between_gene_change_distribution.append( numpy.median(gene_difference_matrix[gene_i, good_comparison_idxs]) )      
-    
+                # Minimum value
+                pooled_min_between_gene_change_distribution.append( gene_difference_matrix[gene_i, good_comparison_idxs].min() )
+                
                 total_gene_modification_map[species_name] += num_gene_changes
                 total_null_gene_modification_map[species_name] += gene_perr   
                 
@@ -406,7 +429,7 @@ scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
 #
 ####################################################
 
-pylab.figure(1,figsize=(5,1.5))
+pylab.figure(1,figsize=(5,3.5))
 fig = pylab.gcf()
 # make three panels panels
 outer_grid  = gridspec.GridSpec(1,2,width_ratios=[50,1],wspace=0.05)
@@ -415,12 +438,12 @@ change_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(change_axis)
 
 change_axis.set_ylabel('Number of samples')
-change_axis.set_ylim([-35,35])
+change_axis.set_ylim([-85,85])
 change_axis.set_xlim([-1,len(species_names)])
 change_axis.plot([-1,len(species_names)],[0,0],'k-')
 
-change_axis.set_yticks([-30,-20,-10,0,10,20,30])
-change_axis.set_yticklabels(['30','20','10','0','10','20','30'])
+change_axis.set_yticks([-80,-70,-60,-50,-40,-30,-20,-10,0,10,20,30,40,50,60,70,80])
+change_axis.set_yticklabels(['80','70','60','50','40','30','20','10','0','10','20','30','40','50','60','70','80'])
 
 xticks = numpy.arange(0,len(species_names))
 #xticklabels = ["%s (%d)" % (species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
@@ -463,6 +486,10 @@ dnds_axis.get_yaxis().tick_left()
 dnds_axis.set_xlim([0.3,2.7])
 dnds_axis.set_xticks([1,2])
 dnds_axis.set_xticklabels(['non','syn'])
+dnds_axis.set_ylim([0,300])
+dnds_axis.set_yticks([0,100,200,300])
+
+# TODO: significance of DNDS < 1!
 
 # Mutation / reversion
 mutrev_axis = plt.Subplot(fig2, upper_grid[1])
@@ -475,7 +502,7 @@ mutrev_axis.get_yaxis().tick_left()
 
 mutrev_axis.set_xlim([0.3,2.7])
 #mutrev_axis.set_ylim([0,645])
-#mutrev_axis.set_yticks([0,100,200,300])
+mutrev_axis.set_yticks([0,200,400,600])
 mutrev_axis.set_xticks([1,2])
 mutrev_axis.set_xticklabels(['mut','rev'])
 #mutrev_axis.set_yticklabels([])
@@ -491,6 +518,7 @@ gainloss_axis.get_xaxis().tick_bottom()
 gainloss_axis.get_yaxis().tick_left()
 gainloss_axis.set_xlim([0.3,2.7])
 #gainloss_axis.set_ylim([0,2100])
+gainloss_axis.set_yticks([0,1000,2000,3000])
 gainloss_axis.set_xticks([1,2])
 gainloss_axis.set_xticklabels(['loss','gain'])
 #gainloss_axis.set_yticklabels([])
@@ -629,23 +657,29 @@ change_axis.text(20,-20,'Genes',fontsize=5)
 
 pooled_snp_change_distribution = numpy.array(pooled_snp_change_distribution)
 pooled_between_snp_change_distribution = numpy.array(pooled_between_snp_change_distribution)
+pooled_min_between_snp_change_distribution = numpy.array(pooled_min_between_snp_change_distribution)
 
-print "Mean =", pooled_snp_change_distribution.mean()
-print "Median =", numpy.median(pooled_snp_change_distribution)
 
-pooled_snp_change_distribution = numpy.clip(pooled_snp_change_distribution, 3e-01,1e08)
-pooled_between_snp_change_distribution = numpy.clip(pooled_between_snp_change_distribution, 3e-01,1e08)
+print "Mean within host snps =", pooled_snp_change_distribution.mean()
+print "Median withon host snps =", numpy.median(pooled_snp_change_distribution)
+
+pooled_snp_change_distribution = numpy.clip(pooled_snp_change_distribution, 1e-01,1e08)
+pooled_between_snp_change_distribution = numpy.clip(pooled_between_snp_change_distribution, 1e-01,1e08)
+pooled_min_between_snp_change_distribution = numpy.clip(pooled_min_between_snp_change_distribution, 1e-01,1e08)
 
 pooled_snp_axis.fill_between([modification_difference_threshold,1e05],[1,1],[1e03,1e03],color='0.8')
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
+#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_snp_axis.step(xs,ns,'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host')
+#pooled_snp_axis.step(xs,ns,'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host', where='mid')
 
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_min_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
+
+pooled_snp_axis.step(xs,ns,'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host', where='mid')
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_snp_axis.step(xs,ns,'-',color='#08519c',linewidth=1, label='Within-host')
+pooled_snp_axis.step(xs,ns,'-',color='#08519c',linewidth=1, label='Within-host', where='mid')
 
 pooled_snp_axis.loglog([1e-01,1e05],[1,1],'k:')
 
@@ -656,18 +690,23 @@ pooled_snp_axis.set_ylim([1,1e03])
 
 pooled_gene_change_distribution = numpy.array(pooled_gene_change_distribution)
 pooled_between_gene_change_distribution = numpy.array(pooled_between_gene_change_distribution)
+pooled_min_between_gene_change_distribution = numpy.array(pooled_min_between_gene_change_distribution)
 
-
-pooled_gene_change_distribution = numpy.clip(pooled_gene_change_distribution, 3e-01,1e08)
-pooled_between_gene_change_distribution = numpy.clip(pooled_between_gene_change_distribution, 3e-01,1e08)
+pooled_gene_change_distribution = numpy.clip(pooled_gene_change_distribution, 1e-01,1e08)
+pooled_between_gene_change_distribution = numpy.clip(pooled_between_gene_change_distribution, 1e-01,1e08)
+pooled_min_between_gene_change_distribution = numpy.clip(pooled_min_between_gene_change_distribution, 1e-01,1e08)
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_gene_axis.step(xs,ns,'-',color='#08519c',linewidth=1, label='Within-host',zorder=1)
+pooled_gene_axis.step(xs,ns,'-',color='#08519c',linewidth=1, label='Within-host',zorder=1,where='mid')
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_gene_change_distribution, min_x=1e-02, max_x=1e09)
+#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_gene_axis.step(xs,ns,'-',color='r',linewidth=0.5, label='Between-host',zorder=0,alpha=0.5)
+#pooled_gene_axis.step(xs,ns,'-',color='r',linewidth=0.5, label='Between-host',zorder=0,alpha=0.5, where='mid')
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_min_between_gene_change_distribution, min_x=1e-02, max_x=1e09)
+
+pooled_gene_axis.step(xs,ns,'-',color='r',linewidth=0.5, label='Between-host',zorder=0,alpha=0.5, where='mid')
 
 
 pooled_gene_axis.loglog([1e-01,1e05],[1,1],'k:')
@@ -675,7 +714,7 @@ pooled_gene_axis.loglog([1e-01,1e05],[1,1],'k:')
 pooled_gene_axis.set_ylim([1,1e03])
 pooled_gene_axis.set_yticklabels([])
 
-#pooled_gene_axis.legend(loc='upper center', frameon=False, fontsize=5, numpoints=1, ncol=2, handlelength=1)
+#pooled_gene_axis.legend(loc='lower left', frameon=False, fontsize=5, numpoints=1, handlelength=1)
 
 # Plot dNdS and expected version
 
