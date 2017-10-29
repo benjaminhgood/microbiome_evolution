@@ -438,12 +438,12 @@ change_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(change_axis)
 
 change_axis.set_ylabel('Number of samples')
-change_axis.set_ylim([-85,85])
+change_axis.set_ylim([-75,75])
 change_axis.set_xlim([-1,len(species_names)])
 change_axis.plot([-1,len(species_names)],[0,0],'k-')
 
-change_axis.set_yticks([-80,-70,-60,-50,-40,-30,-20,-10,0,10,20,30,40,50,60,70,80])
-change_axis.set_yticklabels(['80','70','60','50','40','30','20','10','0','10','20','30','40','50','60','70','80'])
+change_axis.set_yticks([-70,-60,-50,-40,-30,-20,-10,0,10,20,30,40,50,60,70])
+change_axis.set_yticklabels(['70','60','50','40','30','20','10','0','10','20','30','40','50','60','70'])
 
 xticks = numpy.arange(0,len(species_names))
 #xticklabels = ["%s (%d)" % (species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]

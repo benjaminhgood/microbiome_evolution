@@ -123,6 +123,9 @@ for species_name in good_species_list:
     snp_samples = list(snp_samples)
     allowed_sample_set = set(snp_samples)
     
+    if sample_size < min_sample_size:
+        continue
+    
     # load pre-computed data:
     sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
     substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
