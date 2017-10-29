@@ -78,6 +78,13 @@ min_sample_size = 5
 
 within_host_classes = ['gains','losses','all','snps']
 
+# Load subject and sample metadata
+sys.stderr.write("Loading sample metadata...\n")
+subject_sample_map = parse_HMP_data.parse_subject_sample_map()
+sample_order_map = parse_HMP_data.parse_sample_order_map()
+sys.stderr.write("Done!\n")
+
+
 if other_species_str == "":
     good_species_list = parse_midas_data.parse_good_species_list()
 else:
@@ -196,7 +203,6 @@ for species_name in good_species_list:
     # indexes for different subject pairs
     desired_samples = gene_samples
 
-    sample_order_map = parse_HMP_data.parse_sample_order_map()
     desired_same_sample_idxs, desired_same_subject_idxs, desired_diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, desired_samples)
 
     snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)

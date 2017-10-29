@@ -99,7 +99,8 @@ os.system('python plot_singleton_distribution.py')
 # (supplemental_triplet_trajectories.png)
 #
 ##################################
-os.system('python plot_supplemental_triplets.py') 
+# commented out to save time. uncomment when need to regenerate
+#os.system('python plot_supplemental_triplets.py') 
 
 
 ##################################
@@ -107,4 +108,5 @@ os.system('python plot_supplemental_triplets.py')
 # Supplemental Figure: Examples of clonal vs local sweep in B. vulgatus
 #
 ##################################
-#os.system('python plot_supplemental_joint_sfs.py')
+# commented out to save time. uncomment when need to regenerate
+#os.system('python plot_supplemental_clonal_local.py')
