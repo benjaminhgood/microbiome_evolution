@@ -291,6 +291,7 @@ for species_name in good_species_list:
     
         # Now do gene changes
         gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        all_changes=gains+losses
         
         if (gains==None) or (gene_perr<-0.5) or (gene_perr>0.5):
             num_gains = 0
