@@ -629,7 +629,7 @@ total_haploids = num_haploid_samples.sum()
 #############
 correlation_axis.loglog(fraction_polyploids[num_samples>=10], avg_within_rates[num_samples>=10], 'o', color=haploid_color,alpha=0.5)
 
-correlation_axis.loglog([1e-02,1],[1e-04,1e-02],'-',color=haploid_color)  
+#correlation_axis.loglog([1e-02,1],[1e-04,1e-02],'-',color=haploid_color)  
 
 
 # Sort by num samples    
