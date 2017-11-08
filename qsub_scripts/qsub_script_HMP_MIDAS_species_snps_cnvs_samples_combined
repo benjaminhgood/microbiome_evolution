@@ -8,9 +8,9 @@
 #$ -j y                            #-- tell the system that the STDERR and STDOUT should be joined
 #$ -l mem_free=1G                  #-- submits on nodes with enough free memory (required)
 #$ -l arch=linux-x64               #-- SGE resources (CPU type)
-#$ -l netapp=1G,scratch=1G         #-- SGE resources (home and scratch disks)
+#$ -l netapp=2G,scratch=2G         #-- SGE resources (home and scratch disks)
 #$ -l h_rt=336:00:00               #-- runtime limit (see above; this requests 24 hours)
-#$ -t 1-66                        #-- remove first '#' to specify the number of
+#$ -t 1-21                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
 readarray files < ~/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/combined_sampleIDs.txt
@@ -24,8 +24,8 @@ mkdir $OUTDIR
 
 run_midas.py species $OUTDIR -1 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_1.fastq.gz -2 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_2.fastq.gz
 
-run_midas.py snps $OUTDIR -1 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_1.fastq.gz -2 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_2.fastq.gz
+#run_midas.py snps $OUTDIR -1 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_1.fastq.gz -2 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_2.fastq.gz
 
-run_midas.py genes $OUTDIR -1 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_1.fastq.gz -2 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_2.fastq.gz
+#run_midas.py genes $OUTDIR -1 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_1.fastq.gz -2 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/joined_fastq_files_hmp_combine_sample_reps/${file}_2.fastq.gz
 
 

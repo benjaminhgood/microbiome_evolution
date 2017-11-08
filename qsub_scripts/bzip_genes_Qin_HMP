@@ -13,12 +13,12 @@
 #$ -t 1-152                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
-readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/genes_Qin_HMP_samples_combined/species_genes.txt
+readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/genes/species_genes.txt
 files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
 species=${files[$SGE_TASK_ID]}
 echo $species
 
-dir=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/genes_Qin_HMP_samples_combined
+dir=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/genes
 bzip2 ${dir}/${species}/genes_copynum.txt
 bzip2 ${dir}/${species}/genes_depth.txt
 bzip2 ${dir}/${species}/genes_presabs.txt

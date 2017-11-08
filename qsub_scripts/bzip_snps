@@ -13,11 +13,18 @@
 #$ -t 1-151                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
-readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/species_snps.txt
+#readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/species_snps.txt
+readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps_olddb_time_controlled/species_snps.txt
+
 files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
 species=${files[$SGE_TASK_ID]}
 
-bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_depth.txt
-bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_info.txt
-bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_ref_freq.txt
-bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_alt_allele.txt
+#bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_depth.txt
+#bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_info.txt
+#bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_ref_freq.txt
+#bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/snps/${species}/snps_alt_allele.txt
+
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps_olddb_time_controlled/${species}/snps_depth.txt
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps_olddb_time_controlled/${species}/snps_info.txt
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps_olddb_time_controlled/${species}/snps_ref_freq.txt
+bzip2 /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps_olddb_time_controlled/${species}/snps_alt_allele.txt

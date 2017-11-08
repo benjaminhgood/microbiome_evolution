@@ -17,7 +17,7 @@
 #files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
 #file=${files[$SGE_TASK_ID]}
 #echo $file
-dir=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/species_Qin_HMP_samples_combined
+dir=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/species
 
 bzip2 ${dir}/coverage.txt
 bzip2 ${dir}/count_reads.txt
