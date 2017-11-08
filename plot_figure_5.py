@@ -93,12 +93,21 @@ fig = pylab.gcf()
 #gene_grid = gridspec.GridSpecFromSubplotSpec(3, 1, height_ratios=[1,1,1], subplot_spec=outer_grid[1], hspace=0.5)
 
 ## Supp figure
-pylab.figure(2,figsize=(5,0.9))
+pylab.figure(2,figsize=(3.42,0.9))
 fig2 = pylab.gcf()
+
+## Supp figure
+pylab.figure(3,figsize=(1.7,0.9))
+fig3 = pylab.gcf()
+
 
 differences_grid = gridspec.GridSpec(3, 1, height_ratios=[1,1,1], hspace=0.1)
                 
-gene_grid = gridspec.GridSpec(1,3, width_ratios=[1,1,1], wspace=0.35)
+gene_grid = gridspec.GridSpec(1,2, width_ratios=[1,1], wspace=0.4)            
+other_gene_grid = gridspec.GridSpec(1,1)
+
+
+
 
 ###################
 #
@@ -233,8 +242,8 @@ linkage_axis.get_yaxis().tick_left()
 #
 ##############################################################################
 
-parallelism_axis = plt.Subplot(fig2, gene_grid[2])
-fig2.add_subplot(parallelism_axis)
+parallelism_axis = plt.Subplot(fig3, other_gene_grid[0])
+fig3.add_subplot(parallelism_axis)
 #parallelism_axis = plt.Subplot(supplemental_fig, supplemental_outer_grid[0])
 #supplemental_fig.add_subplot(parallelism_axis)
 
@@ -915,6 +924,8 @@ linkage_axis.legend(loc='upper right',frameon=False,fontsize=4)
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_5%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
 fig2.savefig('%s/supplemental_figure_5%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
+fig3.savefig('%s/supplemental_figure_5c%s.pdf' % (parse_midas_data.analysis_directory, other_species_str),bbox_inches='tight')
+
 sys.stderr.write("Done!\n")
 
     
