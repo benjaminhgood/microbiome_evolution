@@ -106,6 +106,23 @@ qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_genes_tech_com
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_snps_samples_combined_newDB_timepts_matched
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_genes_samples_combined_newDB_timepts_matched
 
+
+while read dir; do
+    echo $dir
+    wc -l ${dir}/snps/temp/*fai
+    cat ${dir}/snps/temp/*fa | grep '>' | wc -l
+done < tmp
+
+while read dir; do
+    echo $dir
+    mkdir ~/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_tech_combined_output/${dir}
+    cp -R ~/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/${dir}/species ~/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_tech_combined_output/${dir}/
+done < ~/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/List_of_non_sample_reps.txt
+
+
+
+
+
 ###############################
 # run MIDAS on Kuleshov data  #
 ###############################
@@ -126,6 +143,15 @@ mysql -u ngarud -p -e"select subject_id, sample_id, run_accession, country, cont
 
 cat ~/ben_nandita_hmp_data/Qin_2012_ids_healthy.txt | cut -f3 > ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_IDs_healthy.txt
 
+#copy the species files
+while read dir; do
+    echo $dir
+    mkdir ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output_Oct17/${dir}
+    cp -R ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output/${dir}/species ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output_Oct17/${dir}/
+done < ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output/tmp
+
+
+
 # run midas
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_Qin_MIDAS_species_snps_cnvs
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_Qin_MIDAS_snps # can run snps and genes in parallel
@@ -136,21 +162,21 @@ qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_Qin_MIDAS_cnvs
 #################################################
 
 # Since the output is all in different dirs for each project, I need a list of paths for each sample to be merged.
-# There are a total of 419 samples, so I need 419 paths.
+# There are a total of 499 samples (Qin and HMP), so I need 499 paths.
 
 # get a list of all the sample paths:
-python ~/ben_nandita_hmp_scripts/fastq_samples_without_visno_replicate.py 
+#python ~/ben_nandita_hmp_scripts/fastq_samples_without_visno_replicate.py 
+ls -d /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_tech_combined_output/** > /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/sample_paths.txt
 
 # combined samples:
 ls -d -1 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_samples_combined_output/** >> /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/sample_paths.txt
 
 # Kuleshov:
-# note, I have copied the kuleshov sample to the HMP dir. 
-echo '/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/SRR2822459' >> /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/sample_paths.txt 
+echo '/netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Kuleshov/MIDAS_1.2.2_output/SRR2822459' >> /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/sample_paths.txt 
 
 # Qin:
 rm /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_Qin.txt
-ls -d -1 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output/** > /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_Qin.txt
+ls -d -1 /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output_Oct17/** > /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_Qin.txt
 
 cat /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_hmp/sample_paths.txt /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_Qin.txt > /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin.txt
 
@@ -165,7 +191,7 @@ qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_Qin_MIDAS_CNVs_1_mer
 python ~/ben_nandita_hmp_scripts/replace_path_string.py
 
 OUTDIR=/pollard/home/ngarud/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP
-nohup nice merge_midas.py snps $OUTDIR/snps -i ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin_chestnut.txt -t file --sample_depth 5 --site_depth 3 --min_samples 1 --max_species 150 --site_prev 0.0 --threads 10 > $OUTDIR/snps/snps_core_variable_Qin_HMP_samples_combined.log &
+nohup nice merge_midas.py snps $OUTDIR/snps -i ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin_chestnut.txt -t file --sample_depth 5 --site_depth 3 --min_samples 1 --max_species 150 --site_prev 0.0 --threads 19 > $OUTDIR/snps/snps_core_variable_Qin_HMP_samples_combined.log &
 
 #bzip everything
 # need a list of files to bzip (send this to cluster)
@@ -1012,7 +1038,7 @@ python ~/ben_nandita_hmp_scripts/gene_differences_reference_genome_change.py $sp
 #####################################################################################################
 
 # Pull out the  patric files for species in the good species list so that Ben and I have the same, but not large-data size copy. 
-python ~/ben_nandita_hmp_scripts/list_of_relevant_patric_files.py > ~/tmp_intermediate_files/relevant_patric_files.txt
+python ~/ben_nandita_hmp_scripts/list_of_relevant_patric_files.py > ~/tmp_intermediate_files/relevant_patric_files_1025.txt
 while read genome; do
     echo $genome
     cp /pollard/shattuck0/snayfach/databases/PATRIC/genomes/${genome}/${genome}.PATRIC.features.tab.gz ~/patric_db/features/
@@ -1021,11 +1047,17 @@ done < ~/tmp_intermediate_files/relevant_patric_files.txt
 
 # run the gene annotation script in parallel on good_species_list:
 
+# first remove all the old pickles
+rm ~/tmp_intermediate_files/*gene_changes.p
+
 while read species; do
 
     nohup nice python ~/ben_nandita_hmp_scripts/gene_changes_annotation.py --other-species $species &
 
 done < ~/tmp_intermediate_files/tmp_species_list.txt
+
+# aggregate the results accross species 
+gene_changes_annotation_cross_species.py
 
 
 #####################################################################################################
@@ -1138,3 +1170,18 @@ for line in inFN2:
     if file not in files.keys():
 	print file
 
+##########################
+# Supplemental table:
+# HMP and QIN ids used for the analysis
+
+python supplemental_table_sample_ids.py 
+
+#####################################################
+# October 26 
+# Debug why my time file looks different from Ben's #
+#####################################################
+/pollard/home/ngarud/miniconda2
+
+./pollard/home/ngarud/miniconda2/bin/conda install matplotlib
+
+/pollard/home/ngarud/miniconda2/bin/python2.7 
