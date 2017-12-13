@@ -65,15 +65,15 @@ else:
 ################################################################################
 
 
-if other_species=="":
+if other_species_str=="":
     outFile=open('%sgene_changes_shuffle_all_species.txt' % parse_midas_data.analysis_directory, 'w' )
 else:
-    outFile=open('%sgene_changes_shuffle_%s.txt' %(parse_midas_data.analysis_directory, species_name) , 'w' )   
+    outFile=open('%sgene_changes_shuffle_%s.txt' % (parse_midas_data.analysis_directory, species_name) , 'w' )   
 
 modification_difference_threshold = config.modification_difference_threshold
 min_coverage = config.min_median_coverage
 clade_divergence_threshold = 1e-02 # TODO: change to top level clade definition later
-num_trials=100
+num_trials=1
 min_sample_size = 5
 
 within_host_classes = ['gains','losses','all','snps']
@@ -94,6 +94,8 @@ else:
 all_data={} 
 #key=species
 #value={}, key=gene, valuee=num times gene shows up
+
+good_species_list = good_species_list[0:2]
 
 for species_name in good_species_list: 
     
@@ -305,6 +307,9 @@ for species_name in good_species_list:
         # Don't want to look at modifications or things with high error rates!
         if num_snp_changes<0 or num_snp_changes>=modification_difference_threshold:
             continue
+        
+        if (num_snp_changes<=0) and (num_gene_changes<=0):
+            continue
          
         gene_change_dictionary={'gains':gains, 'losses':losses, 'all':all_changes}
                         
@@ -443,7 +448,11 @@ for species_name in good_species_list:
     # count the number of times a gene shows up in within-host changes
     all_gene_changes={}
     for change_type in within_host_classes:
+        if change_type=='snps':
+            print "Getting ready for snps!"
+            
         for gene in gene_descriptions_gene_changes[change_type]:
+            print gene, "in snps"
             if gene not in all_gene_changes:
                 #all_gene_changes[gene]={0 for c in within_host_classes}
                 all_gene_changes[gene]={}
@@ -584,9 +593,9 @@ for species_name in good_species_list:
     all_data[species_name]={'gene_changes':all_gene_changes, 'null':all_species_null}
 
 if other_species_str=="":
-    pickle.dump( all_data, open( "/pollard/home/ngarud/tmp_intermediate_files/all_species_gene_changes.p", "wb" ) )
+    pickle.dump( all_data, open( "all_species_gene_changes.p", "wb" ) )
 else:
-    pickle.dump( all_data, open( "/pollard/home/ngarud/tmp_intermediate_files/%s_gene_changes.p" % species_name, "wb" ) )  
+    pickle.dump( all_data, open( "%s_gene_changes.p" % species_name, "wb" ) )  
 
 
 

@@ -99,7 +99,7 @@ for species_name in all_data.keys():
 # compute the expected number of changes under different nulls by averaging
 for gene in all_data['all_species']['gene_changes'].keys():
     for null_type in ['between_host_genes', 'present_genes', 'pangenome_genes']:
-        for change_type in ['gains','losses','all']:
+        for change_type in ['snps']:
             if gene in all_data['all_species']['null'][null_type].keys():
                 expectation = numpy.array(all_data['all_species']['null'][null_type][gene][change_type]).mean()
                 #prob=sum(all_data['all_species']['gene_changes'][gene][change_type] <= tmp_null)/float(num_trials)
@@ -185,7 +185,7 @@ common_genes={}
 # num={}
 # genes={}
 for keyword in keywords.keys():
-    common_genes[keyword]={'all':[0,0,0,0], 'gains':[0,0,0,0], 'losses':[0,0,0,0], 'genes':[]}
+    common_genes[keyword]={'snps':[0,0,0,0]}
 
 
 for gene in all_data['all_species']['gene_changes']:
@@ -199,7 +199,7 @@ for gene in all_data['all_species']['gene_changes']:
                 common_genes[keyword]['genes'].append(gene)
                 keyword_found=True
     if keyword_found==False:
-        for change_type in ['all','gains','losses']:
+        for change_type in ['snps']:
             for i in range(0,4):
                 common_genes['other'][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
         common_genes['other']['genes'].append(gene)

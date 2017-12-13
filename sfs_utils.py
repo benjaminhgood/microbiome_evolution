@@ -84,11 +84,13 @@ def calculate_binned_depth_distribution_from_sfs_map(sfs_map,bins=[],num_bins=30
         # use this to set up bins
         bins = numpy.logspace(log10(Dbar/8),log10(Dbar*8),num_bins)
         Ds = bins[0:-1]
-        
-        
+           
     else:
         bins = numpy.array(bins)
         Ds = bins[0:-1]
+    
+    bins[0] = 0
+    bins[-1] = 1e09
     
     pDs = numpy.zeros_like(Ds)
     bin_idxs = numpy.digitize(depths, bins=bins)
