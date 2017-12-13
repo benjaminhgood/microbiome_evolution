@@ -13,11 +13,13 @@
 #$ -t 1-152                        #-- remove first '#' to specify the number of
                                    #-- tasks if desired (see Tips section)
 
-readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps_Qin_HMP_samples_combined/species_snps.txt
+readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps/species_snps.txt
+#readarray files < /netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps/species_snps.txt
 files=(null ${files[@]}) # this pads the file with an extra line in the beginning. 
 species=${files[$SGE_TASK_ID]}
 
-dir=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps_Qin_HMP_samples_combined
+dir=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps
+#dir=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP/snps
 bzip2 ${dir}/${species}/snps_depth.txt
 bzip2 ${dir}/${species}/snps_info.txt
 bzip2 ${dir}/${species}/snps_ref_freq.txt

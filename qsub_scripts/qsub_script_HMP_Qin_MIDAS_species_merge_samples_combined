@@ -16,7 +16,7 @@
 
 OUTDIR=/netapp/home/ngarud/shattuck/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP
 
-merge_midas.py species $OUTDIR/species_Qin_HMP_samples_combined -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin.txt -t file  >& $OUTDIR/species_Qin_HMP_samples_combined/species_Qin_HMP_samples_combined.log
+merge_midas.py species $OUTDIR/species -i /netapp/home/ngarud/shattuck/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin.txt -t file  >& $OUTDIR/species/species_Qin_HMP_samples_combined.log
 
 
 

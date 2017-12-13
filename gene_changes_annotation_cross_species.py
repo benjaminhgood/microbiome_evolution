@@ -231,7 +231,7 @@ for keyword in keywords.keys():
 
 
 for gene in all_data['all_species']['gene_changes']:
-  if all_data['all_species']['gene_changes'][gene]['all'][0] > 0: #why are zeros being outputted?
+  if all_data['all_species']['gene_changes'][gene]['all'][0] > 0: 
     keyword_found=False
     for keyword in keyword_order:
         for regexp in keywords[keyword]:

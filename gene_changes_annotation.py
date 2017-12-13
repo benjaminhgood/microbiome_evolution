@@ -95,46 +95,50 @@ all_data={}
 #key=species
 #value={}, key=gene, valuee=num times gene shows up
 
+<<<<<<< HEAD
 good_species_list = good_species_list[0:2]
+=======
+>>>>>>> bd42de6516ff06463f80093d0aa50aceb8888849
 
 for species_name in good_species_list: 
-    
+    dummy_samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])) 
+    #
     # data structures for storing information for pickling later on
     all_species_gene_changes={}
     #all_species_gene_changes_category={}
     all_species_null={}
     all_data[species_name]={}
-
+    #
     ####################
     # Analyze the data #
     ####################
-    
+    #
     # Only plot samples above a certain depth threshold that are "haploids"
     haploid_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
-
+    #
     if len(haploid_samples) < min_sample_size:
         continue
-
+    #
     same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, haploid_samples)
-
+    #
     snp_samples = set()
     sample_size = 0        
     for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
-   
+        #
         i = same_subject_idxs[0][sample_pair_idx]
         j = same_subject_idxs[1][sample_pair_idx]
-
+        #
         snp_samples.add(haploid_samples[i])
         snp_samples.add(haploid_samples[j])
-            
+        #    
         sample_size += 1
-            
+        #    
     snp_samples = list(snp_samples)
     allowed_sample_set = set(snp_samples)
-    
+    #
     if sample_size < min_sample_size:
         continue
-    
+    #
     # load pre-computed data:
     sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
     substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
@@ -142,26 +146,26 @@ for species_name in good_species_list:
     dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, 'all', allowed_samples=snp_samples)
     snp_samples = dummy_samples
     sys.stderr.write("Done!\n")
-
+    #
     sys.stderr.write("Loading pre-computed temporal changes for %s...\n" % species_name)
     temporal_change_map = calculate_temporal_changes.load_temporal_change_map(species_name)
     sys.stderr.write("Done!\n")
-
+    #
     snp_substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
     sys.stderr.write("Done!\n")   
-
+    #
     # get all genome ids for this species' pan genome:
     genome_ids=parse_midas_data.get_ref_genome_ids(species_name)
-
+    #
     # load the gene descriptions for all genomes coresponding to this speceis:
     gene_descriptions=parse_patric.load_patric_gene_descriptions(genome_ids)
-
+    #
     # create gene categories (poor proxy for GO terms):
     gene_categories, gene_category_map = parse_patric.cluster_patric_gene_descriptions(gene_descriptions)
-
+    #
     # load the kegg ids for all genomes corresponding to this species:
     kegg_ids=parse_patric.load_kegg_annotations(genome_ids)    
-    
+    #
     # store null data in this to see how the actual data compares. 
     between_host_changes_gene_ids_null={} #dictionary which stores different trials (trial=key)
     present_gene_null={}
@@ -174,114 +178,114 @@ for species_name in good_species_list:
             between_host_changes_gene_ids_null[change_type][trial]=[]
             present_gene_null[change_type][trial]=[]        
             pangenome_null[change_type][trial]=[]
-        
-
+     #   
+     #
     ##################
     # pangenome null #
     ##################
-
+    #
     # load all pangenome genes for the species after clustering at 95% identity
     pangenome_gene_names, pangenome_new_species_names=parse_midas_data.load_pangenome_genes(species_name)
-    
-
+    #
+    #
     ###########################################
     # load data for between host changes null #
     ###########################################
-
+    #
     # Load gene coverage information for species_name
     sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
     gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
     sys.stderr.write("Done!\n")
-    
+    #
     # compute gene cnv for constructing a null based on which genes are present later on.
     gene_copynum_matrix = gene_depth_matrix*1.0/(marker_coverages+(marker_coverages==0))
-    
+    #
     # convert gene_samples to list:
     gene_samples=gene_samples.tolist()
-
+    #
     # convert gene names to numpy array:
     gene_names=numpy.array(gene_names)
-
+    #
     # indexes for different subject pairs
     desired_samples = gene_samples
-
+    #
     desired_same_sample_idxs, desired_same_subject_idxs, desired_diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, desired_samples)
-
+    #
     snp_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, snp_samples)
     gene_sample_idx_map = parse_midas_data.calculate_sample_idx_map(desired_samples, gene_samples)
-
+    #
     same_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_same_subject_idxs)  
     same_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_same_subject_idxs)  
-
+    #
     diff_subject_snp_idxs = parse_midas_data.apply_sample_index_map_to_indices(snp_sample_idx_map, desired_diff_subject_idxs)  
     diff_subject_gene_idxs = parse_midas_data.apply_sample_index_map_to_indices(gene_sample_idx_map, desired_diff_subject_idxs)  
-
+    #
     between_host_gene_idxs = [] # store idxs of genes that change between hosts
     for sample_pair_idx in xrange(0,len(diff_subject_snp_idxs[0])):
         snp_i = diff_subject_snp_idxs[0][sample_pair_idx]
         snp_j = diff_subject_snp_idxs[1][sample_pair_idx]
-
+        #
         i = diff_subject_gene_idxs[0][sample_pair_idx]
         j = diff_subject_gene_idxs[1][sample_pair_idx]
         if (marker_coverages[i]>min_coverage) and (marker_coverages[j]>min_coverage):
             if snp_substitution_rate[snp_i, snp_j] < clade_divergence_threshold:
                 gene_idxs = gene_diversity_utils.calculate_gene_differences_between_idxs(i,j, gene_reads_matrix, gene_depth_matrix, marker_coverages)
                 between_host_gene_idxs.extend(gene_idxs) # collect all gene changes occurring between hosts. Use this for the null.
-    
-    
-
+    #
+    #
+    #
     #######################
     # within host changes #
     # present gene null -- construct a null consisting of any gene present at either time pt
     #######################
-
+    #
     # store the actual data in this:
     within_host_changes_gene_ids={type:[] for type in within_host_classes}
-
+    #
     # BG: Can't do it this way! Will pick up lots of diploids!
     #for sample_pair in temporal_change_map.keys():
     #    sample_1=sample_pair[0]
     #    sample_2=sample_pair[1]
-     
+    # 
     for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
-#    
+        #    
         i = same_subject_snp_idxs[0][sample_pair_idx]
         j = same_subject_snp_idxs[1][sample_pair_idx]
-    
+        #
         sample_i = snp_samples[i] 
         sample_j = snp_samples[j]
-        
+        #
         if not ((sample_i in allowed_sample_set) and (sample_j in allowed_sample_set)):
             continue
-        
+        #
         # Load SNP and gene changes!
-        
+        #
         # First SNP changes
         perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-        
+        #
         # Look at higher threshold if error rate is too high
         if perr>=0.5:
-            
+            #
             # Calculate a more fine grained value!
-        
+            #
             dfs = numpy.array([0.6,0.7,0.8,0.9])
             perrs = diversity_utils.calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=dfs) * snp_opportunity_matrix[i, j]
-    
+            #
             if (perrs<0.5).any():
                 # take most permissive one!
                 perr_idx = numpy.nonzero(perrs<0.5)[0][0]
                 df = dfs[perr_idx]
                 perr = perrs[perr_idx]
-            
+                #
                 # recalculate stuff!    
                 perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j,lower_threshold=(1-df)/2.0, upper_threshold=(1+df)/2.0)
-                
+            #    
             else:
                 df = 2
                 perr = 1
                 mutations = None
                 reversions = None
-    
+                #
         if mutations==None or perr>=0.5:
             num_mutations = 0
             num_reversions = 0
@@ -290,11 +294,11 @@ for species_name in good_species_list:
             num_mutations = len(mutations)
             num_reversions = len(reversions)
             num_snp_changes = num_mutations+num_reversions
-    
+            #
         # Now do gene changes
         gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
         all_changes=gains+losses
-        
+        #
         if (gains==None) or (gene_perr<-0.5) or (gene_perr>0.5):
             num_gains = 0
             num_losses = 0
@@ -303,39 +307,47 @@ for species_name in good_species_list:
             num_gains = len(gains)
             num_losses = len(losses)
             num_gene_changes = num_gains+num_losses
-    
+            #
         # Don't want to look at modifications or things with high error rates!
         if num_snp_changes<0 or num_snp_changes>=modification_difference_threshold:
             continue
+<<<<<<< HEAD
         
         if (num_snp_changes<=0) and (num_gene_changes<=0):
             continue
          
+=======
+        #
+        if num_snp_changes <0.5 and num_gene_changes <0.5:
+            continue
+        #    
+>>>>>>> bd42de6516ff06463f80093d0aa50aceb8888849
         gene_change_dictionary={'gains':gains, 'losses':losses, 'all':all_changes}
-                        
+        #                
         #iterate through all_changes to store the gene_ids.
         for change_type in ['gains','losses','all']:
             for i in range(0, len(gene_change_dictionary[change_type])):
                 within_host_changes_gene_ids[change_type].append( gene_change_dictionary[change_type][i][0])
-                
+        #        
         # do same thing for SNP changes
         all_snp_changes = mutations+reversions
         snp_genes = set() # don't double count genes w/ 2 snps. probably same transfer event
         for snp_change in all_snp_changes:
             snp_genes.add(snp_change[0])
-            
-        within_host_changes_gene_ids['snps'] = list(snp_genes)
+            #
+        #print len(snp_genes)
+        within_host_changes_gene_ids['snps'].extend(list(snp_genes))
         gene_change_dictionary['snps']=list(snp_genes) # added @12:08pm
-
+        #
         #        
         # construct a null comprising of all genes present at either time point:
         sample_1_gene_idx = same_subject_gene_idxs[0][sample_pair_idx]
         sample_2_gene_idx = same_subject_gene_idxs[1][sample_pair_idx]
-        
+        #
         present_gene_idxs = []
         present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
         present_gene_idxs.extend( numpy.nonzero( (gene_copynum_matrix[:,sample_1_gene_idx]>0.5)*(gene_copynum_matrix[:,sample_1_gene_idx]<2))[0] )
-        
+        #
         #
         # sample 100x the number of within-host gene changes from the three different nulls:
         for change_type in within_host_classes:
@@ -354,12 +366,12 @@ for species_name in good_species_list:
     # kegg pathway annotation
     # gene_cateogry annotation
     #########################################################
-
+    
     # annotate the real data:
     gene_descriptions_gene_changes={} # store the descriptions in this vector
     kegg_pathways_gene_changes={} # store the pathways in this vector
     gene_categories_gene_changes={} #stor categories in this vector
-
+    
     for change_type in within_host_classes:
         gene_descriptions_gene_changes[change_type]=[]
         kegg_pathways_gene_changes[change_type]=[]

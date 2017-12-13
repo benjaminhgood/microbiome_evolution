@@ -56,7 +56,8 @@ for species_name in good_species_list:
         if (len(all_data_species[species_name].keys()) >0): # check if there were any gene changes to be outputted. 
             all_data[species_name]=all_data_species[species_name]
 
-
+#for gene in all_data[species_name]['gene_changes'].keys():
+#    print gene + str(all_data[species_name]['gene_changes'][gene]['snps']) + '\t' + str(all_data[species_name]['gene_changes'][gene]['all']) + '\t' + str(all_data[species_name]['gene_changes'][gene]['gains']) + '\t' + str(all_data[species_name]['gene_changes'][gene]['losses'])
 
 #  sum  all gene changes  across species
 all_data['all_species']={}
@@ -99,8 +100,10 @@ for species_name in all_data.keys():
 # compute the expected number of changes under different nulls by averaging
 for gene in all_data['all_species']['gene_changes'].keys():
     for null_type in ['between_host_genes', 'present_genes', 'pangenome_genes']:
-        for change_type in ['snps']:
+        #for change_type in ['gains','losses','all']:
+        for change_type in ['snps']: 
             if gene in all_data['all_species']['null'][null_type].keys():
+                print all_data['all_species']['null'][null_type][gene].keys()
                 expectation = numpy.array(all_data['all_species']['null'][null_type][gene][change_type]).mean()
                 #prob=sum(all_data['all_species']['gene_changes'][gene][change_type] <= tmp_null)/float(num_trials)
             else:
@@ -171,9 +174,10 @@ keywords['dehydrogenase']=['dehydrogenase']
 keywords['drug']=['drug']
 keywords['cell wall']=['ell wall']
 keywords['primase']=['imase']
+keywords['resistance']=['resistance']
+keywords['hydrolase']=['ydrolase']
 keywords['topoisomerase']=['opoisomerase']
 keywords['hypothetical'] = ['ypothetical']
-keywords['other']=['other']
 
 # since this is a greedy algorithm, order the more important keywords first
 keyword_order=['ABC transporter','phage','transposon','mobilization','integrase', 'plasmid','recombinase','tRNA','ATP','excisionase','transmembrane','replication','regulator','transcription','toxin','restriction','replication','transferase','reductase','phosphatase','helicase','kinase','dehydrogenase','drug','cell wall','primase','topoisomerase','hypothetical']
@@ -185,10 +189,12 @@ common_genes={}
 # num={}
 # genes={}
 for keyword in keywords.keys():
-    common_genes[keyword]={'snps':[0,0,0,0]}
+    #common_genes[keyword]={'all':[0,0,0,0], 'gains':[0,0,0,0], 'losses':[0,0,0,0], 'genes':[]}
+    common_genes[keyword]={'snps':[0,0,0,0], 'genes':[]}
 
 
 for gene in all_data['all_species']['gene_changes']:
+  if all_data['all_species']['gene_changes'][gene]['snps'][0] > 0: 
     keyword_found=False
     for keyword in keyword_order:
         for regexp in keywords[keyword]:
@@ -198,32 +204,46 @@ for gene in all_data['all_species']['gene_changes']:
                         common_genes[keyword][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
                 common_genes[keyword]['genes'].append(gene)
                 keyword_found=True
-    if keyword_found==False:
+    if keyword_found==False and gene !='':
+        if gene not in common_genes.keys():
+            common_genes[gene]={'snps':[0,0,0,0], 'genes':[]}
         for change_type in ['snps']:
             for i in range(0,4):
-                common_genes['other'][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
-        common_genes['other']['genes'].append(gene)
+                common_genes[gene][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
+        common_genes[gene]['genes'].append(gene)
+
+
+
+#    if keyword_found==False:
+#        for change_type in ['snps']:
+#            for i in range(0,4):
+#                common_genes['other'][change_type][i]+=all_data['all_species']['gene_changes'][gene][change_type][i]
+#        common_genes['other']['genes'].append(gene)
 
 #sorted list by total num
 genes_sorted={}
 for gene in common_genes.keys():
-    genes_sorted[gene]=common_genes[gene]['all'][0]
+    genes_sorted[gene]=common_genes[gene]['snps'][0]
 
-sorted_genes = sorted(genes_sorted.items(), key=operator.itemgetter(1))
+sorted_genes = sorted(genes_sorted.items(), key=operator.itemgetter(1), reverse=True)
 
 
 outFile_keywords=open('%ssnp_changes_accross_species_keywords.txt' %  parse_midas_data.analysis_directory,'w')
 
-outFile_keywords.write('keyword\tnum_snps\texp_snps_between\texp_snps_present\texp_snps_pangenome\tgene_names\n')
+#outFile_keywords.write('keyword\tnum_snps\texp_snps_between\texp_snps_present\texp_snps_pangenome\tgene_names\n')
+outFile_keywords.write('keyword\tnum_snps\texp_snps_between\texp_snps_present\tgene_names\n')
 
+print common_genes
 for i in range (0, len(sorted_genes)):
     gene=sorted_genes[i][0]    
     string=gene
-    for change_type in ['snps']: 
-        for i in range(0,4):
-            string += '\t' + str(common_genes[gene][change_type][i])
-    string += '\t' + ';'.join(common_genes[gene]['genes'])
-    print string
-    outFile_keywords.write(string+'\n')
+    if common_genes[gene][change_type][0] >0:
+        for change_type in ['snps']: 
+            #for i in range(0,4):
+            for i in range(0,3):
+                string += '\t' + str(common_genes[gene][change_type][i])
+        string += '\t' + ';'.join(common_genes[gene]['genes'])
+        print string
+        outFile_keywords.write(string+'\n')
 
 outFile_keywords.close()
