@@ -86,7 +86,7 @@ def calculate_binned_depth_distribution_from_sfs_map(sfs_map,bins=[],num_bins=30
         Ds = bins[0:-1]
            
     else:
-        bins = numpy.array(bins)
+        bins = numpy.array(bins, copy=True)
         Ds = bins[0:-1]
     
     bins[0] = 0
