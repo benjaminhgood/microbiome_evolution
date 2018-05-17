@@ -828,7 +828,7 @@ def calculate_absolute_depth_threshold_map(species_coverage_vector, samples, avg
 # In the process, filters sites that fail to meet the depth requirements
 #
 ###############################################################################
-def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upper_factor=3, min_samples=4, debug=False):
+def pipe_snps(species_name, min_nonzero_median_coverage=config.pipe_snps_min_nonzero_median_coverage, lower_factor=config.pipe_snps_lower_depth_factor, upper_factor=config.pipe_snps_upper_depth_factor, min_samples=config.pipe_snps_min_samples, debug=False):
 
 
 # lower_factor = 0.3 is the default to be consistent with MIDAS gene presence criterion
@@ -836,6 +836,8 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
 # min_samples=4 is the default because then the site is guaranteed to be present in 
 # at least 2 independent people. 
 # NRG: Why is a site guaranteed to be in at least 2 independent people?
+# BG: In our cohort, the maximum number of samples per person is 3. 
+#     If there are 4 samples, then they must be spread across at least 2 people. 
     
     # Load genomic coverage distributions
     sample_coverage_histograms, sample_list = parse_coverage_distribution(species_name, remove_c=False)
@@ -895,7 +897,7 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
     print print_str
     
     # Only going to look at 1D, 2D, 3D, and 4D sites
-    # (we will restrict to 1D and 4D downstream
+    # (we will restrict to 1D and 4D downstream)
     allowed_variant_types = set(['1D','2D','3D','4D'])
     
     allele_counts_syn = [] # alt and reference allele counts at 4D synonymous sites with snps
@@ -972,13 +974,16 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
         total_refs = depths.sum()
         total_depths = total_alts+total_refs
         
+        # BG: 05/18: moving the polarization part to another part of the pipeline
+        # so that we can use HMP polarization with other datasets. 
+        # at the moment, still saving polarization state.
         
         # polarize SNP based on consensus in entire dataset
         # Polarization = "R" (same as reference) or "A" (not reference, alt)
         if total_alts>total_refs:
             polarization = "A"
-            alts,refs = refs,alts
-            total_alts, total_refs = total_refs, total_alts
+            #alts,refs = refs,alts
+            #total_alts, total_refs = total_refs, total_alts
         else:
             polarization = "R"
             
@@ -1014,6 +1019,10 @@ def pipe_snps(species_name, min_nonzero_median_coverage=5, lower_factor=0.3, upp
 ###############################################################################
 def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], allowed_variant_types=['1D','2D','3D','4D'], initial_line_number=0, chunk_size=1000000000):
     
+    import calculate_snp_prevalences
+    # Load population freqs (for polarization purposes)    
+    population_freqs = calculate_snp_prevalences.parse_population_freqs(species_name)
+   
     # Open post-processed MIDAS output
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")
     
@@ -1109,6 +1118,16 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
         alts = numpy.array(alts)
         depths = numpy.array(depths)
         
+        # polarize
+        if (chromosome, location) in population_freqs:
+            population_freq = population_freqs[(chromosome, location)]
+        else:
+            population_freq = 0
+        
+        # polarize SFS according to population freq
+        if population_freq>0.5:
+            alts = depths-alts
+     
         passed_sites = (depths>0)*1.0
         if gene_name not in passed_sites_map:
             passed_sites_map[gene_name] = {v: {'location': (chromosome,location), 'sites': numpy.zeros((len(desired_samples), len(desired_samples)))} for v in allowed_variant_types}
@@ -1125,7 +1144,6 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
         
         # calculate whether SNP has passed
         alt_threshold = numpy.ceil(depths*0.05)+0.5 #at least one read above 5%.
-        #alts = alts*((alts>alt_threshold))
         snp_passed = ((alts>alt_threshold).sum()>0) and (pvalue<0.05)
         
         # Criteria used in Schloissnig et al (Nature, 2013)
@@ -1133,17 +1151,6 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
         #total_depths = depths.sum()
         #pooled_freq = total_alts/((total_depths+(total_depths==0))
         #snp_passed = (freq>0.01) and (total_alts>=4) and ((total_depths-total_alts)>=4)
-        
-        
-        # "pop gen" version
-        #alt_lower_threshold = numpy.ceil(depths*0.05)+0.5 #at least one read above 5%.
-        #alts = alts*((alts>alt_lower_threshold))
-        #alt_upper_threshold = alt_lower_threshold
-        #snp_passed = ((alts>alt_upper_threshold).sum()>0) and (pvalue<0.05)
-        
-        # consensus approximation
-        #alt_upper_threshold = depths*0.95
-        #snp_passed = ((alts>alt_upper_threshold).sum()>0)
         
         if snp_passed:
             allele_counts = numpy.transpose(numpy.array([alts,depths-alts]))
@@ -1609,13 +1616,16 @@ def load_marker_genes(desired_species_name, require_in_reference_genome=True):
 ###############################################################################
 #
 # Loads a subset of "core" genes. 
-# *UNDER CONSTRUCTION*
+# *Deprecated: Use core_gene_utils.parse_core_genes instead
 #
 ###############################################################################   
 def load_core_genes(desired_species_name, min_copynum=0.3, min_prevalence=0.9, min_marker_coverage=20, unique_individuals=True):
 
-    # Two choices: from pangenome or directly from reference genome
-    return load_core_genes_from_pangenome(desired_species_name, min_copynum, min_prevalence, min_marker_coverage, unique_individuals)
+    import core_gene_utils
+    return core_gene_utils.parse_core_genes(desired_species_name)
+    
+    # Old
+    #return load_core_genes_from_pangenome(desired_species_name, min_copynum, min_prevalence, min_marker_coverage, unique_individuals)
 
 ###############################################################################
 #

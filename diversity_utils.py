@@ -910,6 +910,53 @@ upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min
             
     return fixation_matrix_mutation, fixation_matrix_reversion, passed_sites  
 
+# same as above, but returns two matrices with counts of 
+# mutations (i->j away from consensus allele) and
+# reversion (i->j toward consensus allele)
+def calculate_preexisting_snps(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]),min_freq=0.1):
+
+    total_genes = set(passed_sites_map.keys())
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+    
+    allowed_genes = (allowed_genes & total_genes)     
+    
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+     
+    snp_locations = [] 
+                    
+    for gene_name in allowed_genes:
+        
+        for variant_type in passed_sites_map[gene_name].keys():
+             
+            if variant_type not in allowed_variant_types:
+                continue
+            
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
+            if len(allele_counts)==0:
+                continue
+            
+            depths = allele_counts.sum(axis=2)
+            freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
+            
+            site_raw_prevalence = (depths>0).sum(axis=1)
+            snp_raw_prevalence = (freqs>min_freq).sum(axis=1)
+            
+            snp_prevalence = snp_raw_prevalence*1.0/(site_raw_prevalence+(site_raw_prevalence==0))            
+            
+            polymorphic_sites = (snp_raw_prevalence>0)
+            if polymorphic_sites.sum()==0:
+                continue
+                
+            # get locations
+            polymorphic_site_idxs = numpy.nonzero(polymorphic_sites)[0]
+            for idx in polymorphic_site_idxs:
+                snp_locations.append( (allele_counts_map[gene_name][variant_type]['locations'][idx][0], allele_counts_map[gene_name][variant_type]['locations'][idx][1], snp_prevalence[idx] ) )
+            
+    return snp_locations
+
 ####
 #
 # Calculates the number of within-patient polymorphism differences between

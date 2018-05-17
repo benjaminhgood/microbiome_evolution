@@ -3,6 +3,7 @@ import pylab
 import sys
 import numpy
 import bz2
+import calculate_snp_prevalences
 
 
 
@@ -29,6 +30,10 @@ sys.stderr.write("Loading core genes...\n")
 core_genes = parse_midas_data.load_core_genes(species_name)
 sys.stderr.write("Done! %d core genes\n" % len(core_genes))
 allowed_genes = core_genes
+
+sys.stderr.write("Loading population freqs...\n")
+population_freqs = calculate_snp_prevalences.parse_population_freqs(species_name)
+sys.stderr.write("Done! %d SNVs\n" % len(population_freqs))
 
 allowed_variant_type_list = ['1D','2D','3D','4D']
 allowed_variant_types = set(allowed_variant_type_list)  
@@ -87,8 +92,17 @@ for line in snp_file:
     #print depths
     #
     # population_freq returns the fraction of people for which the alt is the major allele.
-    # This is a very important quantity being computed! It is later used for identifying CPS samples. 
-    population_freq = ((alts>=refs)*(depths>0)).sum()*1.0/(depths>0).sum()
+    # This is a very important quantity being computed! It is later used for identifying CPS samples.
+    if (chromosome, location) in population_freqs:
+        population_freq = population_freqs[(chromosome, location)]
+    else:
+        population_freq = 0
+    
+    # polarize SFS according to population freq
+    if population_freq>0.5:
+        alts,refs = refs,alts
+        population_freq = 1-population_freq
+        
     #    
     for i in xrange(0,len(alts)):
         site = (depths[i],alts[i])
@@ -110,7 +124,8 @@ for line in snp_file:
 snp_file.close()
 sys.stderr.write("Done!\n")
 # Write to disk!
-
+sys.exit(0)
+sys.stderr.write("Writing output...\n")
 # First write (filtered) genome-wide coverage distribution
 output_file = bz2.BZ2File("%ssnps/%s/within_sample_sfs.txt.bz2" % (parse_midas_data.data_directory, species_name),"w")
 output_file.write("\t".join(["SampleID", "variant_type", "D,A,count,reverse_count", "..."]))
@@ -120,6 +135,7 @@ for sample_idx in xrange(0,len(samples)):
         output_file.write("\n")
         output_file.write("\t".join([sample, variant_type]+["%d,%d,%d,%g" % (site[0],site[1],site_map[sample_idx][variant_type][site][0],site_map[sample_idx][variant_type][site][1]) for site in sorted(site_map[sample_idx][variant_type].keys())]))
 output_file.close()
+sys.stderr.write("Done!\n")
 
 sys.exit(0)
 

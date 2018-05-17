@@ -296,7 +296,7 @@ for species_idx in xrange(0,len(species_names)):
     theory_pdf = theory_pdf / theory_pdf.max() * 0.45
     
     
-    divergence_axis.fill_between(theory_divergences, species_idx-theory_pdf, species_idx+theory_pdf,linewidth=0,facecolor='0.7') #facecolor='#de2d26') # red color
+    divergence_axis.fill_between(theory_divergences, species_idx-theory_pdf, species_idx+theory_pdf,linewidth=0,facecolor='#1f2c88') #,facecolor='0.7') #facecolor='#de2d26') # red color
     #divergence_axis.semilogy(numpy.ones_like(quantiles)*species_idx, quantiles,'k_',markersize=3)
     
     # Median

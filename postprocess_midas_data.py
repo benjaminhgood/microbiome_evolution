@@ -49,6 +49,13 @@ sys.stderr.write('Calculating error pvalues...\n')
 os.system('python %scalculate_error_pvalues.py %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating error pvalues!\n')
 
+# Calculate snp prevalences
+# this produces a list in snp_prevalences/ directory to be loaded later
+# (can disable this and supply the list externally.)
+sys.stderr.write('Calculating SNP prevalences...\n')
+os.system('python %scalculate_snp_prevalences.py %s' % (parse_midas_data.scripts_directory, species_name))
+sys.stderr.write('Done calculating SNP prevalences!\n')
+
 # Calculate within person SFS
 # this produces within_sample_sfs.txt.bz2. 
 sys.stderr.write('Calculating within-sample SFSs...\n')

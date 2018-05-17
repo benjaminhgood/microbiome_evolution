@@ -71,7 +71,7 @@ for species_name in good_species_list:
      
     if len(ld_map)>0:
      
-        distances, rsquared_numerators, rsquared_denominators, ns, control_rsquared_numerators, control_rsquared_denominators, control_n, pi = ld_map[('largest_clade','4D')]
+        distances, rsquared_numerators, rsquared_denominators, ns, intergene_distances, intergene_rsquared_numerators, intergene_rsquared_denominators, intergene_ns, control_rsquared_numerators, control_rsquared_denominators, control_n, pi = ld_map[('largest_clade','4D')]
     
         if True:
             passed_species.append(species_name)
@@ -229,10 +229,10 @@ for species_idx in xrange(0,num_passed_species):
     if len(ld_map)==0:
         continue
     
-    all_distances, all_rsquared_numerators, all_rsquared_denominators, all_ns, all_control_rsquared_numerator, all_control_rsquared_denominator, all_control_n, all_pi = ld_map[('all','4D')]
+    all_distances, all_rsquared_numerators, all_rsquared_denominators, all_ns, all_intergene_distances, all_intergene_rsquared_numerators, all_intergene_rsquared_denominators, all_intergene_ns, all_control_rsquared_numerator, all_control_rsquared_denominator, all_control_n, all_pi = ld_map[('all','4D')]
     all_control_rsquared = all_control_rsquared_numerator/all_control_rsquared_denominator
              
-    distances, rsquared_numerators, rsquared_denominators, ns, control_rsquared_numerator, control_rsquared_denominator, control_n, pi = ld_map[('largest_clade','4D')]
+    distances, rsquared_numerators, rsquared_denominators, ns, intergene_distances, intergene_rsquared_numerators, intergene_rsquared_denominators, intergene_ns, control_rsquared_numerator, control_rsquared_denominator, control_n, pi = ld_map[('largest_clade','4D')]
     control_rsquared = control_rsquared_numerator/control_rsquared_denominator
     
     # smooth this stuff:
@@ -299,7 +299,7 @@ for species_idx in xrange(0,num_passed_species):
     all_rsquareds = all_rsquareds[all_ns>0]
     all_ns = all_ns[all_ns>0]
     
-    if species_name.startswith('Bacteroides_vulgatus'):
+    if species_name.startswith('Bacteroides_fragilis'):
         
         num_bootstraps = 10
         
@@ -335,7 +335,7 @@ for species_idx in xrange(0,num_passed_species):
             
                     bootstrapped_sigmasquareds.append(window_bootstrapped_sigmasquareds)
                     
-                    print total_pairs
+                    #print total_pairs
                     
                 else:
                     bootstrapped_sigmasquareds.append([binned_numerators/binned_denominators]*num_bootstraps)
@@ -348,7 +348,7 @@ for species_idx in xrange(0,num_passed_species):
         upper_rsquareds = numpy.array([bootstrapped_sigmasquareds[window_idx][long(num_bootstraps*0.95)] for window_idx in xrange(0,len(bootstrapped_sigmasquareds))])
         lower_rsquareds = numpy.array([bootstrapped_sigmasquareds[window_idx][long(num_bootstraps*0.05)] for window_idx in xrange(0,len(bootstrapped_sigmasquareds))])
         
-        print upper_rsquareds-lower_rsquareds
+        #print upper_rsquareds-lower_rsquareds
         
         good_distances = (upper_rsquareds>=-0.5)*(lower_rsquareds>=-0.5)
         

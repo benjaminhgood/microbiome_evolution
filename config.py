@@ -27,3 +27,18 @@ threshold_within_between_fraction = 0.1
 threshold_pi = 1e-03
 
 modification_difference_threshold = 20
+
+gainloss_max_absent_copynum = 0.05
+gainloss_min_normal_copynum = 0.5
+gainloss_max_normal_copynum = 2
+
+core_genome_min_copynum = 0.3
+core_genome_max_copynum = 3 # BG: should we use a maximum for "core genome"? I'm going to go w/ yes for now
+core_genome_min_prevalence = 0.9
+
+# Default parameters for pipe snps
+# (Initial filtering for snps, done during postprocessing)
+pipe_snps_min_samples=4
+pipe_snps_min_nonzero_median_coverage=5
+pipe_snps_lower_depth_factor=0.3
+pipe_snps_upper_depth_factor=3

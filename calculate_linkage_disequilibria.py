@@ -18,11 +18,7 @@ intermediate_filename = '%slinkage_disequilibria.txt' % (parse_midas_data.data_d
 old_intermediate_filename = '%slinkage_disequilibria.txt.old' % (parse_midas_data.data_directory)
         
 
-min_coverage = config.min_median_coverage
-alpha = 0.5 # Confidence interval range for rate estimates
-low_pi_threshold = 1e-03
-low_divergence_threshold = 1e-03 #NRG: how was this picked?
-min_change = 0.8
+low_divergence_threshold = 5e-04 # this was picked by looking at inflection point of dN/dS vs dS plot 
 min_sample_size = 10
 allowed_variant_types = set(['1D','4D'])
 
@@ -34,8 +30,32 @@ def load_ld_map(species_name):
     header_line = file.readline() # header
     header_items = header_line.split(",")
     
-    distance_items = header_items[4:-1]
-    distances = numpy.array([float(item.split(":")[-1]) for item in distance_items])
+    distance_strs = [item.split(":")[-1] for item in header_items[4:]]
+    
+    distances = []
+    intragene_idxs = []
+    
+    intergene_distances = []
+    intergene_idxs = []
+    
+    control_idx = -1
+    
+    for i in xrange(0,len(distance_strs)-1):
+        
+        if distance_strs[i].startswith('g'):
+            # an intergene distance
+            intergene_idxs.append(i)
+            intergene_distances.append(long(distance_strs[i][1:]))
+        else:
+            # an intragene distance
+            intragene_idxs.append(i)
+            distances.append(float(distance_strs[i]))
+            
+    distances = numpy.array(distances)
+    intragene_idxs = numpy.array(intragene_idxs)
+    
+    intergene_distances = numpy.array(intergene_distances)
+    intergene_idxs = numpy.array(intergene_idxs)
     
     for line in file:
         items = line.split(",")
@@ -63,17 +83,21 @@ def load_ld_map(species_name):
         
         lds = rsquared_numerators/rsquared_denominators
         
-        control_numerator = rsquared_numerators[-1]
-        control_denominator = rsquared_denominators[-1]
-        control_count = counts[-1]
+        control_numerator = rsquared_numerators[control_idx]
+        control_denominator = rsquared_denominators[control_idx]
+        control_count = counts[control_idx]
         
         control_ld = control_numerator/control_denominator
         
-        rsquared_numerators = rsquared_numerators[:-1]
-        rsquared_denominators = rsquared_denominators[:-1]
-        counts = counts[:-1]
+        intragene_rsquared_numerators = rsquared_numerators[intragene_idxs]
+        intragene_rsquared_denominators = rsquared_denominators[intragene_idxs]
+        intragene_counts = counts[intragene_idxs]
         
-        ld_map[(clade_type, variant_type)] = (distances, rsquared_numerators, rsquared_denominators, counts, control_numerator, control_denominator, control_count, pi)
+        intergene_rsquared_numerators = rsquared_numerators[intergene_idxs]
+        intergene_rsquared_denominators = rsquared_denominators[intergene_idxs]
+        intergene_counts = counts[intergene_idxs]
+        
+        ld_map[(clade_type, variant_type)] = (distances, intragene_rsquared_numerators, intragene_rsquared_denominators, intragene_counts, intergene_distances, intergene_rsquared_numerators, intergene_rsquared_denominators, intergene_counts, control_numerator, control_denominator, control_count, pi)
         
     return ld_map
 
@@ -148,10 +172,12 @@ if __name__=='__main__':
     distance_bins[1] = 2.5 # want at least one codon separation
     distance_bins[-1] = 1e09 # catch everything
     
-    distance_strs = ["LD_N:LD_D:%g" % d for d in distance_bin_locations[1:-1]] # N=numerator and D=denominator
-    distance_strs = distance_strs+["LD_N:LD_D:intergene"]
+    neighbor_distances = numpy.array([1,2,3,4,5])
+                        
     
-
+    distance_strs = ["LD_N:LD_D:%g" % d for d in distance_bin_locations[1:-1]] # N=numerator and D=denominator
+    distance_strs = distance_strs+["LD_N:LD_D:g%d" % nd for nd in neighbor_distances]+["LD_N:LD_D:intergene"]
+    
     # header of the output file.
     record_strs = [", ".join(['Species', 'CladeType', 'VariantType', 'Pi']+distance_strs)]
     
@@ -164,15 +190,19 @@ if __name__=='__main__':
         if len(snp_samples) < min_sample_size:
             sys.stderr.write("Not enough haploid samples!\n")
             continue
+        else:
+            sys.stderr.write("Found %d haploid samples!\n" % len(snp_samples))
         
-        sys.stderr.write("Calculating unique samples...\n")
+        sys.stderr.write("Calculating unique hosts...\n")
         # Only consider one sample per person
         snp_samples = snp_samples[parse_midas_data.calculate_unique_samples(subject_sample_map, sample_list=snp_samples)]
 
 
         if len(snp_samples) < min_sample_size:
-            sys.stderr.write("Not enough unique samples!\n")
+            sys.stderr.write("Not enough hosts!\n")
             continue
+        else:
+            sys.stderr.write("Found %d unique hosts!\n" % len(snp_samples)) 
 
         # Load divergence matrices 
         sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
@@ -189,6 +219,8 @@ if __name__=='__main__':
         coarse_grained_samples = snp_samples[coarse_grained_idxs]
         clade_sets = clade_utils.load_manual_clades(species_name)
 
+        sys.stderr.write("%d samples remaining after clustering!\n" % len(coarse_grained_samples))
+
         if len(clade_sets)==0:
             continue
 
@@ -200,14 +232,16 @@ if __name__=='__main__':
 
         largest_clade_set = set(largest_clade_samples)
 
-        sys.stderr.write("Top level: %d clades, %s\n" % (len(clade_sets), str(clade_sizes)))
-        sys.stderr.write("Max: %d\n" % len(largest_clade_samples))
+        sys.stderr.write("Top level clades: %d clades, sizes: %s\n" % (len(clade_sets), str(clade_sizes)))
+        sys.stderr.write("Max clade size: %d\n" % len(largest_clade_samples))
 
         snp_samples = coarse_grained_samples
 
         if len(largest_clade_samples) < min_sample_size:
             sys.stderr.write("Not enough haploid samples!\n")
             continue
+        else:
+            sys.stderr.write("Proceeding with %d coarse-grained samples in largest clade!\n" % len(largest_clade_samples))
                 
         
         # Analyze SNPs, looping over chunk sizes. 
@@ -228,7 +262,11 @@ if __name__=='__main__':
         binned_rsquared_denominators = {}
         binned_counts = {}
 
-        # NRG: total_control=between genes? 
+        neighboring_gene_rsquared_numerators = {}
+        neighboring_gene_rsquared_denominators = {}
+        neighboring_gene_counts = {}
+
+        # total_control=between genes.  
         total_control_rsquared_numerators = {}
         total_control_rsquared_denominators = {}
         total_control_counts = {}
@@ -240,9 +278,15 @@ if __name__=='__main__':
                 binned_rsquared_denominators[(clade_type,variant_type)] = numpy.zeros_like(distance_bin_locations)  
                 binned_counts[(clade_type,variant_type)] = numpy.zeros_like(distance_bin_locations)  
          
+                neighboring_gene_rsquared_numerators[(clade_type,variant_type)] = numpy.zeros_like(neighbor_distances)*1.0
+                neighboring_gene_rsquared_denominators[ (clade_type,variant_type)] = numpy.zeros_like(neighbor_distances)*1.0
+                neighboring_gene_counts[(clade_type,variant_type)] = numpy.zeros_like(neighbor_distances)*1.0  
+         
                 total_control_rsquared_numerators[(clade_type,variant_type)] = 0
                 total_control_rsquared_denominators[(clade_type,variant_type)] = 0
                 total_control_counts[(clade_type,variant_type)] = 0
+                
+                
             
         final_line_number = 0
         while final_line_number >= 0:
@@ -253,7 +297,7 @@ if __name__=='__main__':
     
             largest_clade_idxs = numpy.array([sample in largest_clade_set for sample in snp_samples])
     
-            sys.stderr.write("Calculating intra-gene synonymous LD...\n")
+            sys.stderr.write("Calculating LD...\n")
             for clade_type in clade_types:
     
                 for variant_type in variant_types:
@@ -267,11 +311,11 @@ if __name__=='__main__':
                         allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
         
         
-                        
-        
                         if len(allele_counts)==0:
                             # no diversity to look at!
                             continue
+        
+                        target_chromosome = allele_counts_map[gene_name][variant_type]['locations'][0][0]
         
                         if clade_type=='largest_clade':        
                             # Now restrict to largest clade
@@ -285,12 +329,58 @@ if __name__=='__main__':
     
                         rsquared_numerators, rsquared_denominators = diversity_utils.calculate_unbiased_sigmasquared(allele_counts, allele_counts)
                     
+                        neighbor_rsquared_numeratorss = [[] for d in neighbor_distances]
+                        neighbor_rsquared_denominatorss = [[] for d in neighbor_distances]
+                        
+                        for neighbor_distance_idx in xrange(0,len(neighbor_distances)):
+                            
+                            neighbor_distance = neighbor_distances[neighbor_distance_idx]     
+                        
+                            gene_name_items = gene_name.split(".")
+                            gene_peg_number = long(gene_name.split(".")[-1])
+                            nearest_gene_peg_numbers = [gene_peg_number-neighbor_distance,gene_peg_number+neighbor_distance]
+                            neighboring_genes = [".".join(gene_name_items[:-1]+[str(n)]) for n in nearest_gene_peg_numbers]
+                        
+                            for neighboring_gene_name in neighboring_genes:
                     
+                                # first make sure it's a real gene
+                                if neighboring_gene_name not in allele_counts_map:
+                                    continue
+                                
+                                if neighboring_gene_name not in core_genes:
+                                    continue
+        
+                                neighboring_allele_counts = allele_counts_map[neighboring_gene_name][variant_type]['alleles']
+                            
+                                # then make sure it has some variants
+                                if len(neighboring_allele_counts)==0:
+                                    continue
+                                
+                                neighboring_chromosome = allele_counts_map[neighboring_gene_name][variant_type]['locations'][0][0]
+                                
+                                if neighboring_chromosome!=target_chromosome:
+                                    continue
+                                
+                                if clade_type=='largest_clade':        
+                                # Now restrict to largest clade
+                                    neighboring_allele_counts = neighboring_allele_counts[:,largest_clade_idxs,:]
+                                
+                            
+                                chunk_rsquared_numerators, chunk_rsquared_denominators = diversity_utils.calculate_unbiased_sigmasquared(allele_counts, neighboring_allele_counts)
+                        
+                                neighbor_rsquared_numeratorss[ neighbor_distance_idx].extend( chunk_rsquared_numerators.flatten() )
+                                neighbor_rsquared_denominatorss[ neighbor_distance_idx].extend( chunk_rsquared_denominators.flatten() )
+                            
+                            neighbor_rsquared_numeratorss[ neighbor_distance_idx] = numpy.array( neighbor_rsquared_numeratorss[neighbor_distance_idx] )
+                                
+                            neighbor_rsquared_denominatorss[ neighbor_distance_idx] = numpy.array( neighbor_rsquared_denominatorss[neighbor_distance_idx] )
+                               
                         # pick a random gene somewhere else as a control
                         # 10 to 1 control to regular
                         control_rsquared_numerators = []
                         control_rsquared_denominators = []
                         gene_peg_number = long(gene_name.split(".")[-1])
+                        
                         for control_idx in xrange(0,10):
                     
                             control_gene_name = gene_name
@@ -300,6 +390,10 @@ if __name__=='__main__':
                             while True:
                         
                                 control_gene_name = choice(allele_counts_map.keys())
+                                
+                                if control_gene_name not in core_genes:
+                                    continue
+        
                             
                                 control_gene_peg_number = long(control_gene_name.split(".")[-1])
                             
@@ -307,7 +401,8 @@ if __name__=='__main__':
                             
                                 if len(control_allele_counts)==0:
                                     continue
-                                    
+                                
+                                # make sure you don't have one too close by!     
                                 if (fabs(control_gene_peg_number - gene_peg_number) < 5.5):
                                     continue
                             
@@ -318,9 +413,6 @@ if __name__=='__main__':
                                 break
             
                             
-                                
-                             
-        
                             control_gene_rsquared_numerators, control_gene_rsquared_denominators = diversity_utils.calculate_unbiased_sigmasquared(allele_counts, control_allele_counts)
                         
                             control_rsquared_numerators.extend( control_gene_rsquared_numerators.flatten() )
@@ -358,6 +450,15 @@ if __name__=='__main__':
                             binned_rsquared_numerators[(clade_type,variant_type)][bin_idxs[i]] += rsquared_numerators[i]
                             binned_rsquared_denominators[(clade_type,variant_type)][bin_idxs[i]] += rsquared_denominators[i]
         
+                        for i in xrange(0,len(neighbor_distances)):
+                            good_idxs = (neighbor_rsquared_denominatorss[i]>1e-09)
+                            neighboring_gene_counts[(clade_type,variant_type)][i] += good_idxs.sum() 
+                            
+                            neighboring_gene_rsquared_numerators[ (clade_type,variant_type)][i] += neighbor_rsquared_numeratorss[i][good_idxs].sum()  
+                            
+                            neighboring_gene_rsquared_denominators[ (clade_type,variant_type)][i] += neighbor_rsquared_denominatorss[i][good_idxs].sum() 
+                            
+                                    
                         total_control_counts[(clade_type,variant_type)] += (control_rsquared_denominators>1e-09).sum()
                         total_control_rsquared_numerators[(clade_type,variant_type)] += control_rsquared_numerators[control_rsquared_denominators>1e-09].sum()
                         total_control_rsquared_denominators[(clade_type,variant_type)] += control_rsquared_denominators[control_rsquared_denominators>1e-09].sum()
@@ -384,11 +485,13 @@ if __name__=='__main__':
             
                 rsquared_strs = ["%g:%g:%d" % (rsquared_numerator, rsquared_denominator, count) for rsquared_numerator, rsquared_denominator, count in zip(binned_rsquared_numerators[(clade_type,variant_type)], binned_rsquared_denominators[(clade_type,variant_type)], binned_counts[(clade_type,variant_type)])[1:-1]]
             
+                gene_rsquared_strs = ["%g:%g:%d" % (rsquared_numerator, rsquared_denominator, count) for rsquared_numerator, rsquared_denominator, count in zip(neighboring_gene_rsquared_numerators[(clade_type,variant_type)], neighboring_gene_rsquared_denominators[(clade_type,variant_type)], neighboring_gene_counts[(clade_type,variant_type)])]
+            
                 control_rsquared_str = "%g:%g:%d" % (total_control_rsquared_numerators[(clade_type,variant_type)], total_control_rsquared_denominators[(clade_type,variant_type)], total_control_counts[(clade_type,variant_type)])
             
                 pi_str = str(pi)
             
-                record_str = ", ".join([species_name, clade_type, variant_type, pi_str]+rsquared_strs+[control_rsquared_str])
+                record_str = ", ".join([species_name, clade_type, variant_type, pi_str]+rsquared_strs+gene_rsquared_strs+[control_rsquared_str])
             
                 record_strs.append(record_str)
             

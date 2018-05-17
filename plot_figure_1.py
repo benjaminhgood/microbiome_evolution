@@ -299,7 +299,7 @@ outer_grid  = gridspec.GridSpec(1,1)
 
 correlation_axis = plt.Subplot(correlation_fig, outer_grid[0])
 correlation_fig.add_subplot(correlation_axis)
-correlation_axis.set_xlabel('Fraction non-CP samples')
+correlation_axis.set_xlabel('Fraction non-QP samples')
 correlation_axis.set_ylabel('Avg within-host polymorphism')
 
 ####################################################
@@ -316,11 +316,11 @@ outer_grid  = gridspec.GridSpec(1,2,wspace=0.3,width_ratios=[1,1])
 haploid_distribution_axis = plt.Subplot(haploid_distribution_fig, outer_grid[1])
 haploid_distribution_fig.add_subplot(haploid_distribution_axis)
 haploid_distribution_axis.set_xlabel('# species per sample')
-haploid_distribution_axis.set_ylabel('# CP species per sample')
+haploid_distribution_axis.set_ylabel('# QP species per sample')
 
 haploid_cdf_axis = plt.Subplot(haploid_distribution_fig, outer_grid[0])
 haploid_distribution_fig.add_subplot(haploid_cdf_axis)
-haploid_cdf_axis.set_xlabel('Fraction CP species per sample, $p$')
+haploid_cdf_axis.set_xlabel('Fraction QP species per sample, $p$')
 haploid_cdf_axis.set_ylabel('Fraction samples $\geq p$')
 
 ###################################
@@ -739,8 +739,8 @@ total_temporal_samples, temporal_species_names, haploid_haploid_samples, haploid
 ys = 0-numpy.arange(0,len(num_haploid_samples))
 width=0.7
 
-haploid_axis.barh(ys, num_haploid_samples,color=haploid_color,linewidth=0,label='CP',zorder=1)
-haploid_axis.barh(ys, num_samples,color=light_haploid_color,linewidth=0,label='non-CP',zorder=0)
+haploid_axis.barh(ys, num_haploid_samples,color=haploid_color,linewidth=0,label='QP',zorder=1)
+haploid_axis.barh(ys, num_samples,color=light_haploid_color,linewidth=0,label='non-QP',zorder=0)
 haploid_axis.set_xlim([0,425])
 haploid_axis.set_xticks([0,100,200,300,400])
 haploid_axis.yaxis.tick_right()
@@ -769,11 +769,11 @@ polyploid_polyploid_color = diploid_color
 polyploid_polyploid_alpha = 1.0
 
 # Plot bars
-temporal_haploid_axis.barh(ys, haploid_haploid_samples,linewidth=0,label='CP->CP',zorder=4, color=haploid_haploid_color, alpha=haploid_haploid_alpha)
+temporal_haploid_axis.barh(ys, haploid_haploid_samples,linewidth=0,label='QP->QP',zorder=4, color=haploid_haploid_color, alpha=haploid_haploid_alpha)
 
-temporal_haploid_axis.barh(ys, haploid_polyploid_samples, left=haploid_haploid_samples, linewidth=0,label='CP->non',zorder=3, color=haploid_polyploid_color, alpha=haploid_polyploid_alpha)
+temporal_haploid_axis.barh(ys, haploid_polyploid_samples, left=haploid_haploid_samples, linewidth=0,label='QP->non',zorder=3, color=haploid_polyploid_color, alpha=haploid_polyploid_alpha)
 
-temporal_haploid_axis.barh(ys, polyploid_haploid_samples, left=haploid_haploid_samples+haploid_polyploid_samples, linewidth=0,label='non->CP',zorder=2, color=polyploid_haploid_color, alpha=polyploid_haploid_alpha)
+temporal_haploid_axis.barh(ys, polyploid_haploid_samples, left=haploid_haploid_samples+haploid_polyploid_samples, linewidth=0,label='non->QP',zorder=2, color=polyploid_haploid_color, alpha=polyploid_haploid_alpha)
 
 temporal_haploid_axis.barh(ys, polyploid_polyploid_samples, left=haploid_haploid_samples+haploid_polyploid_samples+polyploid_haploid_samples, linewidth=0,label='non->non',zorder=1, color=polyploid_polyploid_color, alpha=polyploid_polyploid_alpha)
 

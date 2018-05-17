@@ -116,6 +116,9 @@ replacement_map = {}
 
 for species_name in good_species_list:
 
+    if not species_name.startswith('Bacteroides_fragilis'):
+        continue
+
     # Only plot samples above a certain depth threshold that are "haploids"
     haploid_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
 
@@ -486,8 +489,8 @@ dnds_axis.get_yaxis().tick_left()
 dnds_axis.set_xlim([0.3,2.7])
 dnds_axis.set_xticks([1,2])
 dnds_axis.set_xticklabels(['non','syn'])
-dnds_axis.set_ylim([0,300])
-dnds_axis.set_yticks([0,100,200,300])
+#dnds_axis.set_ylim([0,300])
+#dnds_axis.set_yticks([0,100,200,300])
 
 # TODO: significance of DNDS < 1!
 
@@ -605,6 +608,8 @@ for species_idx in xrange(0,len(species_names)):
     snp_changes.sort()
     gene_changes = numpy.array(gene_changes)
     gene_changes.sort()
+    
+    print snp_changes
     
     for idx in xrange(0,len(snp_changes)):
         
@@ -778,8 +783,8 @@ for sample_pair in replacement_map.keys():
     print sample_pair, len(replacement_map[sample_pair]), replacement_map[sample_pair]
 
 sys.stderr.write("Saving figure...\t")
-fig2.savefig('%s/figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
-fig.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig2.savefig('%s/fragilis_figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig.savefig('%s/fragilis_supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
  

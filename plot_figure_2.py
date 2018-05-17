@@ -89,7 +89,7 @@ for example_idx in xrange(0,len(examples)):
     divergence_fig.add_subplot(snp_axis)
 
     snp_axis.set_ylabel('Divergence, $d$')
-    snp_axis.set_xlabel('%s CP host pairs (random, $n=%d$)' % (figure_utils.get_abbreviated_species_name(examples[example_idx]), num_random_pairs))
+    snp_axis.set_xlabel('%s QP host pairs (random, $n=%d$)' % (figure_utils.get_abbreviated_species_name(examples[example_idx]), num_random_pairs))
     snp_axis.set_ylim([1e-06,1e-01])
     snp_axis.set_xlim([-512,5])
     snp_axis.set_xticks([])
@@ -139,7 +139,7 @@ for example_idx in xrange(0,len(examples)):
 
     dendrogram_axis.set_ylim([1e-06,1e-01])
     dendrogram_axis.set_ylabel('Divergence, $d$')
-    dendrogram_axis.set_xlabel('%s CP hosts' % figure_utils.get_abbreviated_species_name(examples[example_idx]))
+    dendrogram_axis.set_xlabel('%s QP hosts' % figure_utils.get_abbreviated_species_name(examples[example_idx]))
 
     dendrogram_axis.set_xticks([])
 
