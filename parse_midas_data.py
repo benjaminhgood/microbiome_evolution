@@ -8,6 +8,7 @@ from math import floor, ceil
 import gene_diversity_utils
 
 import config
+import sample_utils
 
 ###############################################################################
 #
@@ -24,535 +25,7 @@ midas_directory = config.midas_directory
 # We use this one to debug because it was the first one we looked at
 debug_species_name = config.debug_species_name
 
-###############################################################################
-#
-# Methods for parsing sample metadata
-#
-###############################################################################
-
-def parse_merged_sample_names(items):
-    samples = []
-    for item in items:
-        sample = item.strip()
-        if sample.endswith('c'):
-            sample = sample[:-1]
-        samples.append(sample)
-        
-    samples = numpy.array(samples)
-    return samples
-
-###############################################################################
-#
-# Loads metadata for HMP samples 
-# Returns map from subject -> map of samples -> set of accession IDs
-#
-###############################################################################
-def parse_subject_sample_map(): 
-
-    subject_sample_map = {}
-    
-    # First load HMP metadata
-    file = open(scripts_directory+"HMP_ids.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        country = items[3].strip()
-        continent = items[4].strip()
-        
-        if subject_id not in subject_sample_map:
-            subject_sample_map[subject_id] = {}
-            
-        if sample_id not in subject_sample_map[subject_id]:
-            subject_sample_map[subject_id][sample_id] = set()
-            
-        subject_sample_map[subject_id][sample_id].add(accession_id)
-    file.close()
-    
-    # Then load Kuleshov data 
-    file = open(scripts_directory+"kuleshov_ids.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        country = items[3].strip()
-        continent = items[4].strip()
-        
-        if subject_id not in subject_sample_map:
-            subject_sample_map[subject_id] = {}
-            
-        if sample_id not in subject_sample_map[subject_id]:
-            subject_sample_map[subject_id][sample_id] = set()
-            
-        subject_sample_map[subject_id][sample_id].add(accession_id)
-    file.close()
-    
-    # Then load Qin data
-    file = open(scripts_directory+"qin_ids.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        sample_id = accession_id # Nandita used accession id as MIDAS header for this dataset
-        country = items[3].strip()
-        continent = items[4].strip()
-        
-        if subject_id not in subject_sample_map:
-            subject_sample_map[subject_id] = {}
-            
-        if sample_id not in subject_sample_map[subject_id]:
-            subject_sample_map[subject_id][sample_id] = set()
-            
-        subject_sample_map[subject_id][sample_id].add(accession_id)
-    file.close()
-      
-    
-    # Repeat for other data
-    # Nothing else so far
-     
-    return subject_sample_map 
-
-#####
-#
-# Loads country metadata for samples
-#
-#####
-def parse_sample_country_map(): 
-
-    sample_country_map = {}
-    
-    # First load HMP metadata
-    file = open(scripts_directory+"HMP_ids.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        country = items[3].strip()
-        continent = items[4].strip()
-            
-        if sample_id not in sample_country_map:
-            sample_country_map[sample_id] = country
-            
-    file.close()
-    
-    # Then load Kuleshov data 
-    file = open(scripts_directory+"kuleshov_ids.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        country = items[3].strip()
-        continent = items[4].strip()
-        
-        if sample_id not in sample_country_map:
-            sample_country_map[sample_id] = country
-    
-    file.close()
-    
-    # Then load Qin data
-    file = open(scripts_directory+"qin_ids.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        sample_id = accession_id # Nandita used accession id as MIDAS header for this dataset
-        country = items[3].strip()
-        continent = items[4].strip()
-        
-        if sample_id not in sample_country_map:
-            sample_country_map[sample_id] = country
-    
-    file.close()
-      
-    
-    # Repeat for other data
-    # Nothing else so far
-     
-    return sample_country_map
-
-def calculate_sample_subject_map(subject_sample_map):
-    
-    # invert subject sample map
-    sample_subject_map = {}
-    for subject in subject_sample_map.keys():
-        for sample in subject_sample_map[subject].keys():
-            sample_subject_map[sample] = subject
-            
-    return sample_subject_map
-    
-
-###############################################################################
-#
-# Creates a map of indexes from one list of samples (sample_list_from)
-# to another list of samples (sample_list_to). The from list must be a 
-# strict subset of the to list. 
-#
-###############################################################################
-def calculate_sample_idx_map(sample_list_from, sample_list_to):
-    
-    sample_list_to = list(sample_list_to)
-    sample_map = {}
-    for i in xrange(0,len(sample_list_from)):
-        sample_map[i] = sample_list_to.index(sample_list_from[i])
-    
-    return sample_map
-
-def apply_sample_index_map_to_indices(sample_idx_map, idxs):
-    new_idxs = (numpy.array([sample_idx_map[i] for i in idxs[0]]), numpy.array([sample_idx_map[i] for i in idxs[1]]))
-    return new_idxs
-
-def sample_name_lookup(sample_name, samples):
-    
-    for sample in samples:
-    
-        if sample.startswith(sample_name):
-            return sample
-            
-    return ""
-
-###############################################################################
-#
-# Prunes sample list to remove multiple timepoints from same subject
-# Returns len(sampe_list) boolean array with element=False if sample was pruned  
-#
-###############################################################################
-def calculate_unique_samples(subject_sample_map, sample_list=[]):
-
-    if len(sample_list)==0:
-        sample_list = list(sorted(flatten_samples(subject_sample_map).keys()))
-    
-    # invert subject sample map
-    sample_subject_map = {}
-    for subject in subject_sample_map.keys():
-        for sample in subject_sample_map[subject].keys():
-            sample_subject_map[sample] = subject
-    
-    subject_idx_map = {}
-        
-    for i in xrange(0,len(sample_list)):
-        sample = sample_list[i]
-        if sample.endswith('c'):
-            sample = sample[:-1]
-        subject = sample_subject_map[sample]
-        if not subject in subject_idx_map:
-            subject_idx_map[subject] = i
-            
-    unique_idxs = numpy.zeros(len(sample_list),dtype=numpy.bool_)
-    for i in subject_idx_map.values():
-        unique_idxs[i]=True
-    
-    return unique_idxs
-    
-### 
-#
-# Returns a vector of true false values 
-#
-###
-def calculate_samples_in_different_subjects(subject_sample_map, sample_list, focal_sample):
-
-    # invert subject sample map
-    sample_subject_map = {}
-    for subject in subject_sample_map.keys():
-        for sample in subject_sample_map[subject].keys():
-            sample_subject_map[sample] = subject
-
-    in_different_subject = []
-    for sample in sample_list:
-        if sample_subject_map[sample] == sample_subject_map[focal_sample]:
-            in_different_subject.append(False)
-        else:
-            in_different_subject.append(True)
-                        
-    return numpy.array(in_different_subject)
-    
-    
-###############################################################################
-#
-# Prunes sample list to only include samples from allowed countries
-# Returns len(sampe_list) boolean array with element=False if sample was pruned  
-#
-###############################################################################
-def calculate_country_samples(sample_country_map, sample_list=[], allowed_countries=set([])):
-
-    if len(sample_list)==0:
-        sample_list = list(sorted(sample_country_map.keys()))
-        
-    allowed_idxs = []
-    for sample in sample_list:
-        
-        if sample.endswith('c'):
-            desired_sample = sample[:-1]
-        else:
-            desired_sample = sample
-            
-        if (len(allowed_countries))==0 or (sample_country_map[desired_sample] in allowed_countries):
-            allowed_idxs.append(True)
-        else:
-            allowed_idxs.append(False)
-            
-    allowed_idxs = numpy.array(allowed_idxs)
-    return allowed_idxs
-    
-
-###############################################################################
-#
-# For a given list of samples, calculates which belong to different subjects
-# which belong to different timepoints in same subject, and which are the same
-# timepoint.
-#
-# Returns same_sample_idxs, same_subject_idxs, diff_subject_idxs, 
-# each of which is a tuple with idx1 and idx2. All pairs are included 
-# only once. 
-#
-###############################################################################
-def calculate_subject_pairs(subject_sample_map, sample_list=[]):
-
-    if len(sample_list)==0:
-        sample_list = list(sorted(flatten_samples(subject_sample_map).keys()))
-    
-    new_sample_list = []
-    for sample in sample_list:
-        if sample.endswith('c'):
-            new_sample_list.append(sample[:-1])
-        else: 
-            new_sample_list.append(sample)
-    
-    sample_list = new_sample_list
-    
-    # invert subject sample map
-    sample_subject_map = {}
-    for subject in subject_sample_map.keys():
-        for sample in subject_sample_map[subject].keys():
-            sample_subject_map[sample] = subject
-    
-    same_sample_idx_lower = []
-    same_sample_idx_upper = []
-    same_subject_idx_lower = []
-    same_subject_idx_upper = []
-    diff_subject_idx_lower = []
-    diff_subject_idx_upper = []
-        
-    for i in xrange(0,len(sample_list)):
-        same_sample_idx_lower.append(i)
-        same_sample_idx_upper.append(i)
-        for j in xrange(0,i):
-            if sample_subject_map[sample_list[i]]==sample_subject_map[sample_list[j]]:
-                same_subject_idx_lower.append(i)
-                same_subject_idx_upper.append(j)
-            else: 
-                diff_subject_idx_lower.append(i)
-                diff_subject_idx_upper.append(j)
-    
-    same_sample_idxs = (numpy.array(same_sample_idx_lower,dtype=numpy.int32), numpy.array(same_sample_idx_upper,dtype=numpy.int32))
-    
-    same_subject_idxs = (numpy.array(same_subject_idx_lower,dtype=numpy.int32), numpy.array(same_subject_idx_upper,dtype=numpy.int32))
-    
-    diff_subject_idxs = (numpy.array(diff_subject_idx_lower,dtype=numpy.int32), numpy.array(diff_subject_idx_upper,dtype=numpy.int32))
-    
-    return same_sample_idxs, same_subject_idxs, diff_subject_idxs
-
-###############################################################################
-#
-# For a given list of samples, calculates which belong to different subjects
-# which belong to different timepoints in same subject, and which are the same
-# timepoint.
-#
-# Returns same_sample_idxs, same_subject_idxs, diff_subject_idxs, 
-# each of which is a tuple with idx1 and idx2. All pairs are included 
-# only once. 
-#
-###############################################################################
-def calculate_ordered_subject_pairs(sample_order_map, sample_list=[]):
-
-    same_sample_idx_lower = []
-    same_sample_idx_upper = []
-    same_subject_idx_lower = []
-    same_subject_idx_upper = []
-    diff_subject_idx_lower = []
-    diff_subject_idx_upper = []
-
-    for i in xrange(0,len(sample_list)):
-        for j in xrange(i,len(sample_list)):
-            # loop over all pairs of samples
-            
-            if i==j:
-                same_sample_idx_lower.append(i)
-                same_sample_idx_upper.append(j)
-            else:
-                
-                subject1, order1 = sample_order_map[sample_list[i]]
-                subject2, order2 = sample_order_map[sample_list[j]]
-                
-                if subject1==subject2:
-                    # same subject!
-                    if order2-order1==1:
-                        # consecutive samples
-                        same_subject_idx_lower.append(i)
-                        same_subject_idx_upper.append(j)
-                    elif order1-order2==1:
-                        # consecutive samples
-                        same_subject_idx_lower.append(j)
-                        same_subject_idx_upper.append(i)
-                    else:
-                        # do not add
-                        pass
-                    
-                else:
-                    # different subjects!
-                    # Only take first one (to prevent multiple comparisons)
-                    if order1==1 and order2==1:
-                        diff_subject_idx_lower.append(i)
-                        diff_subject_idx_upper.append(j)
-        
-    same_sample_idxs = (numpy.array(same_sample_idx_lower,dtype=numpy.int32), numpy.array(same_sample_idx_upper,dtype=numpy.int32))
-    
-    same_subject_idxs = (numpy.array(same_subject_idx_lower,dtype=numpy.int32), numpy.array(same_subject_idx_upper,dtype=numpy.int32))
-    
-    diff_subject_idxs = (numpy.array(diff_subject_idx_lower,dtype=numpy.int32), numpy.array(diff_subject_idx_upper,dtype=numpy.int32))
-    
-    return same_sample_idxs, same_subject_idxs, diff_subject_idxs
-
-###############################################################################
-# For a given list of samples, calculates which belong to different timepoints in same subject
-#
-# Returns same_sample_idxs, same_subject_idxs, diff_subject_idxs, 
-# each of which is a tuple with idx1 and idx2. All pairs are included 
-# only once. 
-#
-###############################################################################
-def calculate_ordered_subject_triplets(sample_order_map, sample_list=[]):
-
-    same_subject_idxs = []
-    
-    for i in xrange(0,len(sample_list)):
-        
-        subject1, order1 = sample_order_map[sample_list[i]]
-        if order1 != 1:
-            continue
-                
-        for j in xrange(0,len(sample_list)):
-            
-            subject2, order2 = sample_order_map[sample_list[j]]
-            
-            if subject2 != subject1:
-                continue
-                
-            if order2 != 2:
-                continue
-                
-            for k in xrange(0,len(sample_list)):
-            
-                subject3, order3 = sample_order_map[sample_list[k]]
-            
-                if subject3 != subject1:
-                    continue
-                    
-                if order3 != 3:
-                    continue
-                    
-                # if you get here, a triplet! 
-                same_subject_idxs.append((i,j,k))    
-            
-    return same_subject_idxs
-
-
-
-###############################################################################
-#
-# Calculates the subset that are sampled three times
-#
-###############################################################################
-def calculate_triple_samples(sample_order_map, sample_list=[]):
-
-    sample_idx_map = {}
-    
-    
-    for i in xrange(0,len(sample_list)):
-        subject, order = sample_order_map[sample_list[i]]
-        
-        if subject not in sample_idx_map:
-            sample_idx_map[subject] = {}
-            
-        sample_idx_map[subject][order] = i
-        
-    triple_samples = []
-    for subject in sample_idx_map.keys():
-        if len(sample_idx_map[subject].keys()) > 2:
-            triple_samples.append(numpy.array([sample_idx_map[subject][order] for order in sorted(sample_idx_map[subject].keys())]))
-            
-    return triple_samples
-
-
-###############################################################################
-#
-# Returns a flat map of all the replicate sets for
-# the samples in subject_sample_map, indexed by sample key        
-#
-###############################################################################
-def flatten_samples(subject_sample_map):
-    
-    grouping_replicate_map = {}
-    for subject in sorted(subject_sample_map.keys()):
-        for sample in sorted(subject_sample_map[subject].keys()):
-            grouping_replicate_map[sample] = subject_sample_map[subject][sample]
-    
-    return grouping_replicate_map
-
-
-###############################################################################
-#
-# Returns a flat map of the merged replicate sets for each subject, 
-# indexed by subject key 
-#   
-###############################################################################    
-def flatten_subjects(subject_sample_map):
-    
-    grouping_replicate_map = {}
-    for subject in sorted(subject_sample_map.keys()):
-        merged_replicates = set()
-        for sample in subject_sample_map[subject].keys():
-            merged_replicates.update(subject_sample_map[subject][sample])
-        grouping_replicate_map[subject] = merged_replicates
-        
-    return grouping_replicate_map
-
-
-###############################################################################
-#
-# groupings = ordered list of nonoverlapping sets of sample names
-# samples = ordered list of samples
-#
-# returns: list whose i-th element contains a numpy array of idxs
-#          of the items in samples that are present in the ith grouping
-#   
-###############################################################################       
-def calculate_grouping_idxs(groupings, samples):
-    
-    grouping_idxs = []
-    for i in xrange(0,len(groupings)):
-    
-        idxs = []
-        for j in xrange(0,len(samples)):
-            if samples[j] in groupings[i]:
-                idxs.append(j)
-        idxs = numpy.array(idxs,dtype=numpy.int32)
-        #print idxs
-        grouping_idxs.append(idxs)
-    
-    return grouping_idxs
-
+from sample_utils import *
 
 ###############################################################################
 #
@@ -978,15 +451,7 @@ def pipe_snps(species_name, min_nonzero_median_coverage=config.pipe_snps_min_non
         # so that we can use HMP polarization with other datasets. 
         # at the moment, still saving polarization state.
         
-        # polarize SNP based on consensus in entire dataset
-        # Polarization = "R" (same as reference) or "A" (not reference, alt)
-        if total_alts>total_refs:
-            polarization = "A"
-            #alts,refs = refs,alts
-            #total_alts, total_refs = total_refs, total_alts
-        else:
-            polarization = "R"
-            
+        polarization = "R"    
         new_site_id_str = "|".join([contig, location, gene_name, variant_type, polarization])
         
         
@@ -1031,10 +496,10 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
     samples = parse_merged_sample_names(items)
     
     if len(allowed_samples)==0:
-        allowed_samples = set(samples)
+        allowed_sample_set = set(samples)
     else:
-        allowed_samples = set(allowed_samples)
-    
+        allowed_sample_set = (set(allowed_samples) & set(samples))
+        
     allowed_genes = set(allowed_genes)
     allowed_variant_types = set(allowed_variant_types)
     
@@ -1042,24 +507,20 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
     # should be able to remove later
     seen_samples = set()
     desired_sample_idxs = []
-    for sample in samples:
-        
-        if (sample in allowed_samples) and (sample not in seen_samples):
-            desired_sample_idxs.append(True)
+    for sample in allowed_samples:
+        if (sample in allowed_sample_set) and (sample not in seen_samples):
+            desired_sample_idxs.append( numpy.nonzero(samples==sample)[0][0] )
         else:
-            desired_sample_idxs.append(False)
-            
+            pass
+        
         seen_samples.add(sample)
         
     desired_sample_idxs = numpy.array(desired_sample_idxs)    
-    
         
     desired_samples = samples[desired_sample_idxs]
     
-    
-    
-    print len(samples), len(allowed_samples), len(desired_samples)
-    
+    print len(samples), len(desired_sample_idxs), len(allowed_samples), len(desired_samples), len(allowed_sample_set)
+
     
     # map from gene_name -> var_type -> (list of locations, matrix of allele counts)
     allele_counts_map = {}
@@ -1108,15 +569,18 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
             continue
         
         # Load alt and depth counts
+        # Load alt and depth counts
         alts = []
         depths = []
-        for item, include in zip(items[1:], desired_sample_idxs):
-            if include:
-                subitems = item.split(",")
-                alts.append(float(subitems[0]))
-                depths.append(float(subitems[1]))
+        
+        for idx in desired_sample_idxs:    
+            item = items[1+idx]
+            subitems = item.split(",")
+            alts.append(float(subitems[0]))
+            depths.append(float(subitems[1]))
         alts = numpy.array(alts)
         depths = numpy.array(depths)
+        
         
         # polarize
         if (chromosome, location) in population_freqs:
@@ -1127,13 +591,13 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
         # polarize SFS according to population freq
         if population_freq>0.5:
             alts = depths-alts
+            polarization = 'A'
      
         passed_sites = (depths>0)*1.0
         if gene_name not in passed_sites_map:
             passed_sites_map[gene_name] = {v: {'location': (chromosome,location), 'sites': numpy.zeros((len(desired_samples), len(desired_samples)))} for v in allowed_variant_types}
             
             allele_counts_map[gene_name] = {v: {'locations':[], 'alleles':[]} for v in allowed_variant_types}
-        
         
         passed_sites_map[gene_name][variant_type]['sites'] += passed_sites[:,None]*passed_sites[None,:]
         
@@ -1143,7 +607,7 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
         depths = depths*passed_sites
         
         # calculate whether SNP has passed
-        alt_threshold = numpy.ceil(depths*0.05)+0.5 #at least one read above 5%.
+        alt_threshold = numpy.ceil(depths*config.parse_snps_min_freq)+0.5 #at least one read above 5%.
         snp_passed = ((alts>alt_threshold).sum()>0) and (pvalue<0.05)
         
         # Criteria used in Schloissnig et al (Nature, 2013)
@@ -1260,6 +724,9 @@ def parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','
             
     return numpy.array(samples), sfs_map
 
+def pangenome_data_exists(species_name):
+   gene_reads_filename =  "%sgenes/%s/genes_reads.txt.bz2" % (data_directory, species_name)
+   return os.path.isfile(gene_reads_filename)
 
 ###############################################################################
 #
@@ -1268,7 +735,10 @@ def parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','
 # returns (lots of things, see below)
 #
 ###############################################################################
-def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[], convert_centroid_names=True):
+def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[], convert_centroid_names=True, disallowed_genes=[]):
+    
+    if not pangenome_data_exists(species_name):
+        return [], [], [], [], [], []
         
     # Open post-processed MIDAS output
     # Raw read counts
@@ -1373,7 +843,27 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[], c
             new_gene_names.append(centroid_gene_map[gene_name])
     else:
         new_gene_names=gene_names
-
+    
+    
+    new_gene_names = numpy.array(new_gene_names)
+        
+    # Now weed out disallowed genes if provided
+    disallowed_genes=set(disallowed_genes)
+    allowed_gene_idxs = []
+    for gene_idx in xrange(0,len(new_gene_names)):
+        
+        if new_gene_names[gene_idx] in disallowed_genes:
+            # don't include
+            pass
+        else:
+            allowed_gene_idxs.append(gene_idx)
+    allowed_gene_idxs = numpy.array(allowed_gene_idxs)
+    
+    new_gene_names = new_gene_names[allowed_gene_idxs]
+    gene_presence_matrix = gene_presence_matrix[allowed_gene_idxs,:]
+    gene_depth_matrix = gene_depth_matrix[allowed_gene_idxs,:]
+    gene_reads_matrix = gene_reads_matrix[allowed_gene_idxs,:]
+    
     return desired_samples, new_gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix
 
 ###############################################################################
@@ -1613,6 +1103,19 @@ def load_marker_genes(desired_species_name, require_in_reference_genome=True):
     return set(marker_genes)
  
  
+def parse_pangenome_species():
+    pangenome_species = []
+    
+    species_list = parse_depth_sorted_species_list()
+    
+    for species_name in species_list:
+    
+        gene_directory = '%sgenes/%s' % (data_directory, species_name)
+        if os.path.isdir(gene_directory):
+            pangenome_species.append(species_name)
+    pangenome_species.append('new_species')       
+    return pangenome_species
+     
 ###############################################################################
 #
 # Loads a subset of "core" genes. 

@@ -5,7 +5,8 @@
 ###############################################################################
 import os.path 
 
-data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
+data_directory = os.path.expanduser("~/ben_nandita_hmp_data_051318/")
+#data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
 analysis_directory = os.path.expanduser("~/ben_nandita_hmp_analysis/")
 scripts_directory = os.path.expanduser("~/ben_nandita_hmp_scripts/")
 patric_directory = os.path.expanduser("~/patric_db/")
@@ -35,6 +36,7 @@ gainloss_max_normal_copynum = 2
 core_genome_min_copynum = 0.3
 core_genome_max_copynum = 3 # BG: should we use a maximum for "core genome"? I'm going to go w/ yes for now
 core_genome_min_prevalence = 0.9
+shared_genome_min_copynum = 3
 
 # Default parameters for pipe snps
 # (Initial filtering for snps, done during postprocessing)
@@ -42,3 +44,5 @@ pipe_snps_min_samples=4
 pipe_snps_min_nonzero_median_coverage=5
 pipe_snps_lower_depth_factor=0.3
 pipe_snps_upper_depth_factor=3
+
+parse_snps_min_freq = 0.05

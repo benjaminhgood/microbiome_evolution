@@ -13,7 +13,9 @@ import stats_utils
 from math import log10,ceil
 from numpy.random import randint
 
-intermediate_filename = '%ssubstitution_rates.txt.test' % (parse_midas_data.data_directory)
+import core_gene_utils
+
+intermediate_filename = '%ssubstitution_rates.txt' % (parse_midas_data.data_directory)
     
 
 min_coverage = config.min_median_coverage
@@ -162,9 +164,13 @@ if __name__=='__main__':
         sys.stderr.write("Proceeding with %d haploid samples!\n" % len(snp_samples))
 
         sys.stderr.write("Loading core genes...\n")
-        core_genes = parse_midas_data.load_core_genes(species_name)
+        core_genes = core_gene_utils.parse_core_genes(species_name)
+        non_shared_genes = core_gene_utils.parse_non_shared_reference_genes(species_name)
+        shared_pangenome_genes = core_gene_utils.parse_shared_genes(species_name)
         sys.stderr.write("Done! Core genome consists of %d genes\n" % len(core_genes))
+        sys.stderr.write("%d shared genes and %d non-shared genes\n" % (len(shared_pangenome_genes), len(non_shared_genes)))
 
+        
         # Analyze SNPs, looping over chunk sizes. 
         # Clunky, but necessary to limit memory usage on cluster
 
@@ -214,7 +220,7 @@ if __name__=='__main__':
             chunk_core_mut_difference_matrix, chunk_core_rev_difference_matrix, chunk_core_mut_opportunity_matrix, chunk_core_rev_opportunity_matrix = diversity_utils.calculate_mutation_reversion_matrix(allele_counts_map, passed_sites_map, allowed_genes=core_genes)
             
             # All
-            chunk_snp_mut_difference_matrix, chunk_snp_rev_difference_matrix, chunk_snp_mut_opportunity_matrix, chunk_snp_rev_opportunity_matrix = diversity_utils.calculate_mutation_reversion_matrix(allele_counts_map, passed_sites_map)
+            chunk_snp_mut_difference_matrix, chunk_snp_rev_difference_matrix, chunk_snp_mut_opportunity_matrix, chunk_snp_rev_opportunity_matrix = diversity_utils.calculate_mutation_reversion_matrix(allele_counts_map, passed_sites_map, allowed_genes=non_shared_genes)
             
             sys.stderr.write("Done!\n")
     
@@ -269,9 +275,9 @@ if __name__=='__main__':
         # Now calculate gene differences
         # Load gene coverage information for species_name
         sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
-        gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages,     gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
-        sys.stderr.write("Done!\n")
-    
+        gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages,     gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples, disallowed_genes=shared_pangenome_genes)
+        sys.stderr.write("Done! Loaded %d genes\n" % len(gene_names))
+
         gene_sample_list = list(gene_samples)
         gene_sample_set = set(gene_samples)
         

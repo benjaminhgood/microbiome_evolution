@@ -12,6 +12,7 @@ import sfs_utils
 
 import diversity_utils
 import gene_diversity_utils
+import core_gene_utils
 
 import stats_utils
 from math import log10,ceil
@@ -191,6 +192,11 @@ if __name__=='__main__':
         # Analyze SNPs, looping over chunk sizes. 
         # Clunky, but necessary to limit memory usage on cluster
 
+        sys.stderr.write("Loading whitelisted genes...\n")
+        non_shared_genes = core_gene_utils.parse_non_shared_reference_genes(species_name)
+        shared_pangenome_genes = core_gene_utils.parse_shared_genes(species_name)
+        sys.stderr.write("Done! %d shared genes and %d non-shared genes\n" % (len(shared_pangenome_genes), len(non_shared_genes)))
+
     
         # Load SNP information for species_name
         sys.stderr.write("Loading SNPs for %s...\n" % species_name)    
@@ -208,7 +214,7 @@ if __name__=='__main__':
         while final_line_number >= 0:
     
             sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
-            dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples, chunk_size=chunk_size,initial_line_number=final_line_number)
+            dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples, chunk_size=chunk_size,initial_line_number=final_line_number,allowed_genes=non_shared_genes)
             sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
             snp_samples = dummy_samples
         
@@ -263,7 +269,7 @@ if __name__=='__main__':
         # Now calculate gene differences
         # Load gene coverage information for species_name
         sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
-        gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
+        gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples, disallowed_genes=shared_pangenome_genes)
         sys.stderr.write("Done!\n")
     
         same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, gene_samples)

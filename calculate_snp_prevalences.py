@@ -3,6 +3,7 @@ import numpy
 import bz2
 import gzip
 import config
+import os.path
 
 
 intermediate_filename_template = config.data_directory+"snp_prevalences/%s.txt.gz"
@@ -11,8 +12,11 @@ intermediate_filename_template = config.data_directory+"snp_prevalences/%s.txt.g
 def parse_snp_prevalences(desired_species_name):
     
     intermediate_filename = intermediate_filename_template % desired_species_name
-    
+        
     snp_prevalences = {}
+    
+    if not os.path.isfile(intermediate_filename):
+        return snp_prevalences
     
     file = gzip.GzipFile(intermediate_filename,"r")
     file.readline()
@@ -35,8 +39,12 @@ def parse_population_freqs(desired_species_name):
     
     intermediate_filename = intermediate_filename_template % desired_species_name
     
+    
     population_freqs = {}
     
+    if not os.path.isfile(intermediate_filename):
+        return population_freqs
+
     file = gzip.GzipFile(intermediate_filename,"r")
     file.readline()
     for line in file:
@@ -46,7 +54,10 @@ def parse_population_freqs(desired_species_name):
         population_freq = float(items[2])
         snp_freq = float(items[3])
         
-        population_freqs[(contig,location)] = population_freq
+        if population_freq==0:
+            pass
+        else:
+            population_freqs[(contig,location)] = population_freq
                             
     file.close()
     
