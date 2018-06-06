@@ -4,6 +4,7 @@
 #
 ###############################################################################
 import os.path 
+from math import log10
 
 data_directory = os.path.expanduser("~/ben_nandita_hmp_data_051318/")
 #data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
@@ -22,12 +23,14 @@ min_median_coverage = 20
 
 consensus_lower_threshold = 0.2
 consensus_upper_threshold = 0.8
-fixation_min_change = 0.8
+fixation_min_change = consensus_upper_threshold-consensus_lower_threshold
+fixation_log10_depth_ratio_threshold = log10(3)
 
 threshold_within_between_fraction = 0.1
 threshold_pi = 1e-03
 
 modification_difference_threshold = 20
+#modification_difference_threshold = 100
 
 gainloss_max_absent_copynum = 0.05
 gainloss_min_normal_copynum = 0.5

@@ -93,6 +93,10 @@ total_snps = {var_type:0 for var_type in variant_types} # observed variant_type 
 total_random_null_snps = {var_type:0 for var_type in variant_types} # expectation from randomly drawing sites on genome (mutation)
 total_between_null_snps = {var_type:0 for var_type in variant_types} # expectation from randomly drawing sites that vary between samples (recombination) 
 
+total_reversion_snps = {var_type: 0 for var_type in variant_types}
+total_mutation_snps = {var_type: 0 for var_type in variant_types}
+total_private_snps = {var_type: 0 for var_type in variant_types}
+
 total_snp_mutrevs = {'muts': 0, 'revs':0}
 total_random_null_snp_mutrevs = {'muts':0, 'revs':0}
 total_between_null_snp_mutrevs = {'muts': 0, 'revs':0}
@@ -145,6 +149,9 @@ for species_name in good_species_list:
     
     
     sys.stderr.write("Proceeding with %d longitudinal comparisons with %d samples!\n" % (sample_size, len(snp_samples)))
+    
+    import calculate_private_snvs
+    private_snv_map = calculate_private_snvs.load_private_snv_map(species_name)
     
     sys.stderr.write("Loading SFSs for %s...\t" % species_name)
     dummy_samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])) 
@@ -209,14 +216,16 @@ for species_name in good_species_list:
         if not ((sample_i in allowed_sample_set) and (sample_j in allowed_sample_set)):
             continue
         
-        perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        L, perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        
+        perr = L*perr
         
         if perr>=0.5:
             
             # Calculate a more fine grained value!
         
             dfs = numpy.array([0.6,0.7,0.8,0.9])
-            perrs = diversity_utils.calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=dfs) * snp_opportunity_matrix[i, j]
+            perrs = diversity_utils.calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=dfs) * L # (correcting for multiple hypothesis testing, good.
     
             if (perrs<0.5).any():
                 # take most permissive one!
@@ -225,7 +234,7 @@ for species_name in good_species_list:
                 perr = perrs[perr_idx]
             
                 # recalculate stuff!    
-                perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j,lower_threshold=(1-df)/2.0, upper_threshold=(1+df)/2.0)
+                dummy_L, dummy_perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j,lower_threshold=(1-df)/2.0, upper_threshold=(1+df)/2.0)
                 
             else:
                 df = 2
@@ -243,8 +252,10 @@ for species_name in good_species_list:
             num_snp_changes = num_mutations+num_reversions
     
         
-        gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        gene_L, gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
     
+        if gene_L>0:
+            gene_perr = gene_L*gene_perr
         
         if (gains==None) or (gene_perr<-0.5) or (gene_perr>0.5):
             num_gains = 0
@@ -281,15 +292,27 @@ for species_name in good_species_list:
             
             # Count up variant types of observed mutations
             variant_type_counts = {var_type: 0 for var_type in variant_types}
+            mutation_variant_type_counts = {var_type: 0 for var_type in variant_types}
+            private_variant_type_counts = {var_type: 0 for var_type in variant_types}
+            reversion_variant_type_counts = {var_type: 0 for var_type in variant_types}
+            
             for snp_change in mutations:
                 if snp_change[3] in variant_types:
                     variant_type_counts[snp_change[3]] += 1
+                    mutation_variant_type_counts[snp_change[3]] += 1
+                    
+                    location_tuple = (snp_change[1],snp_change[2])
+                    
+                    if location_tuple in private_snv_map:
+                        private_variant_type_counts[snp_change[3]] += 1
+                    
                 else:
                     pass
                     
             for snp_change in reversions:
                 if snp_change[3] in variant_types:
                     variant_type_counts[snp_change[3]] += 1
+                    reversion_variant_type_counts[snp_change[3]] += 1
                 else:
                     pass
             
@@ -298,6 +321,9 @@ for species_name in good_species_list:
             observed_sample_size = 0
             for var_type in variant_types:
                 total_snps[var_type] += variant_type_counts[var_type]
+                total_mutation_snps[var_type] += mutation_variant_type_counts[var_type]
+                total_private_snps[var_type] += private_variant_type_counts[var_type]
+                total_reversion_snps[var_type] += reversion_variant_type_counts[var_type]
                 observed_sample_size += variant_type_counts[var_type]
             
             # Now get a null from randomly drawing from genome
@@ -334,14 +360,20 @@ for species_name in good_species_list:
             for type in ['muts','revs']:
                 total_between_null_snp_mutrevs[type] += observed_sample_size*(numpy.median(difference_matrices[type][i,good_comparison_idxs]))*1.0/total_between_host_changes  
             
+            # If there are gene changes to look at: 
             if num_gene_changes > -0.5:
             
                 gene_i = i
+                #print sample_i, sample_j
                 good_comparison_idxs = (gene_opportunity_matrix[i,:]>0.5)
+                
+                #print gene_opportunity_matrix[i,:].shape
+                #print good_comparison_idxs.sum() 
                  
                 good_comparison_idxs *= parse_midas_data.calculate_samples_in_different_subjects( subject_sample_map, gene_samples, sample_i)
-    
-            
+                
+                #print good_comparison_idxs.sum() 
+                            
                 pooled_gene_change_distribution.append(num_gene_changes)  
                 
                 # Typical value
@@ -782,4 +814,16 @@ fig2.savefig('%s/figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inch
 fig.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
- 
+print 'Reversions', total_reversion_snps, total_reversion_snps['1D']*1.0/total_reversion_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
+
+print 'Mutations', total_mutation_snps, total_mutation_snps['1D']*1.0/total_mutation_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
+
+print 'Private', total_private_snps, total_private_snps['1D']*1.0/total_private_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
+
+print "All", total_snps, total_snps['1D']*1.0/total_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
+
+print "Random", total_random_null_snps, 1.0
+
+print "Between", total_between_null_snps, total_between_null_snps['1D']*1.0/total_between_null_snps['4D'] /(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
+
+       

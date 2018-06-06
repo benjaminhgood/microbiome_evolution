@@ -664,111 +664,170 @@ def calculate_pooled_counts(allele_counts_map, passed_sites_map, allowed_sample_
     pooled_counts = numpy.array(pooled_counts)
     return pooled_counts, pi_weighted_number
 
-def calculate_singletons(allele_counts_map, passed_sites_map, allowed_sample_idxs=[], allowed_variant_types = set(['1D','2D','3D','4D']), allowed_genes=set([]), lower_threshold=0.2,upper_threshold=0.8,pi_min_k=1):
+def calculate_private_snvs(samples, allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
+upper_threshold=config.consensus_upper_threshold):
 
-    if len(allowed_sample_idxs)==0:
-        # all samples are allowed
-        allowed_sample_idxs = numpy.array([True for i in xrange(0,allele_counts_map.values()[0].values()[0]['alleles'].shape[1])])
+    # First 
+    sample_host_matrix, hosts = parse_midas_data.calculate_sample_subject_matrix(samples)
+    
+    total_genes = set(passed_sites_map.keys())
 
     if len(allowed_genes)==0:
         allowed_genes = set(passed_sites_map.keys())
-    allowed_genes = allowed_genes & set(passed_sites_map.keys())
-     
-    singletons = []
     
+    allowed_genes = (allowed_genes & total_genes)     
+    
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+         
+    private_snvs = []
+     
     for gene_name in allowed_genes:
         
-        for variant_type in allele_counts_map[gene_name].keys():
-            
-            if variant_type not in allowed_variant_types:
-                continue
-            
-                
-            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
-        
-            if len(allele_counts)==0:
-                continue
-            
-            #print allele_counts_map[gene_name][variant_type]['alleles'].shape, allowed_sample_idxs.shape
-                
-            allele_counts = allele_counts[:,allowed_sample_idxs,:]
-            
-            genotype_matrix, passed_sites_matrix = calculate_consensus_genotypes(allele_counts,lower_threshold,upper_threshold)
-            prevalences = (genotype_matrix*passed_sites_matrix).sum(axis=1)
-            min_prevalences = 1
-            max_prevalences = (passed_sites_matrix).sum(axis=1)-1
-    
-            minor_sites = numpy.isclose(prevalences, min_prevalences)
-            major_sites = numpy.isclose(prevalences, max_prevalences)
-            
-            alt_genotypes = ((genotype_matrix>0.5)*(passed_sites_matrix>0))[minor_sites]
-            ref_genotypes = ((genotype_matrix<0.5)*(passed_sites_matrix>0))[major_sites]
-            
-            minor_singleton_idxs = numpy.nonzero(alt_genotypes)[1]
-            major_singleton_idxs = numpy.nonzero(ref_genotypes)[1]
-
-                
-
-            for idx in minor_singleton_idxs:
-                singletons.append((idx, variant_type))
-            
-            for idx in major_singleton_idxs:
-                singletons.append((idx, variant_type))   
-            
-    return singletons
-
-# Returns a vector of singleton counts for each sample
-def calculate_singleton_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set(['1D','2D','3D','4D']), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
-upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min_change):
-
-    if len(allowed_genes)==0:
-        allowed_genes = set(passed_sites_map.keys())
-    allowed_genes = allowed_genes & set(passed_sites_map.keys())
-     
-    singleton_count_matrix = numpy.zeros(passed_sites_map.values()[0].values()[0]['sites'].shape[0] )*1.0
-    singleton_opportunity_matrix = numpy.zeros_like(singleton_count_matrix)
-    
-    for gene_name in allowed_genes:
-        
-        for variant_type in allele_counts_map[gene_name].keys():
-            
-            if variant_type not in allowed_variant_types:
-                continue
-   
-            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
-        
-            singleton_opportunity_matrix += numpy.diag(passed_sites_map[gene_name][variant_type]['sites'])
-        
-            if len(allele_counts)==0:
-                continue
-                 
-            genotype_matrix, passed_sites_matrix = calculate_consensus_genotypes(allele_counts,lower_threshold,upper_threshold)
-            prevalences = (genotype_matrix*passed_sites_matrix).sum(axis=1)
-            
-            sample_size = (passed_sites_matrix).sum(axis=1)
-            min_prevalences = 1
-            max_prevalences = sample_size-1
-    
-            ok_sites = (sample_size>1.5)
-            polymorphic_sites = ok_sites*(prevalences>0.5)*(prevalences<(sample_size-0.5))
+        for variant_type in passed_sites_map[gene_name].keys():
              
-            minor_sites = numpy.isclose(prevalences, min_prevalences)*polymorphic_sites
-            major_sites = numpy.isclose(prevalences, max_prevalences)*polymorphic_sites
+            if variant_type not in allowed_variant_types:
+                continue
             
-            # Get the minor alleles in both cases
-            alt_genotypes = ((genotype_matrix>0.5)*(passed_sites_matrix>0))[minor_sites]
-            ref_genotypes = ((genotype_matrix<0.5)*(passed_sites_matrix>0))[major_sites]
+            passed_sites = passed_sites_map[gene_name][variant_type]['sites']
+   
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
+            if len(allele_counts)==0:
+                continue
+                
+            locations = allele_counts_map[gene_name][variant_type]['locations']
             
-            singleton_count_matrix += (alt_genotypes.sum(axis=0)+ref_genotypes.sum(axis=0))
-            #singleton_opportunity_matrix += (passed_sites_matrix[ok_sites,:]>0).sum(axis=0) 
+            depths = allele_counts.sum(axis=2)
+            freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
             
-            #print ok_sites.sum()
-            #print (passed_sites_matrix[ok_sites,:]>0).sum(axis=0) 
+            derived_sites = (freqs>=upper_threshold)
+            ancestral_sites = (freqs<=lower_threshold)
+            
+            # Sites where the major allele is at sufficiently high frequency
+            high_freq_sites = numpy.logical_or(ancestral_sites, derived_sites)
+            
+            passed_depths = (depths>0)
+            
+            confident_sites = numpy.logical_and(high_freq_sites, passed_depths)
+            
+            #print confident_sites.shape
+            
+            # goes from L x n to L x h (sites across all hosts)
+            host_confident_sites = (numpy.einsum('ij,jk', confident_sites, sample_host_matrix)>0.5)
+            
+            host_derived_sites = (numpy.einsum('ij,jk',derived_sites, sample_host_matrix)>0.5)
+            
+            #print host_confident_sites.shape
+            
+            host_sample_sizes = host_confident_sites.sum(axis=1)
+            host_derived_counts = host_derived_sites.sum(axis=1)
+            
+            #print host_sample_sizes.shape
+            #print host_derived_counts.shape
+            
+            private_idxs = numpy.nonzero((host_sample_sizes>3.5)*(host_derived_counts==1))[0]
+            
+            #print private_idxs.shape
+            
+            if len(private_idxs)>0:
+                for snp_idx in private_idxs: 
+                    host = hosts[numpy.nonzero(host_derived_sites[snp_idx])[0][0]]
+                    
+                    contig, location = allele_counts_map[gene_name][variant_type]['locations'][snp_idx]
+                
+                    private_snvs.append((contig, location, gene_name, variant_type, host))
+            
+    return private_snvs
+     
 
-    #print singleton_opportunity_matrix
-    #print "Returning"
-    return singleton_count_matrix, singleton_opportunity_matrix
+def calculate_singleton_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
+upper_threshold=config.consensus_upper_threshold):
 
+    total_genes = set(passed_sites_map.keys())
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+    
+    allowed_genes = (allowed_genes & total_genes)     
+    
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+         
+    doubleton_matrix = numpy.zeros_like( passed_sites_map.values()[0].values()[0]['sites'] )*1.0   
+    singleton_matrix = numpy.zeros_like(doubleton_matrix)
+    
+    difference_matrix = numpy.zeros_like(doubleton_matrix)
+    
+    opportunity_matrix = numpy.zeros_like(doubleton_matrix)
+    
+     
+    for gene_name in allowed_genes:
+        
+        for variant_type in passed_sites_map[gene_name].keys():
+             
+            if variant_type not in allowed_variant_types:
+                continue
+            
+            passed_sites = passed_sites_map[gene_name][variant_type]['sites']
+   
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
+            if len(allele_counts)==0:
+                continue
+            
+            depths = allele_counts.sum(axis=2)
+            freqs = allele_counts[:,:,0]*1.0/(depths+(depths==0))
+            
+            derived_sites = (freqs>=upper_threshold)
+            ancestral_sites = (freqs<=lower_threshold)
+            
+            # Sites where the major allele is at sufficiently high frequency
+            high_freq_sites = numpy.logical_or(ancestral_sites, derived_sites)
+            # Those where it is not
+            intermediate_freq_sites = numpy.logical_not(high_freq_sites)
+            
+            # site*sample*sample matrix of sites with sufficient coverage in both samples
+            passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
+
+            # site*sample*sample matrix of sites where we can look for differences            
+            confident_sites = numpy.logical_and(high_freq_sites[:,:,None], high_freq_sites[:,None,:])*passed_depths
+            
+            site_difference_matrix = numpy.logical_or(derived_sites[:,:,None]*ancestral_sites[:,None,:],  ancestral_sites[:,:,None]*derived_sites[:,None,:] )
+            
+            # this is really the only place you have to switch 
+            # to within-between hosts
+            
+            site_sample_size_matrix = confident_sites.sum(axis=2)
+            # Want at least a sample size of 4
+            site_sufficient_sample_size_matrix = (site_sample_size_matrix>3.5)
+            # 
+            site_total_difference_matrix = (site_difference_matrix*confident_sites).sum(axis=2)
+            
+            potential_singletons = ((site_sample_size_matrix-site_total_difference_matrix)==1)
+            
+            potential_doubletons = ((site_sample_size_matrix-site_total_difference_matrix)==2)
+            
+            
+            # Confident sites is now asymmetric
+            confident_sites *= site_sufficient_sample_size_matrix[:,:,None]
+            
+            # total number of differences between i and j 
+            # (regardless of singleton/doubleton status)
+            differences = (site_difference_matrix*confident_sites).sum(axis=0)
+            
+            singletons = (confident_sites*site_difference_matrix*potential_singletons[:,:,None]).sum(axis=0)
+            
+            doubletons = (confident_sites * numpy.logical_not(site_difference_matrix) * potential_doubletons[:,:,None]).sum(axis=0)
+            
+            opportunities = (passed_sites - numpy.logical_not(confident_sites).sum(axis=0) )
+            
+            singleton_matrix += singletons
+            doubleton_matrix += doubletons
+            difference_matrix += differences
+            opportunity_matrix += opportunities
+            
+    
+    return doubleton_matrix, singleton_matrix, difference_matrix, opportunity_matrix
+    
 def calculate_mutation_reversion_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
 upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min_change):
 
@@ -1125,12 +1184,12 @@ def estimate_sfs_downsampling(allele_counts, target_depth=10):
     
 
 # Calculate polarized SNP changes from i to j that exceed threshold 
-# Returns list of differences. Each difference is a tuple of form 
+# Returns list of differences, number of comparisons. Each difference is a tuple of form 
 #
 # (gene_name, (contig, location), (alt_i, depth_i), (alt_j, depth_j))
 #
-def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), min_freq=0, min_change=0.8, lower_threshold=config.consensus_lower_threshold, 
-upper_threshold=config.consensus_upper_threshold):
+def calculate_snp_differences_between(i,j,allele_counts_map, passed_sites_map, avg_depth_i, avg_depth_j, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
+upper_threshold=config.consensus_upper_threshold, log10_depth_ratio_threshold=config.fixation_log10_depth_ratio_threshold):
 
     if len(allowed_genes)==0:
         allowed_genes = set(passed_sites_map.keys())
@@ -1138,8 +1197,7 @@ upper_threshold=config.consensus_upper_threshold):
     if len(allowed_variant_types)==0:
         allowed_variant_types = set(['1D','2D','3D','4D'])    
     
-    snp_changes = []
-        
+    snp_changes = []    
     for gene_name in allowed_genes:
         
         if gene_name not in allele_counts_map.keys():
@@ -1158,17 +1216,13 @@ upper_threshold=config.consensus_upper_threshold):
             allele_counts = allele_counts[:,[i,j],:]
             depths = allele_counts.sum(axis=2)
             alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
-            
-            passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
     
-            passed_depths = (depths>0)[:,0]*(depths>0)[:,1]
+            safe_depths = depths+(depths==0)
             
-            delta_freqs = numpy.fabs(alt_freqs[:,1]-alt_freqs[:,0])
-            delta_freqs[passed_depths==0] = 0
-    
-            # old version
-            #changed_sites = numpy.nonzero(delta_freqs>=min_change)[0]
-            
+            log10_depth_ratios = numpy.fabs(numpy.log10((safe_depths[:,0]/avg_depth_i)/(safe_depths[:,1]/avg_depth_j)))
+                
+            passed_depths = (depths>0)[:,0]*(depths>0)[:,1]*(log10_depth_ratios<log10_depth_ratio_threshold)
+
             mutations = (alt_freqs[:,0]<=lower_threshold)*(alt_freqs[:,1]>=upper_threshold)*passed_depths
             reversions = (alt_freqs[:,0]>=upper_threshold)*(alt_freqs[:,1]<=lower_threshold)*passed_depths
             
@@ -1182,6 +1236,63 @@ upper_threshold=config.consensus_upper_threshold):
                         
     return snp_changes
 
+# Calculate polarized SNP changes from i to j that exceed threshold 
+# Returns list of differences, number of comparisons. Each difference is a tuple of form 
+#
+# (gene_name, (contig, location), (alt_i, depth_i), (alt_j, depth_j))
+#
+def calculate_tracked_private_snvs(i,j,allele_counts_map, passed_sites_map, avg_depth_i, avg_depth_j, private_snv_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
+upper_threshold=config.consensus_upper_threshold, log10_depth_ratio_threshold=config.fixation_log10_depth_ratio_threshold):
+
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+        
+    if len(allowed_variant_types)==0:
+        allowed_variant_types = set(['1D','2D','3D','4D'])    
+    
+    tracked_private_snps = []    
+    for gene_name in allowed_genes:
+        
+        if gene_name not in allele_counts_map.keys():
+            continue
+            
+        for variant_type in allele_counts_map[gene_name].keys():
+            
+            if variant_type not in allowed_variant_types:
+                continue
+
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']
+                        
+            if len(allele_counts)==0:
+                continue
+
+            allele_counts = allele_counts[:,[i,j],:]
+            depths = allele_counts.sum(axis=2)
+            alt_freqs = allele_counts[:,:,0]/(depths+(depths==0))
+    
+            safe_depths = depths+(depths==0)
+            
+            log10_depth_ratios = numpy.fabs(numpy.log10((safe_depths[:,0]/avg_depth_i)/(safe_depths[:,1]/avg_depth_j)))
+                
+            passed_depths = (depths>0)[:,0]*(depths>0)[:,1]*(log10_depth_ratios<log10_depth_ratio_threshold)
+
+            initial_high_freqs = alt_freqs[:,0]>=upper_threshold
+            final_high_freqs = alt_freqs[:,1]>=upper_threshold
+            final_low_freqs = alt_freqs[:,1]<=lower_threshold
+            
+            potential_private_snps = numpy.nonzero( initial_high_freqs*numpy.logical_or(final_high_freqs, final_low_freqs) )[0]
+            
+            if len(potential_private_snps)>0:
+                # some candidates for private SNVs
+                for idx in potential_private_snps:
+                    # check to see if it is indeed a private SNV
+                    location_tuple = allele_counts_map[gene_name][variant_type]['locations'][idx]
+                    
+                    if location_tuple in private_snv_map:
+                        # it is indeed private! 
+                        tracked_private_snps.append((gene_name, location_tuple, variant_type, (allele_counts[idx,0,0], depths[idx,0]), (allele_counts[idx,1,0],depths[idx,1]) ))
+            
+    return tracked_private_snps
     
     
     

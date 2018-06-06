@@ -202,7 +202,7 @@ if __name__=='__main__':
             non_shared_idxs = numpy.logical_not(shared_idxs)
             shared_gene_names = gene_names[shared_idxs]
             sys.stderr.write("%d shared genes out of %d\n" % (len(shared_gene_names), len(gene_names)))
-            
+            sys.stderr.write("(%d out of %d on reference genome)\n" % ((shared_idxs*reference_gene_idxs).sum(), reference_gene_idxs.sum())) 
             # calculating good genes
             good_idxs = (((gene_copynum_matrix>=cmin)*(gene_copynum_matrix<=cmax)).sum(axis=1)*1.0/len(marker_coverages) >= min_good_fraction)
             core_gene_names = gene_names[good_idxs*reference_gene_idxs*non_shared_idxs]
@@ -213,7 +213,7 @@ if __name__=='__main__':
             bad_idxs = (gene_copynum_matrix<config.gainloss_max_absent_copynum).sum(axis=1) > 0.5
             good_idxs = numpy.logical_not(bad_idxs)
             stringent_gene_names = gene_names[good_idxs*reference_gene_idxs*non_shared_idxs]
-            sys.stderr.write("%d stringent core genes out of %d\n" % (len(stringent_gene_names), len(gene_names)))
+            #sys.stderr.write("%d stringent core genes out of %d\n" % (len(stringent_gene_names), len(gene_names)))
         
         # Write output to file!
         shared_output_file.write("%s: %s\n" % (species_name, ", ".join([gene_name for gene_name in shared_gene_names])))

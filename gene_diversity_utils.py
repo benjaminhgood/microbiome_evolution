@@ -326,8 +326,9 @@ def calculate_gene_error_rate(i, j, gene_reads_matrix, gene_depth_matrix, marker
         # To emulate the integral over p(l)
         perr = perr/len(length_factors)
         
+        # BG: 5/23/18. This is now done outside this function. 
         # To add up all the genes
-        perr = perr*len(C1s)
+        #perr = perr*len(C1s)
     
         perrs.append(perr)
         

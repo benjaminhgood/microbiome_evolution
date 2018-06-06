@@ -123,6 +123,25 @@ def parse_global_marker_gene_coverages():
     species_coverage_matrix = numpy.array(species_coverage_matrix)
     return species_coverage_matrix, samples, species
 
+def parse_species_marker_gene_coverages(desired_species_name):
+    
+    species_coverage_matrix, samples, species = parse_species_marker_gene_coverages()
+    
+    for species_idx in xrange(0,len(species)):
+        species_name = species[species_idx]
+        if species_name==desired_species_name:
+            return species_coverage_matrix[species_idx,:], samples
+
+    return None
+    
+def parse_sample_coverage_map(desired_species_name):
+    import stats_utils
+    
+    # Load genomic coverage distributions
+    sample_coverage_histograms, samples = parse_coverage_distribution(desired_species_name)
+    median_coverages = numpy.array([stats_utils.calculate_nonzero_median_from_histogram(sample_coverage_histogram) for sample_coverage_histogram in sample_coverage_histograms])
+    sample_coverage_map = {samples[i]: median_coverages[i] for i in xrange(0,len(samples))}
+    return sample_coverage_map
 
 def parse_gene_coverages(desired_species_name):
 
@@ -519,7 +538,7 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
         
     desired_samples = samples[desired_sample_idxs]
     
-    print len(samples), len(desired_sample_idxs), len(allowed_samples), len(desired_samples), len(allowed_sample_set)
+    #print len(samples), len(desired_sample_idxs), len(allowed_samples), len(desired_samples), len(allowed_sample_set)
 
     
     # map from gene_name -> var_type -> (list of locations, matrix of allele counts)
@@ -631,7 +650,7 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
          
     snp_file.close()
 
-    print line_number, final_line_number, num_sites_processed
+    #print line_number, final_line_number, num_sites_processed
 
     for gene_name in passed_sites_map.keys():
         for variant_type in passed_sites_map[gene_name].keys():

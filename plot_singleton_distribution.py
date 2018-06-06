@@ -91,51 +91,66 @@ for species_name in good_species_list:
     if len(snp_samples) < min_sample_size:
         sys.stderr.write("Not enough unique samples!\n")
         continue
-        
-    # Load divergence matrices 
-    sys.stderr.write("Loading pre-computed substitution rates for %s...\n" % species_name)
-    substitution_rate_map = calculate_substitution_rates.load_substitution_rate_map(species_name)
-    sys.stderr.write("Calculating matrix...\n")
-    dummy_samples, snp_difference_matrix, snp_opportunity_matrix = calculate_substitution_rates.calculate_matrices_from_substitution_rate_map(substitution_rate_map, '4D', allowed_samples=snp_samples)
-    snp_samples = dummy_samples
-    sys.stderr.write("Done!\n")
-
-    snp_substitution_matrix = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
-    
 
     # Load singleton matrices 
     sys.stderr.write("Loading pre-computed singleton rates for %s...\n" % species_name)
     singleton_rate_map = calculate_singletons.load_singleton_rate_map(species_name)
     sys.stderr.write("Calculating matrix...\n")
-    dummy_samples, singleton_vector, singleton_opportunity_vector = calculate_singletons.calculate_matrices_from_singleton_rate_map(singleton_rate_map, '4D', allowed_samples=snp_samples)
-    print numpy.all(dummy_samples == snp_samples)
+    snp_samples, singleton_matrix, doubleton_matrix, difference_matrix, opportunity_matrix = calculate_singletons.calculate_matrices_from_singleton_rate_map(singleton_rate_map, '4D', allowed_samples=snp_samples)
     
-    dummy_samples, syn_singleton_vector, syn_singleton_opportunity_vector = calculate_singletons.calculate_matrices_from_singleton_rate_map(singleton_rate_map, '4D', allowed_samples=snp_samples)
-    dummy_samples, non_singleton_vector, non_singleton_opportunity_vector = calculate_singletons.calculate_matrices_from_singleton_rate_map(singleton_rate_map, '1D', allowed_samples=snp_samples)
+    snp_samples, syn_singleton_matrix, syn_doubleton_matrix, syn_difference_matrix, syn_opportunity_matrix  = calculate_singletons.calculate_matrices_from_singleton_rate_map(singleton_rate_map, '4D', allowed_samples=snp_samples)
+    snp_samples, non_singleton_matrix, non_doubleton_matrix, non_difference_matrix, non_opportunity_matrix  = calculate_singletons.calculate_matrices_from_singleton_rate_map(singleton_rate_map, '1D', allowed_samples=snp_samples)
+    
+    substitution_rate_matrix = difference_matrix*1.0/(opportunity_matrix+(opportunity_matrix==0))
     
     sys.stderr.write("Done!\n")
     
-    singleton_rate_vector = singleton_vector*1.0/singleton_opportunity_vector
-    
     # Calculate relative singleton matrices (# singletons / # differences to closest sample)
-    closest_difference_vector = numpy.zeros_like(singleton_vector)
-    closest_opportunity_vector = numpy.zeros_like(singleton_vector)
     
-    for i in xrange(0, snp_substitution_matrix.shape[0]):
+    # Calculate singletons for closest sample
     
-        snp_difference_matrix[i,i] = 1e09 # so that it can't be the minimum.
-        
-        closest_idx = snp_difference_matrix[i,:].argmin()
-        
-        closest_difference_vector[i] = snp_difference_matrix[i,closest_idx]
-        closest_opportunity_vector[i] = snp_opportunity_matrix[i,closest_idx]
-        
-        
+    closest_singleton_vector = []
+    closest_difference_vector = []
+    closest_opportunity_vector = []
     
+    closest_syn_singleton_vector = []
+    closest_syn_difference_vector = []
+    closest_syn_opportunity_vector = []
+    
+    closest_non_singleton_vector = []
+    closest_non_difference_vector = []
+    closest_non_opportunity_vector = [] 
+    
+    for i in xrange(0, substitution_rate_matrix.shape[0]):
+    
+        substitution_rates = substitution_rate_matrix[i,:]
+    
+        bad_idxs = numpy.logical_or((difference_matrix[i,:]<0.5), (opportunity_matrix[i,:]<0.5))
+        
+        substitution_rates[bad_idxs] = 2 # so that it can't be too close
+        
+        closest_idx = substitution_rates.argmin()
+        
+        #print singleton_matrix[i,closest_idx], difference_matrix[i,closest_idx], opportunity_matrix[i,closest_idx]
+        
+        closest_singleton_vector.append( singleton_matrix[i,closest_idx] )
+        closest_difference_vector.append( difference_matrix[i,closest_idx] )
+        closest_opportunity_vector.append(opportunity_matrix[i,closest_idx]  )
+        
+        closest_syn_singleton_vector.append( syn_singleton_matrix[i,closest_idx] )
+        closest_syn_difference_vector.append( syn_difference_matrix[i,closest_idx] )
+        closest_syn_opportunity_vector.append( syn_opportunity_matrix[i,closest_idx] )
+        
+        closest_non_singleton_vector.append( non_singleton_matrix[i,closest_idx] )
+        closest_non_difference_vector.append( non_difference_matrix[i,closest_idx] )
+        closest_non_opportunity_vector.append( non_opportunity_matrix[i,closest_idx] )
+        
+
     #print closest_divergence_vector, relative_singleton_rate_vector
-    data[species_name] = closest_difference_vector, closest_opportunity_vector, singleton_vector, singleton_opportunity_vector, syn_singleton_vector, syn_singleton_opportunity_vector, non_singleton_vector, non_singleton_opportunity_vector
+    data[species_name] = numpy.array(closest_singleton_vector), numpy.array(closest_difference_vector), numpy.array(closest_opportunity_vector), numpy.array(closest_syn_singleton_vector), numpy.array(closest_syn_difference_vector), numpy.array(closest_syn_opportunity_vector), numpy.array(closest_non_singleton_vector), numpy.array(closest_non_difference_vector), numpy.array(closest_non_opportunity_vector)
     
-    
+    #print numpy.array(closest_opportunity_vector)
+   
 # # low divergence strains across species
 # # samples
         
@@ -172,7 +187,7 @@ outer_grid = gridspec.GridSpec(1,1)
 singleton_axis = plt.Subplot(fig, outer_grid[0])
 fig.add_subplot(singleton_axis)
 
-singleton_axis.set_ylabel('Relative singleton rate')
+singleton_axis.set_ylabel('Fraction singletons')
 singleton_axis.set_xlabel('Minimum synonymous divergence, $d_S$') 
 singleton_axis.set_xlim([1e-06,1e-01])
 #singleton_axis.set_ylim([0,1])
@@ -190,7 +205,7 @@ outer_grid = gridspec.GridSpec(1,1)
 dnds_axis = plt.Subplot(fig2, outer_grid[0])
 fig2.add_subplot(dnds_axis)
 
-dnds_axis.set_xlabel('Minimum divergence, $d$')
+dnds_axis.set_xlabel('Minimum synonymous divergence, $d_S$')
 dnds_axis.set_ylabel('Singleton $dN/dS$')
 dnds_axis.set_xlim([1e-06,1e-01])
 #dnds_axis.set_ylim([0,1])
@@ -202,10 +217,8 @@ dnds_axis.get_yaxis().tick_left()
 
 total_closest_differences = []
 total_closest_opportunities = []
-
-total_singleton_differences = []
-total_singleton_opportunities = []
-
+total_closest_singletons = []
+total_closest_singleton_opportunities = []
 ds = numpy.logspace(-5,-2,50)
 
 cumulative_singleton_differences = numpy.zeros_like(ds)
@@ -213,9 +226,11 @@ cumulative_singleton_opportunities = numpy.zeros_like(ds)
 
 cumulative_syn_singleton_differences = numpy.zeros_like(ds)
 cumulative_syn_singleton_opportunities = numpy.zeros_like(ds)
+cumulative_syn_opportunities = numpy.zeros_like(ds)
 
 cumulative_non_singleton_differences = numpy.zeros_like(ds)
 cumulative_non_singleton_opportunities = numpy.zeros_like(ds)
+cumulative_non_opportunities = numpy.zeros_like(ds)
 
 cumulative_closest_differences = numpy.zeros_like(ds)
 cumulative_closest_opportunities = numpy.zeros_like(ds)
@@ -224,68 +239,50 @@ for species_idx in xrange(0,len(species_names)):
 
     species_name = species_names[species_idx]
 
-    closest_difference_vector, closest_opportunity_vector, singleton_vector, singleton_opportunity_vector, syn_singleton_vector, syn_singleton_opportunity_vector, non_singleton_vector, non_singleton_opportunity_vector = data[species_name]
+    closest_singleton_vector, closest_difference_vector, closest_opportunity_vector, closest_syn_singleton_vector, closest_syn_difference_vector, closest_syn_opportunity_vector, closest_non_singleton_vector, closest_non_difference_vector, closest_non_opportunity_vector = data[species_name]
     
     total_closest_differences.extend(closest_difference_vector)
     total_closest_opportunities.extend(closest_opportunity_vector)
-    total_singleton_differences.extend(singleton_vector)
-    total_singleton_opportunities.extend(singleton_opportunity_vector)
-    
-    
+    total_closest_singletons.extend(closest_singleton_vector)
+    total_closest_singleton_opportunities.extend(closest_difference_vector)
+     
     closest_divergence_vector = closest_difference_vector*1.0/closest_opportunity_vector
-    singleton_divergence_vector = singleton_vector*1.0/singleton_opportunity_vector
-    relative_singleton_rate_vector = singleton_divergence_vector*1.0/closest_divergence_vector
-    
+     
     # Add to cumulative distribution
     for d_idx in xrange(0,len(ds)):
         d = ds[d_idx]
         
         lower_idxs = (closest_divergence_vector<=d)
         
-        cumulative_singleton_differences[d_idx] += singleton_vector[lower_idxs].sum()
-        cumulative_singleton_opportunities[d_idx] += singleton_opportunity_vector[lower_idxs].sum()
+        cumulative_singleton_differences[d_idx] += closest_singleton_vector[lower_idxs].sum()
+        cumulative_singleton_opportunities[d_idx] += closest_difference_vector[lower_idxs].sum()
         
-        cumulative_syn_singleton_differences[d_idx] += syn_singleton_vector[lower_idxs].sum()
-        cumulative_syn_singleton_opportunities[d_idx] += syn_singleton_opportunity_vector[lower_idxs].sum()
+        cumulative_syn_singleton_differences[d_idx] += closest_syn_singleton_vector[lower_idxs].sum()
+        cumulative_syn_singleton_opportunities[d_idx] += closest_syn_difference_vector[lower_idxs].sum()
+        cumulative_syn_opportunities[d_idx] += closest_syn_opportunity_vector[lower_idxs].sum()
         
-        cumulative_non_singleton_differences[d_idx] += non_singleton_vector[lower_idxs].sum()
-        cumulative_non_singleton_opportunities[d_idx] += non_singleton_opportunity_vector[lower_idxs].sum()
-   
+        cumulative_non_singleton_differences[d_idx] += closest_non_singleton_vector[lower_idxs].sum()
+        cumulative_non_singleton_opportunities[d_idx] += closest_non_difference_vector[lower_idxs].sum()
+        cumulative_non_opportunities[d_idx] += closest_non_opportunity_vector[lower_idxs].sum()
+        
         cumulative_closest_differences[d_idx] += closest_difference_vector[lower_idxs].sum()
         cumulative_closest_opportunities[d_idx] += closest_opportunity_vector[lower_idxs].sum() 
     
-    pSs = syn_singleton_vector*1.0/syn_singleton_opportunity_vector
-    pNs = non_singleton_vector*1.0/non_singleton_opportunity_vector
-    
-    pseudo_pSs = 1.0/syn_singleton_opportunity_vector
-    pseudo_pNs = 1.0/non_singleton_opportunity_vector
-    
-    pNpSs = ((pseudo_pNs+pNs)/(pseudo_pSs+pSs) )
-    
-    
-    if species_name.startswith('Bacteroides_vulgatus'):
-        pass
-        #singleton_axis.loglog(closest_divergence_vector[relative_singleton_rate_vector>0], relative_singleton_rate_vector[relative_singleton_rate_vector>0], 'r.', markersize=2,markeredgewidth=0,zorder=1,label=("%s" % species_name),rasterized=True)
-        #dnds_axis.loglog(closest_divergence_vector, pNpSs, 'r.', markersize=2,markeredgewidth=0,zorder=1,label=("%s" % species_name),rasterized=True)
-    else:
-        pass       #singleton_axis.loglog(closest_divergence_vector[relative_singleton_rate_vector>0], relative_singleton_rate_vector[relative_singleton_rate_vector>0],  '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0,rasterized=True)
-        #dnds_axis.loglog(closest_divergence_vector, pNpSs,  '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0,rasterized=True)
-        
-#singleton_axis.plot([1e-09],[100], '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0,label='All species')
-       
-#singleton_axis.legend(loc='upper right',frameon=False,numpoints=1)
 
+print ds
+print cumulative_non_singleton_differences
+    
 cumulative_singleton_rates = cumulative_singleton_differences*1.0/cumulative_singleton_opportunities
 
 cumulative_closest_rates = cumulative_closest_differences*1.0/cumulative_closest_opportunities 
 
-cumulative_non_singleton_rates = cumulative_non_singleton_differences*1.0/cumulative_non_singleton_opportunities
+cumulative_non_singleton_rates = cumulative_non_singleton_differences*1.0/cumulative_non_opportunities
 
-cumulative_syn_singleton_rates = cumulative_syn_singleton_differences*1.0/cumulative_syn_singleton_opportunities
+cumulative_syn_singleton_rates = cumulative_syn_singleton_differences*1.0/cumulative_syn_opportunities
 
-cumulative_relative_singleton_rates = cumulative_singleton_rates/cumulative_closest_rates
+cumulative_relative_singleton_rates = cumulative_singleton_rates
 
-cumulative_pNpS =  cumulative_non_singleton_rates/cumulative_syn_singleton_rates  
+cumulative_pNpS =  (cumulative_non_singleton_differences/cumulative_non_opportunities)/(cumulative_syn_singleton_differences/cumulative_syn_opportunities)
 
 bootstrapped_relative_singleton_ratess = []
 bootstrapped_pNpSs = []
@@ -297,13 +294,12 @@ for bootstrap_idx in xrange(0,num_bootstraps):
     
     bootstrapped_cumulative_closest_rates = poisson(cumulative_closest_rates*cumulative_closest_opportunities)*1.0/ cumulative_closest_opportunities
     
-    bootstrapped_relative_singleton_ratess.append( bootstrapped_cumulative_singleton_rates / bootstrapped_cumulative_closest_rates ) 
+    bootstrapped_relative_singleton_ratess.append( bootstrapped_cumulative_singleton_rates ) 
     
-    bootstrapped_syn_singleton_rates = poisson(cumulative_syn_singleton_rates*cumulative_syn_singleton_opportunities)*1.0/cumulative_syn_singleton_opportunities
+    bootstrapped_syn_singleton_rates = poisson(cumulative_syn_singleton_rates*cumulative_syn_opportunities)*1.0/cumulative_syn_opportunities
 
-    bootstrapped_non_singleton_rates = poisson(cumulative_non_singleton_rates*cumulative_non_singleton_opportunities)*1.0/cumulative_non_singleton_opportunities
+    bootstrapped_non_singleton_rates = poisson(cumulative_non_singleton_rates*cumulative_non_opportunities)*1.0/cumulative_non_opportunities
 
-    
     bootstrapped_pNpSs.append( bootstrapped_non_singleton_rates/bootstrapped_syn_singleton_rates )
 
 bootstrapped_relative_singleton_ratess = numpy.array(bootstrapped_relative_singleton_ratess)
@@ -325,16 +321,24 @@ dnds_axis.fill_between(ds, avg_pNpSs-2*std_pNpSs, avg_pNpSs+2*std_pNpSs,color='0
 
 dnds_axis.loglog(ds, avg_pNpSs, 'k-')
 
+sys.stderr.write("Saving figure...\t")
+fig.savefig('%s/supplemental_singleton_distribution.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=600)
+sys.stderr.write("Done!\n")
+sys.stderr.write("Saving figure...\t")
+fig2.savefig('%s/supplemental_singleton_pnps.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=600)
+sys.stderr.write("Done!\n")
+sys.exit(0)
+
 ## Do bootstrapping and significance testing for singleton ratios
 total_closest_differences = numpy.array(total_closest_differences)
 total_closest_opportunities = numpy.array(total_closest_opportunities)
 
-total_singleton_differences = numpy.array(total_singleton_differences)
-total_singleton_opportunities = numpy.array(total_singleton_opportunities)
+total_closest_singleton_differences = numpy.array(total_closest_singleton_differences)
+total_closest_singleton_opportunities = numpy.array(total_closest_singleton_opportunities)
 
 total_closest_rates = total_closest_differences*1.0/total_closest_opportunities
 
-pavg = total_singleton_differences.sum()*1.0/total_singleton_opportunities.sum()/(total_closest_differences.sum()*1.0/total_closest_opportunities.sum())
+pavg = total_closest_singleton_differences.sum()*1.0/total_closest_singleton_opportunities.sum()
 
 dstars = numpy.array([2e-04])
 
@@ -348,11 +352,11 @@ for dstar in dstars:
 
     print total_singleton_differences[lower_idxs].sum(), total_closest_differences[lower_idxs].sum()
 
-    plower = total_singleton_differences[lower_idxs].sum()*1.0/total_singleton_opportunities[lower_idxs].sum()/(total_closest_differences[lower_idxs].sum()*1.0/total_closest_opportunities[lower_idxs].sum())
+    plower = total_closest_singleton_differences[lower_idxs].sum()*1.0/total_closest_singleton_opportunities[lower_idxs].sum()
     
-    pupper = total_singleton_differences[upper_idxs].sum()*1.0/total_singleton_opportunities[upper_idxs].sum()/(total_closest_differences[upper_idxs].sum()*1.0/total_closest_opportunities[upper_idxs].sum())
+    pupper = total_closest_singleton_differences[upper_idxs].sum()*1.0/total_closest_singleton_opportunities[upper_idxs].sum()
 
-    LRT = total_singleton_differences[upper_idxs].sum()*log(pupper/pavg) + (pavg-pupper)*(total_closest_differences[upper_idxs].sum()) + total_singleton_differences[lower_idxs].sum()*log(plower/pavg) + (pavg-plower)*(total_closest_differences[lower_idxs].sum())
+    LRT = total_closest_singleton_differences[upper_idxs].sum()*log(pupper/pavg) + (pavg-pupper)*(total_closest_differences[upper_idxs].sum()) + total_closest_singleton_differences[lower_idxs].sum()*log(plower/pavg) + (pavg-plower)*(total_closest_differences[lower_idxs].sum())
 
     plowers.append( plower )
     
@@ -372,7 +376,7 @@ bootstrapped_pupperss = []
 bootstrapped_pavgss = []
 bootstrapped_LRTss = []
 
-num_bootstraps = 10000
+num_bootstraps = 1000
 
 for bootstrap_idx in xrange(0,num_bootstraps):
 
@@ -425,8 +429,6 @@ pvalues = (bootstrapped_LRTss>=(LRTs[None,:])).sum(axis=0)*1.0/num_bootstraps
 print pvalues
     
 
-sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/supplemental_singleton_distribution.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=600)
-sys.stderr.write("Done!\n")
+
 
  

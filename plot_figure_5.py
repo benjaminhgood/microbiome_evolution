@@ -17,6 +17,7 @@ import gene_diversity_utils
 import sfs_utils
 import calculate_substitution_rates
 import calculate_temporal_changes
+import core_gene_utils
 
 import stats_utils
 import matplotlib.colors as colors
@@ -288,9 +289,16 @@ sys.stderr.write("Done!\n")
 snp_substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
 sys.stderr.write("Done!\n")   
 
+sys.stderr.write("Loading whitelisted genes...\n")
+non_shared_genes = core_gene_utils.parse_non_shared_reference_genes(species_name)
+shared_pangenome_genes = core_gene_utils.parse_shared_genes(species_name)
+sys.stderr.write("Done! %d shared genes and %d non-shared genes\n" % (len(shared_pangenome_genes), len(non_shared_genes)))
+
+
 # Load gene coverage information for species_name
 sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
-gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
+gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples,disallowed_genes=shared_pangenome_genes)
+gene_names = list(gene_names)
 sys.stderr.write("Done!\n")
 
 sys.stderr.write("Loaded gene info for %d samples\n" % len(gene_samples))
@@ -448,7 +456,8 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
     sample_i = snp_samples[snp_i]
     sample_j = snp_samples[snp_j]
     #    
-    perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)    
+    L, perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j) 
+    perr = L*perr   
     #
     num_mutations = len(mutations)
     num_reversions = len(reversions)
@@ -485,7 +494,11 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
         gene_perr = 1
     else:
         # where is the output for this used? NRG
-        gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        gene_L, gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        
+        if gene_L>0:
+            gene_perr = gene_L*gene_perr
+            
         #
         print sample_i, sample_j, gene_difference_matrix[i,j], gene_gain_matrix[i,j], gene_loss_matrix[i,j], gene_perr
         #
@@ -495,7 +508,7 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
         #
         # Only include samples that are deemed to be modifications 
         # (don't include replacements)
-        if sample_pair_idx in modification_pair_idxs:
+        if sample_pair_idx in modification_pair_idxs and (gene_perr>-0.5) and (gene_perr<1):
             #
             all_gene_changes = gains+losses
             

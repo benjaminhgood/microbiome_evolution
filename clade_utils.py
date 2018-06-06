@@ -426,5 +426,81 @@ def permute_idxs_within_clades(cluster_idxss):
         shuffle(idxs)
         permuted_idxs[cluster_idxs] = numpy.array(idxs)
         
-    return permuted_idxs   
+    return permuted_idxs  
+    
+    
+###########
+#
+# Here is another set of algorithms that does it without tree structure
+#
+###########
+
+###
+#
+# Finds SNPs. 
+# Calculates min distance between the two alleles (i.e., approximate "date" if asexual)
+# Then calculates average and max distance within each allele. 
+#
+###
+def calculate_snp_distances(allele_counts_map, passed_sites_map, distance_matrix, allowed_variant_types=set(['1D','2D','3D','4D']), allowed_genes=set([])):
+ 
+    total_genes = set(passed_sites_map.keys())
+ 
+    if len(allowed_genes)==0:
+        allowed_genes = set(passed_sites_map.keys())
+     
+    allowed_genes = (allowed_genes & total_genes)     
+ 
+    snp_data = []
+     
+    for gene_name in allowed_genes:
+         
+        for variant_type in passed_sites_map[gene_name].keys():
+              
+            if variant_type not in allowed_variant_types:
+                continue
+         
+            allele_counts = allele_counts_map[gene_name][variant_type]['alleles']                        
+            if len(allele_counts)==0:
+                continue
+            locations = allele_counts_map[gene_name][variant_type]['locations']
+            
+            # good to go, let's get calculating
+                
+            # take consensus approximation
+            genotype_matrix, passed_sites_matrix = diversity_utils.calculate_consensus_genotypes(allele_counts)
+             
+            derived_samples = numpy.logical_and(genotype_matrix, passed_sites_matrix)
+            ancestral_samples = numpy.logical_and(numpy.logical_not(genotype_matrix), passed_sites_matrix)
+                   
+            derived_allele_counts = derived_samples.sum(axis=1)
+            ancestral_allele_counts = ancestral_samples.sum(axis=1)
+            
+            # Get SNVs to look at (no singletons)
+            polymorphic_idxs = numpy.nonzero( (derived_allele_counts>1.5)*(ancestral_allele_counts>1.5) )[0]
+            
+            for snp_idx in polymorphic_idxs:
+                 
+                # Get cross snp distance
+                between_distances = distance_matrix[derived_samples[snp_idx,:],:][:,ancestral_samples[snp_idx,:]]
+                
+                min_between_d = between_distances.min()    
+
+                # Get within snp distance
+                within_derived_distances =  distance_matrix[derived_samples[snp_idx,:]][:,derived_samples[snp_idx,:]]
+                within_derived_distances = within_derived_distances[numpy.triu_indices(within_derived_distances.shape[0], k = 1)]
+                
+                max_derived_d = within_derived_distances.max()
+                avg_derived_d = within_derived_distances.mean()
+                
+        
+                within_ancestral_distances =  distance_matrix[ancestral_samples[snp_idx,:],:][:,ancestral_samples[snp_idx,:]]
+                within_ancestral_distances = within_ancestral_distances[numpy.triu_indices(within_ancestral_distances.shape[0], k = 1)]
+                
+                max_ancestral_d = within_ancestral_distances.max()
+                avg_ancestral_d = within_ancestral_distances.mean()
+                
+                snp_data.append((locations[snp_idx],variant_type,derived_allele_counts[snp_idx],ancestral_allele_counts[snp_idx], min_between_d, avg_derived_d, max_derived_d, avg_ancestral_d, max_ancestral_d))
+                
+    return snp_data
     
