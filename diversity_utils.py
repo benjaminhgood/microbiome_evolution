@@ -10,7 +10,7 @@ import config
 from scipy.special import betainc
 import sys
 import parse_midas_data
-import parse_HMP_data
+import sample_utils
 import stats_utils
 import os.path
 import sfs_utils
@@ -1703,7 +1703,7 @@ def calculate_temporal_samples(species_name, min_coverage=config.min_median_cove
 
     highcoverage_samples = calculate_highcoverage_samples(species_name, min_coverage)
     
-    sample_order_map = parse_HMP_data.parse_sample_order_map()
+    sample_order_map = sample_utils.parse_sample_order_map()
     
     # Calculate which pairs of idxs belong to the same sample, which to the same subject
     # and which to different subjects
@@ -1730,7 +1730,7 @@ def calculate_triple_temporal_samples(species_name, min_coverage=config.min_medi
 
     highcoverage_samples = calculate_highcoverage_samples(species_name, min_coverage)
     
-    sample_order_map = parse_HMP_data.parse_sample_order_map()
+    sample_order_map = sample_utils.parse_sample_order_map()
     # Calculate which triplets of idxs belong to the same subject
     same_subject_idxs = parse_midas_data.calculate_ordered_subject_triplets(sample_order_map, highcoverage_samples)
     

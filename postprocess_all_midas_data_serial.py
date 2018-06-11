@@ -12,7 +12,7 @@ else:
     argument = 'all'
 
 # First calculate core genes for each species
-os.system('python core_gene_utils.py')
+#os.system('python core_gene_utils.py')
 
 # Make some directories
 os.system('mkdir -p %ssnp_prevalences' % config.data_directory)

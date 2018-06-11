@@ -31,6 +31,9 @@ def load_private_snv_map(species_name):
 
     private_snv_map = {}
 
+    if not os.path.isfile(intermediate_filename):
+        return private_snv_map
+    
     file = gzip.open(intermediate_filename,"r")
     file.readline() # header
     for line in file:
