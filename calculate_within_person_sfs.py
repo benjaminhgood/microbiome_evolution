@@ -124,7 +124,6 @@ for line in snp_file:
 snp_file.close()
 sys.stderr.write("Done!\n")
 # Write to disk!
-sys.exit(0)
 sys.stderr.write("Writing output...\n")
 # First write (filtered) genome-wide coverage distribution
 output_file = bz2.BZ2File("%ssnps/%s/within_sample_sfs.txt.bz2" % (parse_midas_data.data_directory, species_name),"w")
@@ -136,8 +135,3 @@ for sample_idx in xrange(0,len(samples)):
         output_file.write("\t".join([sample, variant_type]+["%d,%d,%d,%g" % (site[0],site[1],site_map[sample_idx][variant_type][site][0],site_map[sample_idx][variant_type][site][1]) for site in sorted(site_map[sample_idx][variant_type].keys())]))
 output_file.close()
 sys.stderr.write("Done!\n")
-
-sys.exit(0)
-
-
-

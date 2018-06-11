@@ -49,3 +49,5 @@ pipe_snps_lower_depth_factor=0.3
 pipe_snps_upper_depth_factor=3
 
 parse_snps_min_freq = 0.05
+
+from parse_HMP_data import *

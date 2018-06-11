@@ -1,6 +1,6 @@
 import config
 import parse_midas_data
-import parse_HMP_data
+import sample_utils
 import os.path
 import pylab
 import sys
@@ -155,7 +155,7 @@ if __name__=='__main__':
 
     # Load subject and sample metadata
     sys.stderr.write("Loading sample metadata...\n")
-    subject_sample_map = parse_HMP_data.parse_subject_sample_map()
+    subject_sample_map = sample_utils.parse_subject_sample_map()
     sys.stderr.write("Done!\n")
     
     good_species_list = parse_midas_data.parse_good_species_list()
