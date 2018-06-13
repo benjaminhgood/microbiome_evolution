@@ -195,7 +195,7 @@ if __name__=='__main__':
         
         sys.stderr.write("Calculating unique hosts...\n")
         # Only consider one sample per person
-        snp_samples = snp_samples[parse_midas_data.calculate_unique_samples(subject_sample_map, sample_list=snp_samples)]
+        snp_samples = snp_samples[sample_utils.calculate_unique_samples(subject_sample_map, sample_list=snp_samples)]
 
 
         if len(snp_samples) < min_sample_size:

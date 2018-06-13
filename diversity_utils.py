@@ -668,7 +668,7 @@ def calculate_private_snvs(samples, allele_counts_map, passed_sites_map, allowed
 upper_threshold=config.consensus_upper_threshold):
 
     # First 
-    sample_host_matrix, hosts = parse_midas_data.calculate_sample_subject_matrix(samples)
+    sample_host_matrix, hosts = sample_utils.calculate_sample_subject_matrix(samples)
     
     total_genes = set(passed_sites_map.keys())
 
@@ -1707,7 +1707,7 @@ def calculate_temporal_samples(species_name, min_coverage=config.min_median_cove
     
     # Calculate which pairs of idxs belong to the same sample, which to the same subject
     # and which to different subjects
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs =     parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, highcoverage_samples)
+    same_sample_idxs, same_subject_idxs, diff_subject_idxs =     sample_utils.calculate_ordered_subject_pairs(sample_order_map, highcoverage_samples)
 
 
     temporal_samples = set()
