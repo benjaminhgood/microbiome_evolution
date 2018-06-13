@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('Agg') 
 import config
 import parse_midas_data
-import parse_HMP_data
+import sample_utils
 import os.path
 import pylab
 import sys
@@ -77,7 +77,7 @@ normal_divergence_gene_differences = []
 good_species_list = parse_midas_data.parse_good_species_list()
 
 sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
+subject_sample_map = sample_utils.parse_subject_sample_map()
 sys.stderr.write("Done!\n")
 
 for species_name in good_species_list:

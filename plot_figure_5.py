@@ -5,7 +5,7 @@ matplotlib.use('Agg')
 import config
 import parse_midas_data
 import os
-import parse_HMP_data
+import sample_utils
 
 
 import pylab
@@ -66,9 +66,8 @@ modification_divergence_threshold = 3e-04 #the threshold for deciding when somet
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
-sample_country_map = parse_HMP_data.parse_sample_country_map()
-sample_order_map = parse_HMP_data.parse_sample_order_map()
+subject_sample_map = sample_utils.parse_subject_sample_map()
+sample_order_map = sample_utils.parse_sample_order_map()
 sys.stderr.write("Done!\n")
        
 # Only plot samples above a certain depth threshold that are "haploids"

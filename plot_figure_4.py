@@ -4,7 +4,7 @@ import matplotlib
 matplotlib.use('Agg') 
 import config
 import parse_midas_data
-import parse_HMP_data
+import sample_utils
 import os.path
 import pylab
 import sys

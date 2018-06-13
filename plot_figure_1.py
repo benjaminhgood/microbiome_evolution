@@ -1,7 +1,7 @@
 import matplotlib  
 matplotlib.use('Agg') 
 import parse_midas_data
-import parse_HMP_data
+import sample_utils
 import pylab
 import sys
 import numpy
@@ -49,9 +49,8 @@ transition_color = '#756bb1'
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
-sample_country_map = parse_HMP_data.parse_sample_country_map()
-sample_order_map = parse_HMP_data.parse_sample_order_map()
+subject_sample_map = sample_utils.parse_subject_sample_map()
+sample_order_map = sample_utils.parse_sample_order_map()
 sys.stderr.write("Done!\n")
  
 
