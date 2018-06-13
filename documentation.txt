@@ -157,6 +157,23 @@ qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_Qin_MIDAS_species_snps_c
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_Qin_MIDAS_snps # can run snps and genes in parallel
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_Qin_MIDAS_cnvs
 
+
+
+####################
+# copy geens files #
+####################
+
+while read file; do
+    echo $file
+    cp -R ~/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_output/${file}/genes ~/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_tech_combined_output/${file}
+done < ~/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_1.2.2_tech_combined_output/tech_files.txt
+
+# same for Qin
+while read file; do
+    echo $file
+    cp -R ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output/${file}/genes ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output_Oct17/${file}
+done < ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output_Oct17/qin_files.txt
+
 #################################################
 # Merge MIDAS output for HMP, Kuleshov, and Qin #
 #################################################
@@ -321,6 +338,20 @@ tar -cf Li_FMT.tar Li_FMT
 tar -cf genes_1.tar genes_1
 tar -cf genes_5.tar genes_5
 
+
+################################
+# Merge MIDAS: HMP, Qin, Twins #
+################################
+cat ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/sample_paths_hmp_Kuleshov_Qin_chestnut.txt /pollard/home/ngarud/twin_project/MIDAS_intermediate_files_twins/sample_paths_twins.txt > /pollard/home/ngarud/twin_project/MIDAS_intermediate_files_twins/sample_paths_hmp_Kuleshov_Qin_Twins_chestnut.txt
+
+OUTDIR=/pollard/home/ngarud/BenNanditaProject/ben_nandita_hmp_data/Qin_HMP_Twins
+
+nohup nice merge_midas.py snps $OUTDIR/snps -i /pollard/home/ngarud/twin_project/MIDAS_intermediate_files_twins/sample_paths_hmp_Kuleshov_Qin_Twins_chestnut.txt -t file --sample_depth 5 --site_depth 3 --min_samples 1 --max_species 150 --site_prev 0.0 --threads 5 > $OUTDIR/snps/snps_Qin_HMP_Twin.log &
+
+
+nohup nice merge_midas.py species $OUTDIR/species -i /pollard/home/ngarud/twin_project/MIDAS_intermediate_files_twins/sample_paths_hmp_Kuleshov_Qin_Twins_chestnut.txt -t file  >& $OUTDIR/species/species_Qin_HMP_Twin.log &
+
+nohup nice merge_midas.py genes $OUTDIR/genes -i /pollard/home/ngarud/twin_project/MIDAS_intermediate_files_twins/sample_paths_hmp_Kuleshov_Qin_Twins_chestnut.txt -t file --sample_depth 1 --min_samples 1 --max_species 150 >& $OUTDIR/genes/genes.log &
 
 
 ################
@@ -1185,3 +1216,169 @@ python supplemental_table_sample_ids.py
 ./pollard/home/ngarud/miniconda2/bin/conda install matplotlib
 
 /pollard/home/ngarud/miniconda2/bin/python2.7 
+
+
+
+
+
+###########################################
+# 
+# May 1, 2018
+# generate fake reads
+#
+###########################################
+source activate anvio4
+source deactivate
+
+# the genomes are here: 
+/pollard/home/ngarud/BenNanditaProject/fake_data/genome_lists/PATRIC_genome_B_vulgatus.txt
+/pollard/home/ngarud/BenNanditaProject/fake_data/genome_lists/PATRIC_genome_B_fragilis.txt
+/pollard/home/ngarud/BenNanditaProject/fake_data/genome_lists/PATRIC_genome_P_distasonis.txt
+
+# copy over the zcat genomes to a local dir
+for species in B_vulgatus B_fragilis P_distasonis; do
+    while read line; do
+	genome=`echo $line | cut -f1 -d' '`
+	# remove quotes
+	genome="${genome%\"}"
+	genome="${genome#\"}"
+	echo $genome
+	zcat /pollard/shattuck0/snayfach/databases/PATRIC/genomes/${genome}/${genome}.fna.gz > ~/BenNanditaProject/fake_data/fasta/${genome}.fa
+    done < /pollard/home/ngarud/BenNanditaProject/fake_data/genome_lists/PATRIC_genome_${species}.txt
+done
+
+
+# some genomes did not get copied over. Manually copy. 
+for genome in 821.198 821.287 272559.41 295405.30 817.168 817.199 817.242 817.243 817.244 817.245 817.246 817.247 817.248 817.249 817.250 817.251 817.252 817.253 823.84 823.85 823.97; do
+    cp /pollard/shattuck0/snayfach/databases/PATRIC/genomes/${genome}/${genome}.fna ~/BenNanditaProject/fake_data/${genome}.fa
+done
+
+#some of them still didn't get copied over. Download from PATRIC website: 
+
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/272559.41/272559.41.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/295405.30/295405.30.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.242/817.242.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.243/817.243.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.244/817.244.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.245/817.245.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.246/817.246.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.247/817.247.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.248/817.248.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.249/817.249.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.250/817.250.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.251/817.251.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.252/817.252.fna’: No such file or directory
+cp: cannot stat ‘/pollard/shattuck0/snayfach/databases/PATRIC/genomes/817.253/817.253.fna’: No such file or directory
+
+# python script to create ini files for isolates sequenced to 100 depth
+
+for species in B_vulgatus B_fragilis P_distasonis; do
+    while read line; do
+	genome=`echo $line | cut -f1 -d' '`
+	# remove quotes
+	genome="${genome%\"}"
+	genome="${genome#\"}"
+	echo $genome
+	python ~/ben_nandita_hmp_scripts/generate_ini_files_fake_data.py $genome
+    done < /pollard/home/ngarud/BenNanditaProject/fake_data/genome_lists/PATRIC_genome_${species}.txt
+done
+
+# generate the fake data
+for species in B_vulgatus B_fragilis P_distasonis; do
+    while read line; do
+	genome=`echo $line | cut -f1 -d' '`
+	# remove quotes
+	genome="${genome%\"}"
+	genome="${genome#\"}"
+	echo $genome
+	gen-paired-end-reads ~/BenNanditaProject/fake_data/ini_files/isolate_${genome}.ini
+    done < /pollard/home/ngarud/BenNanditaProject/fake_data/genome_lists/PATRIC_genome_${species}.txt
+done
+
+# now mix different isolates at different frequencies
+
+python ~/ben_nandita_hmp_scripts/generate_ini_files_fake_data_mixture.py 1235786.3 821.198 1
+
+# second replicate
+python ~/ben_nandita_hmp_scripts/generate_ini_files_fake_data_mixture.py 1235786.3 821.198 2
+
+# different pair of B. vul strains
+python ~/ben_nandita_hmp_scripts/generate_ini_files_fake_data_mixture.py 1339350.3 702446.3 1
+
+# second replicate
+python ~/ben_nandita_hmp_scripts/generate_ini_files_fake_data_mixture.py 1339350.3 702446.3 2
+
+# generate the fake data:
+
+while read line; do
+    gen-paired-end-reads ~/BenNanditaProject/fake_data/ini_files/${line}
+done < ~/BenNanditaProject/fake_data/ini_files/list_of_mixtures.txt
+
+# run MIDAS
+
+
+1235786.3.fna.gz
+gen-paired-end-reads ~/BenNanditaProject/fake_data/ini_files/paired_end_reads_test_B_vul.ini
+[/pollard/shattuck0/snayfach/databases/PATRIC/genomes/821.37/821.37.fna.gz]
+
+
+
+#############
+# run grinder
+##############
+
+# see SCG4 for the documentation about this in the 'simulations dir'
+
+############################
+# Simulate two time points #
+############################
+
+This is the time point pair I will use:
+Bacteroides_vulgatus_57955, 700161742, 700172068, genes, 9.37126e-19, 1235786.3.peg.207;17.59;502.56;104.42;122.64, 1339350.3.peg.4280;12.67;502.56;126.83;122.64, 1339350.3.peg.\
+814;11.37;502.56;70.72;122.64, 1339350.3.peg.843;20.13;502.56;159.01;122.64, 1339351.3.peg.158;15.05;502.56;129.02;122.64, 1339351.3.peg.1708;24.96;502.56;224.73;122.64, 1339351\
+.3.peg.1773;20.37;502.56;156.82;122.64, 1339351.3.peg.4294;18.88;502.56;123.53;122.64, 435590.9.peg.3804;11.61;502.56;96.39;122.64, 435590.9.peg.3805;23.29;502.56;165.52;122.64,\
+ 435590.9.peg.3806;15.85;502.56;138.76;122.64, 435590.9.peg.3807;9.23;502.56;88.06;122.64, 457394.3.peg.1424;10.25;502.56;101.07;122.64, 457394.3.peg.1434;14.77;502.56;163.14;12\
+2.64, 457394.3.peg.3466;12.55;502.56;152.59;122.64, 457394.3.peg.3486;8.78;502.56;102.40;122.64, 457394.3.peg.3489;7.26;502.56;64.58;122.64, 457394.3.peg.3542;22.13;502.56;166.3\
+3;122.64, 457395.6.peg.4439;21.64;502.56;71.30;122.64, 457395.6.peg.702;17.88;502.56;75.78;122.64, 556260.3.peg.4595;21.82;502.56;186.92;122.64, 556260.3.peg.4596;15.17;502.56;1\
+23.40;122.64, 556260.3.peg.4597;12.00;502.56;90.27;122.64, 997875.3.peg.2030;20.73;502.56;179.15;122.64, 997875.3.peg.2166;18.21;502.56;165.12;122.64, 997876.3.peg.2926;12.13;50\
+2.56;96.42;122.64, 997876.3.peg.2927;21.47;502.56;160.08;122.64, 997876.3.peg.2981;13.75;502.56;100.52;122.64, 997876.3.peg.3013;24.08;502.56;139.62;122.64, 997876.3.peg.3053;15\
+.77;502.56;84.58;122.64, 997876.3.peg.5417;24.51;502.56;199.78;122.64, 997891.3.peg.3188;10.77;502.56;91.65;122.64
+
+# list of species to include for the two time points are here:
+/pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_hmp/MIDAS_species_lists_time_pairs/700172068_species_union.txt
+
+# relative abundances are here: 
+/pollard/home/ngarud/ben_nandita_hmp_data/Qin_HMP/species/relative_abundance.txt.bz2 
+
+# gather a list of isolates and put them in a folder
+/pollard/home/ngarud/BenNanditaProject/fake_data/fasta_simulate_timept
+
+python ~/ben_nandita_hmp_scripts/transfer_isolates_to_folder.py
+
+##############
+# Do a search of each bacteria's genome against a DB
+# identify non-zero coverage species
+# any species outputted has coverage >0.0 in at least one sample. 
+
+python identify_nonzero_coverage.py # more than 1000 species identified.
+
+#instead:
+python ~/ben_nandita_hmp_scripts/print_good_species_list.py names > ~/ben_nandita_hmp_analysis/good_species_list.txt 
+
+
+##############################
+# June 7, 2018               #
+# Analyze the simulated data #
+##############################
+
+
+/pollard/home/ngarud/ben_nandita_hmp_data/simulations/species/relative_abundance.txt.bz2
+
+/pollard/home/ngarud/BenNanditaProject/fake_data/genome_lists/PATRIC_genome_${species}.txt
+
+
+# python script to analyze the data
+for species in B_vulgatus B_fragilis P_distasonis; do
+
+
+python ben_nandita_hmp_scripts/analyze_simulations_species_abundance.py

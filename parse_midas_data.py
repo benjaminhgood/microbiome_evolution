@@ -3,7 +3,7 @@ import sys
 import bz2
 import gzip
 import os.path 
-import stats_utils
+import stats_utils 
 from math import floor, ceil
 import gene_diversity_utils
 
@@ -213,7 +213,7 @@ def parse_coverage_distribution(desired_species_name,prevalence_filter=True,remo
         samples.append(items[0])
     
     if remove_c == True:
-        samples = parse_merged_sample_names(samples)    
+        samples = sample_utils.parse_merged_sample_names(samples)    
     return sample_coverage_histograms, samples
     
 ## 
@@ -512,7 +512,7 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
     
     line = snp_file.readline() # header
     items = line.split()[1:]    
-    samples = parse_merged_sample_names(items)
+    samples = sample_utils.parse_merged_sample_names(items)
     
     if len(allowed_samples)==0:
         allowed_sample_set = set(samples)
@@ -709,7 +709,7 @@ def parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','
     samples = []
     for line in sfs_file:
         items = line.split("\t")
-        sample = parse_merged_sample_names([items[0].strip()])[0]
+        sample = sample_utils.parse_merged_sample_names([items[0].strip()])[0]
         
         variant_type = items[1].strip()
         sfs_items = items[2:]
@@ -783,7 +783,7 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[], c
 
     gene_summary_file.close()
 
-    marker_coverage_samples = parse_merged_sample_names(marker_coverage_samples)
+    marker_coverage_samples = sample_utils.parse_merged_sample_names(marker_coverage_samples)
 
     marker_coverage_map = {sample: marker_coverage for sample,marker_coverage in zip(marker_coverage_samples, marker_coverages)}
     
@@ -793,7 +793,7 @@ def parse_pangenome_data(species_name, allowed_samples = [], allowed_genes=[], c
     presabs_line = gene_presabs_file.readline() # header
     items = presabs_line.split()
     
-    samples = parse_merged_sample_names(items[1:])
+    samples = sample_utils.parse_merged_sample_names(items[1:])
     
     # ordered vector of marker coverages (guaranteed to be in same order as samples)
     marker_coverages = numpy.array([marker_coverage_map[sample] for sample in samples])
