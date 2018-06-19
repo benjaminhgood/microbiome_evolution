@@ -632,7 +632,7 @@ correlation_axis.loglog(fraction_polyploids[num_samples>=10], avg_within_rates[n
 
 
 # Sort by num samples    
-num_samples, num_haploid_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_samples, num_haploid_samples, species_names),reverse=True)))
+num_samples, num_haploid_samples, species_names, ploidy_changes = (numpy.array(x) for x in zip(*sorted(zip(num_samples, num_haploid_samples, species_names, ploidy_changes),reverse=True)))
     
 haploid_haploid_samples = []  
 haploid_polyploid_samples = []
