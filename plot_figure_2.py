@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('Agg') 
 import config
 import parse_midas_data
-import parse_HMP_data
+import sample_utils
 
 
 import pylab
@@ -183,9 +183,9 @@ for example_idx in xrange(0,len(examples)):
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
-sample_country_map = parse_HMP_data.parse_sample_country_map()
-sample_phenotype_map = parse_HMP_data.parse_sample_phenotype_map()
+subject_sample_map = sample_utils.parse_subject_sample_map()
+sample_country_map = sample_utils.parse_sample_country_map()
+sample_phenotype_map = sample_utils.parse_sample_phenotype_map()
 sys.stderr.write("Done!\n")
        
 for example_idx in xrange(0,len(examples)):

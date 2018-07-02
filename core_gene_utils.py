@@ -3,6 +3,7 @@ import sys
 import config
 import gzip
 import os.path
+import midas_db_utils
 
 default_external_shared_gene_filename = (config.data_directory+"external_shared_genes.txt.gz")
 default_external_core_gene_filename = (config.data_directory+"external_core_genes.txt.gz")
@@ -11,7 +12,6 @@ default_external_stringent_core_gene_filename = (config.data_directory+"core_gen
 default_shared_gene_filename = (config.data_directory+"shared_genes.txt.gz")
 default_core_gene_filename = (config.data_directory+"core_genes.txt.gz")
 default_stringent_core_gene_filename = (config.data_directory+"core_genes_stringent.txt.gz")
-
 
 def parse_core_genes(desired_species_name="", core_gene_filename=default_core_gene_filename, external_core_gene_filename=default_external_core_gene_filename, external_filtering=True):
     
@@ -152,8 +152,14 @@ if __name__=='__main__':
       
         # Load reference genes
         sys.stderr.write("Loading genes on reference genome..\n")
-        reference_genes = parse_midas_data.load_reference_genes(species_name)
+        reference_genes = midas_db_utils.load_reference_genes(species_name)
         sys.stderr.write("Done!\n")
+
+        # Load reference genes
+        sys.stderr.write("Loading shared genes from midas db..\n")
+        midas_shared_genes = midas_db_utils.parse_midas_shared_genes(species_name)             
+        sys.stderr.write("Done!\n")
+
 
         bad_pangenome_data = False
                         
@@ -173,9 +179,9 @@ if __name__=='__main__':
 
         if bad_pangenome_data:
             # Just use reference genes
-            shared_gene_names = ['N/A']
-            core_gene_names = sorted(reference_genes)
-            stringent_gene_names = sorted(reference_genes)
+            shared_gene_names = sorted(midas_shared_genes)
+            core_gene_names = sorted(reference_genes - midas_shared_genes)
+            stringent_gene_names = sorted(reference_genes - midas_shared_genes)
       
         else:    
         
@@ -195,10 +201,18 @@ if __name__=='__main__':
             gene_copynum_matrix = gene_copynum_matrix[:,good_sample_idxs]
             
             reference_gene_idxs = numpy.array([gene_name in reference_genes for gene_name in gene_names])
+            
+            midas_shared_idxs = numpy.array([gene_name in midas_shared_genes for gene_name in gene_names])
         
             # These are genes that have coverage >=3x normal in some sample. This are candidates for being linked to another species.
             # (they could also be multi-copy genes, but we can't look at much on these genes anyway, so might as well toss them out)
             shared_idxs = ((gene_copynum_matrix>shared_cmin).sum(axis=1)>0.5)
+            
+            sys.stderr.write("%d putative shared genes\n" % (shared_idxs.sum()))
+            sys.stderr.write("%d shared genes in db\n" % (midas_shared_idxs.sum()))
+            
+            # Now union with those we identified from midas db
+            shared_idxs = numpy.logical_or(shared_idxs, midas_shared_idxs)
             non_shared_idxs = numpy.logical_not(shared_idxs)
             shared_gene_names = gene_names[shared_idxs]
             sys.stderr.write("%d shared genes out of %d\n" % (len(shared_gene_names), len(gene_names)))

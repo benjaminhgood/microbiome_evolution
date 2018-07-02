@@ -5,7 +5,7 @@ matplotlib.use('Agg')
 import config
 import parse_midas_data
 import os
-import parse_HMP_data
+import sample_utils
 
 
 import pylab
@@ -34,6 +34,7 @@ mpl.rcParams['legend.frameon']  = False
 mpl.rcParams['legend.fontsize']  = 'small'
 
 species_name = "Bacteroides_vulgatus_57955"
+species_name = "Bacteroides_uniformis_57318"
 
 ################################################################################
 #
@@ -66,9 +67,8 @@ modification_divergence_threshold = 3e-04 #the threshold for deciding when somet
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
-sample_country_map = parse_HMP_data.parse_sample_country_map()
-sample_order_map = parse_HMP_data.parse_sample_order_map()
+subject_sample_map = sample_utils.parse_subject_sample_map()
+sample_order_map = sample_utils.parse_sample_order_map()
 sys.stderr.write("Done!\n")
        
 # Only plot samples above a certain depth threshold that are "haploids"
@@ -480,7 +480,7 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
             total_modifications += num_snp_changes
     #       
     if num_snp_changes>-1:
-        print sample_i, sample_j, num_snp_changes, num_mutations, num_reversions, perr
+        print sample_i, sample_j, "SNPs:", num_snp_changes, num_mutations, num_reversions, perr
     #
     i = same_subject_gene_idxs[0][sample_pair_idx]
     j = same_subject_gene_idxs[1][sample_pair_idx]
@@ -500,7 +500,7 @@ for sample_pair_idx in xrange(0,len(same_subject_snp_idxs[0])):
             gene_perr = gene_L*gene_perr
             
         #
-        print sample_i, sample_j, gene_difference_matrix[i,j], gene_gain_matrix[i,j], gene_loss_matrix[i,j], gene_perr
+        print sample_i, sample_j, "Genes:", gene_difference_matrix[i,j], gene_gain_matrix[i,j], gene_loss_matrix[i,j], gene_perr
         #
         same_subject_gene_changes.append(gene_difference_matrix[i,j])
         same_subject_gene_gains.append(gene_gain_matrix[i,j])

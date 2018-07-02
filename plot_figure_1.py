@@ -1,7 +1,7 @@
 import matplotlib  
 matplotlib.use('Agg') 
 import parse_midas_data
-import parse_HMP_data
+import sample_utils
 import pylab
 import sys
 import numpy
@@ -49,9 +49,8 @@ transition_color = '#756bb1'
 
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
-sample_country_map = parse_HMP_data.parse_sample_country_map()
-sample_order_map = parse_HMP_data.parse_sample_order_map()
+subject_sample_map = sample_utils.parse_subject_sample_map()
+sample_order_map = sample_utils.parse_sample_order_map()
 sys.stderr.write("Done!\n")
  
 
@@ -633,7 +632,7 @@ correlation_axis.loglog(fraction_polyploids[num_samples>=10], avg_within_rates[n
 
 
 # Sort by num samples    
-num_samples, num_haploid_samples, species_names = (numpy.array(x) for x in zip(*sorted(zip(num_samples, num_haploid_samples, species_names),reverse=True)))
+num_samples, num_haploid_samples, species_names, ploidy_changes = (numpy.array(x) for x in zip(*sorted(zip(num_samples, num_haploid_samples, species_names, ploidy_changes),reverse=True)))
     
 haploid_haploid_samples = []  
 haploid_polyploid_samples = []

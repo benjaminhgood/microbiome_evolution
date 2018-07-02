@@ -1,6 +1,4 @@
-import parse_midas_data
 import numpy
-
 
 ###############################################################################
 #
@@ -9,11 +7,12 @@ import numpy
 #
 ###############################################################################
 def parse_sample_order_map(): 
-
+    import config
+    
     sample_order_map = {}
     
     # First load HMP metadata
-    file = open(parse_midas_data.scripts_directory+"HMP_ids_order.txt","r")
+    file = open(config.scripts_directory+"HMP_ids_order.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
@@ -29,7 +28,7 @@ def parse_sample_order_map():
     file.close()
 
     # Then load Kuleshov data 
-    file = open(parse_midas_data.scripts_directory+"kuleshov_ids.txt","r")
+    file = open(config.scripts_directory+"kuleshov_ids.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
@@ -43,7 +42,7 @@ def parse_sample_order_map():
     file.close()
     
     # Then load Qin data
-    file = open(parse_midas_data.scripts_directory+"qin_ids.txt","r")
+    file = open(config.scripts_directory+"qin_ids.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
@@ -100,11 +99,13 @@ def parse_sample_order_map():
 #
 ###############################################################################
 def parse_subject_sample_map(): 
+    import config
 
+    
     subject_sample_map = {}
     
     # First load HMP metadata
-    file = open(parse_midas_data.scripts_directory+"HMP_ids.txt","r")
+    file = open(config.scripts_directory+"HMP_ids.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
@@ -124,7 +125,7 @@ def parse_subject_sample_map():
     file.close()
     
     # Then load Kuleshov data 
-    file = open(parse_midas_data.scripts_directory+"kuleshov_ids.txt","r")
+    file = open(config.scripts_directory+"kuleshov_ids.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
@@ -144,7 +145,7 @@ def parse_subject_sample_map():
     file.close()
     
     # Then load Qin data
-    file = open(parse_midas_data.scripts_directory+"qin_ids.txt","r")
+    file = open(config.scripts_directory+"qin_ids.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
@@ -243,11 +244,13 @@ def list_of_isolates_and_mixtures():
 #
 #####
 def parse_sample_country_map(): 
+    import config
+
 
     sample_country_map = {}
     
     # First load HMP metadata
-    file = open(parse_midas_data.scripts_directory+"HMP_ids.txt","r")
+    file = open(config.scripts_directory+"HMP_ids.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
@@ -263,7 +266,7 @@ def parse_sample_country_map():
     file.close()
     
     # Then load Kuleshov data 
-    file = open(parse_midas_data.scripts_directory+"kuleshov_ids.txt","r")
+    file = open(config.scripts_directory+"kuleshov_ids.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
@@ -279,8 +282,8 @@ def parse_sample_country_map():
     file.close()
     
     # Then load Qin data
-    file = open(parse_midas_data.scripts_directory+"qin_ids.txt","r")
-    file.readline() # header 
+    file = open(config.scripts_directory+"qin_ids.txt","r")
+    file.readline() # header
     for line in file:
         items = line.split("\t")
         subject_id = items[0].strip()
@@ -352,12 +355,15 @@ def calculate_country_samples(sample_country_map, sample_list=[], allowed_countr
 
 def parse_subject_phenotype_map():
     
+    import config
+
+    
     column_idx = 5
 
     subject_phenotype_map = {}
     
     # First load HMP metadata
-    file = open(parse_midas_data.scripts_directory+"HMP_phenotypes.txt","r")
+    file = open(config.scripts_directory+"HMP_phenotypes.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
@@ -379,7 +385,7 @@ def parse_subject_phenotype_map():
     return subject_phenotype_map
     
 def parse_sample_phenotype_map():
-
+    
     subject_phenotype_map = parse_subject_phenotype_map()
     subject_sample_map = parse_subject_sample_map()
     sample_subject_map = parse_midas_data.calculate_sample_subject_map(subject_sample_map)
