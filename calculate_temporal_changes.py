@@ -234,7 +234,7 @@ if __name__=='__main__':
         # Only plot samples above a certain depth threshold that are involved in timecourse
         snp_samples = diversity_utils.calculate_temporal_samples(species_name)
     
-        same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
+        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
         sample_size = len(same_subject_idxs[0])
     
         if sample_size < min_sample_size:
@@ -291,7 +291,7 @@ if __name__=='__main__':
             snp_opportunity_matrix += chunk_snp_opportunity_matrix
 
         
-            same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
+            same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
         
             for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
     
@@ -330,7 +330,7 @@ if __name__=='__main__':
                 tracked_private_snp_opportunities[sample_pair] += len(chunk_tracked_private_snps)
                                
         # Calculate SNP error rate
-        same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, snp_samples)   
+        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, snp_samples)   
         for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
     
             i = same_subject_idxs[0][sample_pair_idx]
@@ -351,7 +351,7 @@ if __name__=='__main__':
         gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples, disallowed_genes=shared_pangenome_genes)
         sys.stderr.write("Done!\n")
     
-        same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, gene_samples)
+        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, gene_samples)
     
         sys.stderr.write("Calculating gene changes...\n")
         for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
