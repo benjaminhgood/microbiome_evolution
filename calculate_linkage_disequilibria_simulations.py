@@ -1,6 +1,7 @@
 import sample_utils
 import config
 import parse_midas_data
+import parse_HMP_data
 import os.path
 import pylab
 import sys
@@ -157,7 +158,11 @@ if __name__=='__main__':
     sys.stderr.write("Loading sample metadata...\n")
     subject_sample_map = sample_utils.parse_subject_sample_map()
     sys.stderr.write("Done!\n")
+
+    # load the identity of isolates and mixtures so that I can filter them
+    isolates, mixtures=parse_HMP_data.list_of_isolates_and_mixtures()
     
+
     good_species_list = parse_midas_data.parse_good_species_list()
     if debug:
         good_species_list = good_species_list[:3]
@@ -187,6 +192,14 @@ if __name__=='__main__':
         # Only plot samples above a certain depth threshold that are "haploids"
         snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
     
+        # Only consider samples from isolates
+        snp_samples_isolates=[]
+        for sample in snp_samples:
+            if sample in isolates:
+                snp_samples_isolates.append(sample)
+
+        snp_samples=numpy.asarray(snp_samples_isolates)
+
         if len(snp_samples) < min_sample_size:
             sys.stderr.write("Not enough haploid samples!\n")
             continue
@@ -217,7 +230,9 @@ if __name__=='__main__':
         coarse_grained_idxs, coarse_grained_cluster_list = clade_utils.cluster_samples(substitution_rate, min_d=low_divergence_threshold) # NRG: what is this returning?
 
         coarse_grained_samples = snp_samples[coarse_grained_idxs]
-        clade_sets = clade_utils.load_manual_clades(species_name)
+        # CHANGE THIS FOR SIMULATIONS:
+        #clade_sets = clade_utils.load_manual_clades(species_name)
+        clade_sets=[set(coarse_grained_samples)]
 
         sys.stderr.write("%d samples remaining after clustering!\n" % len(coarse_grained_samples))
 

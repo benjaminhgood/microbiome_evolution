@@ -1,4 +1,5 @@
 import numpy
+import parse_midas_data
 
 ###############################################################################
 #
@@ -56,6 +57,39 @@ def parse_sample_order_map():
         sample_order_map[sample_id] = (subject_id, 1)
         
     file.close()
+
+    # load simulations
+    file = open(parse_midas_data.scripts_directory+"isolates_genome_list.txt","r")
+    file.readline() # 
+    for line in file:
+        items = line.strip().split("\t")
+        subject_id = items[0] 
+        sample_id = items[0] # sample is the same as subject
+        accession_id=subject_id
+        
+        sample_order_map[subject_id]= (subject_id, 1)
+
+
+    file = open(parse_midas_data.scripts_directory+"mixture_labels.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.strip().split("\t")
+        subject_id = items[0] # this is one of two of the 90/10 mixtures
+        sample_id = items[1] # This is the exact simulation
+        accession_id=sample_id # same as sample
+        
+        # parse the order:
+        first_genome=sample_id.split('_')[0]
+        if first_genome=='435590.9' or first_genome=='997891.3':
+            order=1
+        else:
+            order=2
+            
+        sample_order_map[sample_id]= (subject_id, order)
+
+    file.close()
+      
+
     
     return sample_order_map
 
@@ -133,11 +167,77 @@ def parse_subject_sample_map():
     file.close()
       
     
+    # load simulations
+    file = open(parse_midas_data.scripts_directory+"isolates_genome_list.txt","r")
+    file.readline() # 
+    for line in file:
+        items = line.strip().split("\t")
+        subject_id = items[0] 
+        sample_id = items[0] # sample is the same as subject
+        accession_id=subject_id
+        
+        if subject_id not in subject_sample_map:
+            subject_sample_map[subject_id] = {}
+            
+        if sample_id not in subject_sample_map[subject_id]:
+            subject_sample_map[subject_id][sample_id] = set()
+            
+        subject_sample_map[subject_id][sample_id].add(accession_id)
+
+
+    file = open(parse_midas_data.scripts_directory+"mixture_labels.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.strip().split("\t")
+        subject_id = items[0] # this is one of two of the 90/10 mixtures
+        sample_id = items[1] # This is the exact simulation
+        accession_id=sample_id # same as sample
+ 
+        if subject_id not in subject_sample_map:
+            subject_sample_map[subject_id] = {}
+            
+        if sample_id not in subject_sample_map[subject_id]:
+            subject_sample_map[subject_id][sample_id] = set()
+            
+        subject_sample_map[subject_id][sample_id].add(accession_id)
+
+
+    file.close()
+      
+
     # Repeat for other data
     # Nothing else so far
      
     return subject_sample_map 
    
+
+
+def list_of_isolates_and_mixtures():
+    
+    isolates=[]
+    mixtures=[]
+    
+    # load simulations
+    file = open(parse_midas_data.scripts_directory+"isolates_genome_list.txt","r")
+    file.readline() # 
+    for line in file:
+        items = line.strip().split("\t")
+        subject_id = items[0] 
+        sample_id = items[0] # sample is the same as subject
+        accession_id=subject_id
+        isolates.append(sample_id)
+
+    file = open(parse_midas_data.scripts_directory+"mixture_labels.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.strip().split("\t")
+        subject_id = items[0] # this is one of two of the 90/10 mixtures
+        sample_id = items[1] # This is the exact simulation
+        accession_id=sample_id # same as sample
+        mixtures.append(sample_id)
+
+        
+    return isolates, mixtures
 
 #####
 #
@@ -200,6 +300,30 @@ def parse_sample_country_map():
     file.close()
       
     
+    # load simulations
+    file = open(parse_midas_data.scripts_directory+"isolates_genome_list.txt","r")
+    file.readline() # 
+    for line in file:
+        items = line.strip().split("\t")
+        subject_id = items[0] 
+        sample_id = items[0] # sample is the same as subject
+        accession_id=subject_id
+
+        if sample_id not in sample_country_map:
+            sample_country_map[sample_id]='United States'
+
+
+    file = open(parse_midas_data.scripts_directory+"mixture_labels.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.strip().split("\t")
+        subject_id = items[0] # this is one of two of the 90/10 mixtures
+        sample_id = items[1] # This is the exact simulation
+        accession_id=sample_id # same as sample
+
+        if sample_id not in sample_country_map:
+            sample_country_map[sample_id]='United States'
+
     # Repeat for other data
     # Nothing else so far
      
@@ -265,7 +389,7 @@ def parse_sample_phenotype_map():
     
     subject_phenotype_map = parse_subject_phenotype_map()
     subject_sample_map = parse_subject_sample_map()
-    sample_subject_map = calculate_sample_subject_map(subject_sample_map)
+    sample_subject_map = parse_midas_data.calculate_sample_subject_map(subject_sample_map)
     sample_phenotype_map = {}
     for sample in sample_subject_map.keys():
         subject = sample_subject_map[sample]

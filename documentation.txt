@@ -353,6 +353,11 @@ nohup nice merge_midas.py species $OUTDIR/species -i /pollard/home/ngarud/twin_p
 
 nohup nice merge_midas.py genes $OUTDIR/genes -i /pollard/home/ngarud/twin_project/MIDAS_intermediate_files_twins/sample_paths_hmp_Kuleshov_Qin_Twins_chestnut.txt -t file --sample_depth 1 --min_samples 1 --max_species 150 >& $OUTDIR/genes/genes.log &
 
+# bzip files
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/bzip_snps_Qin_HMP_Twins
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/bzip_genes_Qin_HMP_Twins
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/bzip_species_Qin_HMP_Twins
+
 
 ################
 # MIDAS tests  #
@@ -1361,6 +1366,7 @@ python ~/ben_nandita_hmp_scripts/transfer_isolates_to_folder.py
 # any species outputted has coverage >0.0 in at least one sample. 
 
 python identify_nonzero_coverage.py # more than 1000 species identified.
+293 species identified
 
 #instead:
 python ~/ben_nandita_hmp_scripts/print_good_species_list.py names > ~/ben_nandita_hmp_analysis/good_species_list.txt 

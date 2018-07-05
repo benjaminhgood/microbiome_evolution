@@ -295,7 +295,7 @@ if __name__=='__main__':
         # Add records to output
         # Calculate which pairs of idxs belong to the same sample, which to the same subject
         # and which to different subjects
-        same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_subject_pairs(subject_sample_map, snp_samples)
+        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_subject_pairs(subject_sample_map, snp_samples)
 
         for idxs in [same_subject_idxs, diff_subject_idxs]:
             for sample_pair_idx in xrange(0,len(idxs[0])):

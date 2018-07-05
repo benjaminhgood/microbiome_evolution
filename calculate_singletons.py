@@ -163,7 +163,7 @@ if __name__=='__main__':
             continue
         
         # Only consider one sample per person
-        snp_samples = snp_samples[parse_midas_data.calculate_unique_samples(subject_sample_map, sample_list=snp_samples)]
+        snp_samples = snp_samples[sample_utils.calculate_unique_samples(subject_sample_map, sample_list=snp_samples)]
         
         sys.stderr.write("Proceeding with %d haploid samples!\n" % len(snp_samples))
 
