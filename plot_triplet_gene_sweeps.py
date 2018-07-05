@@ -78,6 +78,8 @@ if debug:
 triplet_map = {}
 for species_name in good_species_list:
 
+    
+
     haploid_triplets = []
 
     # Only plot samples above a certain depth threshold that are "haploids"
@@ -157,13 +159,20 @@ for species_name in good_species_list:
 
     snp_samples = list(snp_samples)
     
+    import core_gene_utils
+    sys.stderr.write("Loading whitelisted genes...\n")
+    non_shared_genes = core_gene_utils.parse_non_shared_reference_genes(species_name)
+    shared_pangenome_genes = core_gene_utils.parse_shared_genes(species_name)
+    sys.stderr.write("Done! %d shared genes and %d non-shared genes\n" % (len(shared_pangenome_genes), len(non_shared_genes)))
+    
+    
     # Analyze SNPs, looping over chunk sizes. 
     # Clunky, but necessary to limit memory usage on cluster
 
 
     # Load gene coverage information for species_name
     sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
-    dummy_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix =     parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples)
+    dummy_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix =     parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples, disallowed_genes=shared_pangenome_genes)
     sys.stderr.write("Done!\n")
     
     desired_triplet_idxs = []

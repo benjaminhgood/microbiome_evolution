@@ -2,7 +2,7 @@ import matplotlib
 matplotlib.use('Agg') 
 import config
 import parse_midas_data
-import parse_HMP_data
+import sample_utils
 import os.path
 import pylab
 import sys
@@ -67,8 +67,8 @@ modification_difference_threshold = 1000
             
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
-sample_order_map = parse_HMP_data.parse_sample_order_map()
+subject_sample_map = sample_utils.parse_subject_sample_map()
+sample_order_map = sample_utils.parse_sample_order_map()
 sys.stderr.write("Done!\n")
     
 good_species_list = parse_midas_data.parse_good_species_list()
@@ -83,9 +83,9 @@ for species_name in good_species_list:
     # Only plot samples above a certain depth threshold that are "haploids"
     haploid_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
 
-    sample_order_map = parse_HMP_data.parse_sample_order_map()
+    sample_order_map = sample_utils.parse_sample_order_map()
     # Calculate which triplets of idxs belong to the same subject
-    same_subject_idxs = parse_midas_data.calculate_ordered_subject_triplets(sample_order_map, haploid_samples)
+    same_subject_idxs = sample_utils.calculate_ordered_subject_triplets(sample_order_map, haploid_samples)
     
     temporal_samples = set()
     for sample_triplet_idx in xrange(0,len(same_subject_idxs)):
@@ -141,6 +141,12 @@ for species_name in good_species_list:
 
     if species_name not in triplet_map:
         continue
+    
+    import core_gene_utils
+    sys.stderr.write("Loading whitelisted genes...\n")
+    non_shared_genes = core_gene_utils.parse_non_shared_reference_genes(species_name)
+    shared_pangenome_genes = core_gene_utils.parse_shared_genes(species_name)
+    sys.stderr.write("Done! %d shared genes and %d non-shared genes\n" % (len(shared_pangenome_genes), len(non_shared_genes)))
         
     
     triplet_freqs = []    
@@ -163,8 +169,10 @@ for species_name in good_species_list:
     final_line_number = 0
     while final_line_number >= 0:
     
+        
+    
         sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
-        dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number)
+        dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples,chunk_size=chunk_size,initial_line_number=final_line_number, allowed_genes=non_shared_genes)
         sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
         print len(dummy_samples), "dummy samples!"
     
