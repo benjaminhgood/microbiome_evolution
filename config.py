@@ -6,7 +6,8 @@
 import os.path 
 from math import log10
 
-data_directory = os.path.expanduser("~/ben_nandita_hmp_data_051318/")
+data_directory = os.path.expanduser("~/ben_nandita_hmp_data_060518/")
+#data_directory = os.path.expanduser("~/ben_nandita_hmp_data_051318/")
 #data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
 analysis_directory = os.path.expanduser("~/ben_nandita_hmp_analysis/")
 scripts_directory = os.path.expanduser("~/ben_nandita_hmp_scripts/")
@@ -50,4 +51,8 @@ pipe_snps_upper_depth_factor=3
 
 parse_snps_min_freq = 0.05
 
+# Comment this out
 from parse_HMP_data import *
+# and uncomment this
+#from parse_simulated_data import *
+# for isolate data

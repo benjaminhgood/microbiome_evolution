@@ -82,6 +82,8 @@ if __name__=='__main__':
     chunk_size = args.chunk_size
     ################################################################################
 
+    # Holds panel wide prevalence for each species
+    os.system('mkdir -p %ssnp_prevalences' % config.data_directory)
 
     # Open post-processed MIDAS output
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (config.data_directory, species_name),"r")

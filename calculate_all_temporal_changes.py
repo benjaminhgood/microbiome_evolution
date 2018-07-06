@@ -8,34 +8,30 @@ import pylab
 import sys
 import numpy
 import sfs_utils
+import gzip
         
 
 import diversity_utils
 import gene_diversity_utils
 import core_gene_utils
-import gzip
-import os
-
-temporal_change_directory = '%stemporal_changes/' % (parse_midas_data.data_directory)
-intermediate_filename_template = '%s%s.txt.gz'  
-
-min_coverage = config.min_median_coverage
-min_sample_size = 5
 
 import stats_utils
 from math import log10,ceil
 from numpy.random import randint
 
+min_coverage = config.min_median_coverage
+alpha = 0.5 # Confidence interval range for rate estimates
+low_pi_threshold = 1e-03
+low_divergence_threshold = 1e-03
+min_change = 0.8
+min_sample_size = 5
+
+intermediate_filename = '%stemporal_changes_test.txt.gz' % (parse_midas_data.data_directory)
+
 def load_temporal_change_map(species_name):
     
-    intermediate_filename = intermediate_filename_template % (temporal_change_directory, species_name)
-
     temporal_change_map = {}
 
-
-    if not os.path.isfile(intermediate_filename):
-        return temporal_change_map
-    
     file = gzip.open(intermediate_filename,"r")
     file.readline() # header
     for line in file:
@@ -199,25 +195,27 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
     parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
-    parser.add_argument("species", help="Name of specific species to run code on")
+    parser.add_argument("--species", help="Name of specific species to run code on", default="all")
 
     args = parser.parse_args()
 
     debug = args.debug
     chunk_size = args.chunk_size
-    species_name=args.species
-    good_species_list = [species_name]
+    species=args.species
 
-    os.system('mkdir -p %s' % temporal_change_directory)
- 
     # Load subject and sample metadata
     sys.stderr.write("Loading sample metadata...\n")
     subject_sample_map = sample_utils.parse_subject_sample_map()
     sample_order_map = sample_utils.parse_sample_order_map()
     sys.stderr.write("Done!\n")
+    
+    good_species_list = parse_midas_data.parse_good_species_list()
+    if debug:
+        good_species_list = good_species_list[:3]
+    elif species !='all':
+        good_species_list = [species]
 
-    intermediate_filename = intermediate_filename_template % (temporal_change_directory, species_name)
-
+    
     output_file = gzip.open(intermediate_filename,"w")
     # header!
     output_file.write(", ".join(['Species', 'Sample1', 'Sample2', 'Type', 'L','Perr', 'Change1', '...']))
@@ -282,7 +280,7 @@ if __name__=='__main__':
             snp_samples = dummy_samples
         
             # All
-            chunk_snp_difference_matrix, chunk_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map)   # 
+            chunk_snp_difference_matrix, chunk_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map, min_change=min_change)   # 
     
             if snp_difference_matrix.shape[0]==0:
                 snp_difference_matrix = numpy.zeros_like(chunk_snp_difference_matrix)*1.0

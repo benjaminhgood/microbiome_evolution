@@ -58,25 +58,19 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
     parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
-    parser.add_argument("--species", help="Name of specific species to run code on", default="all")
+    parser.add_argument("species", help="Name of specific species to run code on", default="all")
     args = parser.parse_args()
 
     debug = args.debug
     chunk_size = args.chunk_size
-    species=args.species
-
+    species_name=args.species
+    good_species_list = [species_name]
+    
     # Load subject and sample metadata
     sys.stderr.write("Loading sample metadata...\n")
     subject_sample_map = sample_utils.parse_subject_sample_map()
     sys.stderr.write("Done!\n")
     
-    # get a list of specis to run this script on. 
-    good_species_list = parse_midas_data.parse_good_species_list()
-    if debug:
-        good_species_list = good_species_list[:3]
-    elif species !='all':
-        good_species_list = [species]
-
     os.system('mkdir -p %s' % private_snv_directory)
 
     for species_name in good_species_list:

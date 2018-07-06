@@ -14,26 +14,25 @@ from math import log10,ceil
 from numpy.random import randint
 
 import core_gene_utils
-import gzip
-import os
 
-substitution_rate_directory = '%ssubstitution_rates/' % (parse_midas_data.data_directory)
-intermediate_filename_template = '%s%s.txt.gz'  
+intermediate_filename = '%ssubstitution_rates.txt' % (parse_midas_data.data_directory)
+    
 
 min_coverage = config.min_median_coverage
+alpha = 0.5 # Confidence interval range for rate estimates
+low_pi_threshold = 1e-03
+low_divergence_threshold = 1e-03
+min_change = 0.8
 min_sample_size = 10
+allowed_variant_types = set(['1D','2D','3D','4D'])
+
 
 def load_substitution_rate_map(species_name):
 # This definition is called whenever another script downstream uses the output of this data.
 
-    intermediate_filename = intermediate_filename_template % (substitution_rate_directory, species_name)
-
     substitution_rate_map = {}
 
-    if not os.path.isfile(intermediate_filename):
-        return substitution_rate_map
-    
-    file = gzip.open(intermediate_filename,"r")
+    file = open(intermediate_filename,"r")
     file.readline() # header
     for line in file:
         items = line.split(",")
@@ -129,21 +128,25 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", help="Loads only a subset of SNPs for speed", action="store_true")
     parser.add_argument("--chunk-size", type=int, help="max number of records to load", default=1000000000)
-    parser.add_argument("species", help="Name of specific species to run code on")
+    parser.add_argument("--species", help="Name of specific species to run code on", default="all")
     args = parser.parse_args()
 
     debug = args.debug
     chunk_size = args.chunk_size
-    species_name=args.species
-    good_species_list = [species_name]
-
-    os.system('mkdir -p %s' % substitution_rate_directory)
+    species=args.species
 
     # Load subject and sample metadata
     sys.stderr.write("Loading sample metadata...\n")
     subject_sample_map = sample_utils.parse_subject_sample_map()
     sys.stderr.write("Done!\n")
     
+    # get a list of specis to run this script on. 
+    good_species_list = parse_midas_data.parse_good_species_list()
+    if debug:
+        good_species_list = good_species_list[:3]
+    elif species !='all':
+        good_species_list = [species]
+
     # header for the output file.
     record_strs = [", ".join(['Species', 'Sample1', 'Sample2', 'Type', 'Num_muts', 'Num_revs', 'Num_mut_opportunities', 'Num_rev_opportunities'])]
     #good_species_list=['Bacteroides_vulgatus_57955']
@@ -330,12 +333,13 @@ if __name__=='__main__':
         
         sys.stderr.write("Done with %s!\n" % species_name) 
     
-        sys.stderr.write("Writing intermediate file...\n")
-        intermediate_filename = intermediate_filename_template % (substitution_rate_directory, species_name)
-        file = gzip.open(intermediate_filename,"w")
-        record_str = "\n".join(record_strs)
-        file.write(record_str)
-        file.close()
-        sys.stderr.write("Done!\n")
+    sys.stderr.write("Done looping over species!\n")
+    
+    sys.stderr.write("Writing intermediate file...\n")
+    file = open(intermediate_filename,"w")
+    record_str = "\n".join(record_strs)
+    file.write(record_str)
+    file.close()
+    sys.stderr.write("Done!\n")
 
  

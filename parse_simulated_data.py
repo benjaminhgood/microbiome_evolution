@@ -1,7 +1,7 @@
 import numpy
 import parse_midas_data
 
-def parse_isolate_metadata_map():
+def parse_sample_metadata_map():
     
     isolate_metadata_map = {}
     
@@ -33,81 +33,6 @@ def parse_isolate_metadata_map():
         
     return isolate_metadata_map
 
-###############################################################################
-#
-# Loads metadata for HMP samples 
-# Returns map from sample -> (subject_id, sample_id, accession_id, country, continent, temporal_order)
-#
-###############################################################################
-def parse_sample_metadata_map(): 
-    import config
-    
-    sample_metadata_map = {}
-    
-    # First load HMP metadata
-    file = open(config.scripts_directory+"HMP_ids_order.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        country = items[3].strip()
-        continent = items[4].strip()
-        order = long(items[5].strip())
-        
-        sample_metadata_map[sample_id] = (subject_id, sample_id, accession_id, country, continent, order)
-        
-    file.close()
-
-    
-    # Then load Qin data
-    file = open(config.scripts_directory+"qin_ids.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        sample_id = accession_id # Nandita used accession id as MIDAS header for this dataset
-        country = items[3].strip()
-        continent = items[4].strip()
-        order = 1
-        sample_metadata_map[sample_id] = (subject_id, sample_id, accession_id, country, continent, order)   
-    file.close()
-    
-    # Then load kuleshov data
-    file = open(config.scripts_directory+"kuleshov_ids.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        sample_id = accession_id # Nandita used accession id as MIDAS header for this dataset
-        country = items[3].strip()
-        continent = items[4].strip()
-        order = 1
-        sample_metadata_map[sample_id] = (subject_id, sample_id, accession_id, country, continent, order)   
-    file.close()
-    
-    # Then load Twin data
-    file = open(config.scripts_directory+"twin_ids_order.txt","r")
-    file.readline() # header
-    for line in file:
-        items = line.split("\t")
-        subject_id = items[0].strip()
-        sample_id = items[1].strip()
-        accession_id = items[2].strip()
-        country = items[3].strip()
-        continent = items[4].strip()
-        order = long(items[5].strip())
-        
-        sample_metadata_map[sample_id] = (subject_id, sample_id, accession_id, country, continent, order)
-        
-    file.close()
-    
-    return sample_metadata_map
     
 def filter_sample_metadata_map(sample_metadata_map, field, field_value):
     
@@ -144,8 +69,7 @@ def parse_sample_order_map(sample_metadata_map = {}):
     
     sample_order_map = {}
     for sample in sample_metadata_map:
-        subject_id, dummy, accession_id, country, continent, order = sample_metadata_map[sample]
-        sample_order_map[sample] = (subject_id, order)
+        sample_order_map[sample] = (sample_metadata_map[0], sample_metadata_map[5])
 
     return sample_order_map
 
@@ -239,7 +163,5 @@ def calculate_country_samples(sample_country_map, sample_list=[], allowed_countr
             
     allowed_idxs = numpy.array(allowed_idxs)
     return allowed_idxs
-    
-
 
 
