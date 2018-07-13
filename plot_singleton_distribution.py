@@ -1,5 +1,6 @@
 import matplotlib  
 matplotlib.use('Agg') 
+import sample_utils
 import config
 import parse_midas_data
 import parse_HMP_data
@@ -67,10 +68,10 @@ data = {}
 
 good_species_list = parse_midas_data.parse_good_species_list()
 if debug:
-    good_species_list = good_species_list[0:2]
+    good_species_list = ["Bacteroides_vulgatus_57955", "Bacteroides_uniformis_57318"]
 
 sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
+subject_sample_map = sample_utils.parse_subject_sample_map()
 sys.stderr.write("Done!\n")
 
 for species_name in good_species_list:

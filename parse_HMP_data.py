@@ -193,6 +193,11 @@ def parse_sample_country_map(sample_metadata_map = {}):
     if len(sample_metadata_map)==0:
         # Load it 
         sample_metadata_map = parse_sample_metadata_map()
+        
+    sample_country_map = {}
+    for sample_id in sample_metadata_map:
+        subject_id, dummy, accession_id, country, continent, order = sample_metadata_map[sample_id]
+         
         if sample_id not in sample_country_map:
             sample_country_map[sample_id] = country
     

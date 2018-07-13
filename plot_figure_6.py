@@ -1,13 +1,12 @@
 import matplotlib  
 matplotlib.use('Agg') 
+import sample_utils
 import config
 import parse_midas_data
-import parse_HMP_data
 import os.path
 import pylab
 import sys
 import numpy
-
 import diversity_utils
 import gene_diversity_utils
 import calculate_temporal_changes
@@ -18,19 +17,20 @@ import sfs_utils
     
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
-from math import log10,ceil
+from math import log10,ceil,log,exp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from numpy.random import randint
 import matplotlib.colors as mcolors
+import matplotlib.patheffects as pe
 
 from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.cluster.hierarchy import cophenet
 from scipy.cluster.hierarchy import fcluster
 
 
-mpl.rcParams['font.size'] = 6
+mpl.rcParams['font.size'] = 8
 mpl.rcParams['lines.linewidth'] = 0.5
 mpl.rcParams['legend.frameon']  = False
 mpl.rcParams['legend.fontsize']  = 'small'
@@ -56,7 +56,7 @@ debug = args.debug
 chunk_size = args.chunk_size
 memoize = args.memoize
 modification_difference_threshold = args.modification_threshold
-
+replacement_difference_threshold = config.replacement_difference_threshold
 ################################################################################
 
 min_coverage = config.min_median_coverage
@@ -70,13 +70,15 @@ variant_types = ['1D','4D']
             
 # Load subject and sample metadata
 sys.stderr.write("Loading sample metadata...\n")
-subject_sample_map = parse_HMP_data.parse_subject_sample_map()
-sample_order_map = parse_HMP_data.parse_sample_order_map()
+sample_utils.parse_subject_sample_map
+subject_sample_map = sample_utils.parse_subject_sample_map()
+sample_order_map = sample_utils.parse_sample_order_map()
+sample_country_map = sample_utils.parse_sample_country_map()
 sys.stderr.write("Done!\n")
     
 good_species_list = parse_midas_data.parse_good_species_list()
 if debug:
-    good_species_list = good_species_list[0:2]
+    good_species_list = ["Bacteroides_vulgatus_57955", "Bacteroides_uniformis_57318"]
 
 num_passed_species = 0
 
@@ -104,6 +106,13 @@ total_between_null_snp_mutrevs = {'muts': 0, 'revs':0}
 total_gene_gainlosses = {'gains':0, 'losses':0}
 total_between_null_gene_gainlosses = {'gains':0, 'losses':0}
 
+species_snp_change_distribution = {}
+species_gene_change_distribution = {}
+
+# observed within host value for twins
+pooled_twin_snp_change_distribution = []
+pooled_twin_gene_change_distribution = []
+
 # observed within host value
 pooled_snp_change_distribution = []
 pooled_gene_change_distribution = []
@@ -118,35 +127,111 @@ pooled_min_between_gene_change_distribution = []
 
 replacement_map = {}
 
+countries = ["United States", "United Kingdom"]
+
 for species_name in good_species_list:
 
-    # Only plot samples above a certain depth threshold that are "haploids"
-    haploid_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
+    # all samples
+    all_samples = sample_order_map.keys()
 
+    # list of samples that meet coverage criteria for this species
+    highcoverage_samples = set(diversity_utils.calculate_highcoverage_samples(species_name))
+    
+    # list of samples that meet QP criteria for this species
+    haploid_samples = set(diversity_utils.calculate_haploid_samples(species_name))
+    
+    #print len(all_samples), len(highcoverage_samples), len(haploid_samples)
+       
     if len(haploid_samples) < min_sample_size:
         continue
 
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, haploid_samples)
+    same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, all_samples)
 
-    snp_samples = set()
-    sample_size = 0        
+    hmp_sample_size = 0        
+       
+    hmp_samples = set()
+    twin_samples = set()
+    
+    qp_counts = {country:[0,0,0,0] for country in countries}
+    
+    #print len(all_samples), len(highcoverage_samples), len(haploid_samples)
+    #print len(highcoverage_samples - haploid_samples)
+    #print len(haploid_samples - highcoverage_samples)
+
     for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
    
         i = same_subject_idxs[0][sample_pair_idx]
         j = same_subject_idxs[1][sample_pair_idx]
 
-        snp_samples.add(haploid_samples[i])
-        snp_samples.add(haploid_samples[j])
+        sample_i = all_samples[i]
+        sample_j = all_samples[j]
+        
+        country = sample_country_map[sample_i]
+        
+        #print sample_i, sample_j, country
             
-        sample_size += 1
+        if country not in countries:
+            continue
+                
+        # Figure out what kind of pair it is
+
+        if not ((sample_i in highcoverage_samples) and (sample_j in highcoverage_samples)):
             
-    snp_samples = list(snp_samples)
-
-    allowed_sample_set = set(snp_samples)
-
+            qp_counts[country][0] += 1
+            
+        else:
+            
+            # both are highcoverage samples
+            
+            if (sample_i in haploid_samples) and (sample_j in haploid_samples):
+                
+                qp_counts[country][1] += 1
+                    
+                if country=="United States":
+                        
+                    # An HMP pair
+                
+                    hmp_samples.add(sample_i)
+                    hmp_samples.add(sample_j)
+                
+                    hmp_sample_size += 1
+                        
+                elif country=='United Kingdom':
+                        
+                    # A UK Twin pair
+                    twin_samples.add(sample_i)
+                    twin_samples.add(sample_j)
+                        
+                else:
+                    pass
+                        
+            
+            elif (sample_i not in haploid_samples) and (sample_j not in haploid_samples):
+                
+                qp_counts[country][2] += 1
+            
+            else:
+                
+                qp_counts[country][3] += 1
+        
+        
+    print qp_counts
+        
+    sample_size = hmp_sample_size
     if sample_size < min_sample_size:
         continue
-    
+            
+    species_snp_change_distribution[species_name] = []
+    species_gene_change_distribution[species_name] = []
+                     
+    snp_samples = list(hmp_samples)
+    allowed_sample_set = set(hmp_samples)
+
+    twin_samples = list(twin_samples)
+    allowed_twin_sample_set = set(twin_samples)
+        
+    combined_samples = (snp_samples+twin_samples)
+    allowed_combined_sample_set = set(combined_samples)
     
     sys.stderr.write("Proceeding with %d longitudinal comparisons with %d samples!\n" % (sample_size, len(snp_samples)))
     
@@ -170,6 +255,7 @@ for species_name in good_species_list:
     
     opportunity_matrices = {}
     difference_matrices = {}
+
     
     for var_type in variant_types:
         
@@ -203,7 +289,51 @@ for species_name in good_species_list:
 
     temporal_changes = []
     
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
+    ############################
+    #
+    # Calculate between-twin changes
+    #
+    ############################
+    same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, twin_samples)
+    
+    for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
+    #    
+        i = same_subject_idxs[0][sample_pair_idx]
+        j = same_subject_idxs[1][sample_pair_idx]
+    
+        sample_i = twin_samples[i] 
+        sample_j = twin_samples[j]
+        
+        if not ((sample_i in allowed_twin_sample_set) and (sample_j in allowed_twin_sample_set)):
+            continue
+        
+        L, perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        
+        nerr = L*perr
+        
+        num_mutations = len(mutations)
+        num_reversions = len(reversions)
+        num_snp_changes = num_mutations+num_reversions
+        
+        gene_L, gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        
+        gene_nerr = gene_L*gene_perr
+        num_gains = len(gains)
+        num_losses = len(losses)
+        num_gene_changes = num_gains+num_losses
+        
+        if (perr<-0.5) or (gene_perr < -0.5):
+            continue
+        
+        if (nerr > 0.1*num_snp_changes) or (gene_nerr > 0.1*num_gene_changes):
+            continue # Only take things with low-ish FPR
+             
+        
+        pooled_twin_snp_change_distribution.append(num_snp_changes)
+        pooled_twin_gene_change_distribution.append(num_gene_changes)    
+            
+ 
+    same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
     
     for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
 #    
@@ -269,8 +399,9 @@ for species_name in good_species_list:
     
         if (num_snp_changes>-0.5):
             pooled_snp_change_distribution.append(num_snp_changes)
+            species_snp_change_distribution[species_name].append(num_snp_changes)
             
-            good_idxs = parse_midas_data.calculate_samples_in_different_subjects( subject_sample_map, snp_samples, sample_i)
+            good_idxs = sample_utils.calculate_samples_in_different_subjects( subject_sample_map, snp_samples, sample_i)
 
             # typical
             pooled_between_snp_change_distribution.append( numpy.median(snp_difference_matrix[i, good_idxs]) )
@@ -334,7 +465,7 @@ for species_name in good_species_list:
             
             # Now get a null from between-host changes
             good_comparison_idxs = (snp_opportunity_matrix[i,:]>0.5)
-            good_comparison_idxs *= parse_midas_data.calculate_samples_in_different_subjects( subject_sample_map, snp_samples, sample_i)
+            good_comparison_idxs *= sample_utils.calculate_samples_in_different_subjects( subject_sample_map, snp_samples, sample_i)
 
             
             total_between_host_changes = sum([numpy.median(difference_matrices[var_type][i,good_comparison_idxs]) for var_type in variant_types])
@@ -370,11 +501,12 @@ for species_name in good_species_list:
                 #print gene_opportunity_matrix[i,:].shape
                 #print good_comparison_idxs.sum() 
                  
-                good_comparison_idxs *= parse_midas_data.calculate_samples_in_different_subjects( subject_sample_map, gene_samples, sample_i)
+                good_comparison_idxs *= sample_utils.calculate_samples_in_different_subjects( subject_sample_map, gene_samples, sample_i)
                 
                 #print good_comparison_idxs.sum() 
                             
-                pooled_gene_change_distribution.append(num_gene_changes)  
+                pooled_gene_change_distribution.append(num_gene_changes) 
+                species_gene_change_distribution[species_name].append(num_gene_changes) 
                 
                 # Typical value
                 pooled_between_gene_change_distribution.append( numpy.median(gene_difference_matrix[gene_i, good_comparison_idxs]) )      
@@ -498,7 +630,7 @@ fig.add_subplot(cax)
 # Real figure
 #
 ###############
-pylab.figure(2,figsize=(3.42,2.2))
+pylab.figure(2,figsize=(6,4))
 fig2 = pylab.gcf()
 # make three panels panels
 
@@ -536,7 +668,10 @@ mutrev_axis.set_xlim([0.3,2.7])
 #mutrev_axis.set_ylim([0,645])
 mutrev_axis.set_yticks([0,200,400,600])
 mutrev_axis.set_xticks([1,2])
-mutrev_axis.set_xticklabels(['mut','rev'])
+#mutrev_axis.set_xticklabels(['mut','rev'])
+mutrev_axis.set_xticklabels(['away\nfrom\nref','toward\nref'],fontsize=6)
+#mutrev_axis.set_xticklabels(['alt','ref'],fontsize=6)
+
 #mutrev_axis.set_yticklabels([])
 
 
@@ -575,10 +710,12 @@ pooled_grid = gridspec.GridSpecFromSubplotSpec(1,2,width_ratios=[1,1],wspace=0.1
 
 pooled_snp_axis = plt.Subplot(fig2, pooled_grid[0])
 fig2.add_subplot(pooled_snp_axis)
-pooled_snp_axis.set_ylabel('# samples $\geq n$')
+pooled_snp_axis.set_ylabel('Fraction $\geq n$')
 pooled_snp_axis.set_xlabel('# SNV changes')
 #pooled_axis.set_ylim([-35,35])
-pooled_snp_axis.set_xlim([1e-01,1e05])
+#pooled_snp_axis.set_xlim([2e-01,1e05])
+pooled_snp_axis.set_xlim([1,1e05])
+
 pooled_snp_axis.set_xticklabels([])
 
 pooled_snp_axis.spines['top'].set_visible(False)
@@ -591,7 +728,9 @@ fig2.add_subplot(pooled_gene_axis)
 #pooled_gene_axis.set_ylabel('Number of samples')
 pooled_gene_axis.set_xlabel('# gene changes')
 #pooled_axis.set_ylim([-35,35])
-pooled_gene_axis.set_xlim([1e-01,1e04])
+#pooled_gene_axis.set_xlim([2e-01,1e04])
+pooled_gene_axis.set_xlim([1,1e04])
+
 pooled_gene_axis.spines['top'].set_visible(False)
 pooled_gene_axis.spines['right'].set_visible(False)
 pooled_gene_axis.get_xaxis().tick_bottom()
@@ -688,6 +827,7 @@ change_axis.text(20,-20,'Genes',fontsize=5)
 ######
 
 pooled_snp_change_distribution = numpy.array(pooled_snp_change_distribution)
+pooled_twin_snp_change_distribution = numpy.array(pooled_twin_snp_change_distribution)
 pooled_between_snp_change_distribution = numpy.array(pooled_between_snp_change_distribution)
 pooled_min_between_snp_change_distribution = numpy.array(pooled_min_between_snp_change_distribution)
 
@@ -696,10 +836,11 @@ print "Mean within host snps =", pooled_snp_change_distribution.mean()
 print "Median withon host snps =", numpy.median(pooled_snp_change_distribution)
 
 pooled_snp_change_distribution = numpy.clip(pooled_snp_change_distribution, 1e-01,1e08)
+pooled_twin_snp_change_distribution = numpy.clip(pooled_twin_snp_change_distribution, 1e-01,1e08)
 pooled_between_snp_change_distribution = numpy.clip(pooled_between_snp_change_distribution, 1e-01,1e08)
 pooled_min_between_snp_change_distribution = numpy.clip(pooled_min_between_snp_change_distribution, 1e-01,1e08)
 
-pooled_snp_axis.fill_between([modification_difference_threshold,1e05],[1,1],[1e03,1e03],color='0.8')
+
 
 #xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
@@ -707,44 +848,63 @@ pooled_snp_axis.fill_between([modification_difference_threshold,1e05],[1,1],[1e0
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_min_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_snp_axis.step(xs,ns,'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host', where='mid')
+ymin = 1.0/ns[0]
+ymax = 1.3
+
+pooled_snp_axis.loglog([1e-01,1e05],[ymin,ymin],'k:')
+
+pooled_snp_axis.set_ylim([1.0/ns[0],1.3])
+
+pooled_snp_axis.fill_between([1e-01,modification_difference_threshold],[ymin,ymin],[ymax,ymax],color='#deebf7')
+pooled_snp_axis.fill_between([replacement_difference_threshold,1e05],[ymin,ymin],[ymax,ymax],color='#fee0d2')
+
+pooled_snp_axis.text(exp((log(1e05)+log(replacement_difference_threshold))/2), ymax*1.2, 'putative\nreplacement',fontsize=6,fontstyle='italic',ha='center',color='#fc9272')
+pooled_snp_axis.text(exp((log(1)+log(modification_difference_threshold))/2), ymax*1.2, 'putative\nmodification',fontsize=6,fontstyle='italic',ha='center',color='#9ecae1')
+#pooled_snp_axis.text(exp((log(modification_difference_threshold)+log(replacement_difference_threshold))/2), ymax*1.2, 'unclassified',fontsize=6,fontstyle='italic',ha='center')
+
+
+pooled_snp_axis.step(xs,ns/ns[0],'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host', where='mid')
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_twin_snp_change_distribution, min_x=1e-02, max_x=1e09)
+
+pooled_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='mid')
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_snp_axis.step(xs,ns,'-',color='#08519c',linewidth=1, label='Within-host', where='mid')
-
-pooled_snp_axis.loglog([1e-01,1e05],[1,1],'k:')
-
-pooled_snp_axis.set_ylim([1,1e03])
+pooled_snp_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label=('Within-host (n=%d)' % ns[0]), where='mid')
 
 
 # Now do same thing for genes
 
+pooled_twin_gene_change_distribution = numpy.array(pooled_twin_gene_change_distribution)
 pooled_gene_change_distribution = numpy.array(pooled_gene_change_distribution)
 pooled_between_gene_change_distribution = numpy.array(pooled_between_gene_change_distribution)
 pooled_min_between_gene_change_distribution = numpy.array(pooled_min_between_gene_change_distribution)
 
 pooled_gene_change_distribution = numpy.clip(pooled_gene_change_distribution, 1e-01,1e08)
+pooled_twin_gene_change_distribution = numpy.clip(pooled_twin_gene_change_distribution, 1e-01,1e08)
 pooled_between_gene_change_distribution = numpy.clip(pooled_between_gene_change_distribution, 1e-01,1e08)
 pooled_min_between_gene_change_distribution = numpy.clip(pooled_min_between_gene_change_distribution, 1e-01,1e08)
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_gene_axis.step(xs,ns,'-',color='#08519c',linewidth=1, label='Within-host',zorder=1,where='mid')
+pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=1,where='mid',path_effects=[pe.Stroke(linewidth=5, foreground='#9ecae1'), pe.Normal()])
 
-#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
-#pooled_gene_axis.step(xs,ns,'-',color='r',linewidth=0.5, label='Between-host',zorder=0,alpha=0.5, where='mid')
+pooled_gene_axis.loglog([1e-01,1e05],[1.0/ns[0],1.0/ns[0]],'k:')
+
+pooled_gene_axis.set_ylim([1.0/ns[0],1.3])
+pooled_gene_axis.set_yticklabels([])
+#pooled_snp_axis.set_yticklabels(['0.01','0.1','1'])
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_twin_gene_change_distribution, min_x=1e-02, max_x=1e09)
+
+pooled_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label='Twin',zorder=1,where='mid')
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_min_between_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_gene_axis.step(xs,ns,'-',color='r',linewidth=0.5, label='Between-host',zorder=0,alpha=0.5, where='mid')
+pooled_gene_axis.step(xs,ns/ns[0],'-',color='r',linewidth=0.5, label='Between-host',zorder=0,alpha=0.5, where='mid')
 
-
-pooled_gene_axis.loglog([1e-01,1e05],[1,1],'k:')
-
-pooled_gene_axis.set_ylim([1,1e03])
-pooled_gene_axis.set_yticklabels([])
 
 #pooled_gene_axis.legend(loc='lower left', frameon=False, fontsize=5, numpoints=1, handlelength=1)
 
@@ -772,9 +932,10 @@ print observed_totals
 print random_totals
 print between_totals
 
-legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#08519c',label='Within-host')
-legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='r', alpha=0.5, label='Between-host')
-legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='k', alpha=0.5, label='De novo')
+legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#08519c',label='Within-host\n(modification)')
+legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='r', alpha=0.5, label='Between-host\n(unrelated)')
+legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#8856a7', alpha=0.5, label='Between-host\n(twins)')
+legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='k', alpha=0.5, label='De novo\nexpectation')
 
 legend_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
 
@@ -819,6 +980,9 @@ print 'Reversions', total_reversion_snps, total_reversion_snps['1D']*1.0/total_r
 print 'Mutations', total_mutation_snps, total_mutation_snps['1D']*1.0/total_mutation_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
 
 print 'Private', total_private_snps, total_private_snps['1D']*1.0/total_private_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
+
+from scipy.stats import fisher_exact
+print fisher_exact([[total_private_snps['1D'], total_random_null_snps['1D']], [total_private_snps['4D'], total_random_null_snps['4D']]])
 
 print "All", total_snps, total_snps['1D']*1.0/total_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
 

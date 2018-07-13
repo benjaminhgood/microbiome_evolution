@@ -6,7 +6,8 @@
 import os.path 
 from math import log10
 
-data_directory = os.path.expanduser("~/ben_nandita_hmp_data_060518/")
+data_directory = os.path.expanduser("~/ben_nandita_hmp_data_071118/")
+#data_directory = os.path.expanduser("~/ben_nandita_hmp_data_060518/")
 #data_directory = os.path.expanduser("~/ben_nandita_hmp_data_051318/")
 #data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
 analysis_directory = os.path.expanduser("~/ben_nandita_hmp_analysis/")
@@ -31,6 +32,7 @@ threshold_within_between_fraction = 0.1
 threshold_pi = 1e-03
 
 modification_difference_threshold = 20
+replacement_difference_threshold = 500
 #modification_difference_threshold = 100
 
 gainloss_max_absent_copynum = 0.05
