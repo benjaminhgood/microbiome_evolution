@@ -791,6 +791,9 @@ upper_threshold=config.consensus_upper_threshold):
             # site*sample*sample matrix of sites where we can look for differences            
             confident_sites = numpy.logical_and(high_freq_sites[:,:,None], high_freq_sites[:,None,:])*passed_depths
             
+            # Sites that we can't (but we would have)
+            non_confident_sites = numpy.logical_not(confident_sites)*passed_depths
+            
             site_difference_matrix = numpy.logical_or(derived_sites[:,:,None]*ancestral_sites[:,None,:],  ancestral_sites[:,:,None]*derived_sites[:,None,:] )
             
             # this is really the only place you have to switch 
@@ -818,7 +821,7 @@ upper_threshold=config.consensus_upper_threshold):
             
             doubletons = (confident_sites * numpy.logical_not(site_difference_matrix) * potential_doubletons[:,:,None]).sum(axis=0)
             
-            opportunities = (passed_sites - numpy.logical_not(confident_sites).sum(axis=0) )
+            opportunities = (passed_sites - non_confident_sites).sum(axis=0) )
             
             singleton_matrix += singletons
             doubleton_matrix += doubletons
@@ -890,7 +893,7 @@ upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min
             reversions = (derived_sites[:,:,None])*(ancestral_sites[:,None,:])*passed_depths
             
             # sites were you could have had a reversion
-            reversion_opportunities = derived_sites[:,:,None]*numpy.ones_like(passed_depths)
+            reversion_opportunities = derived_sites[:,:,None]*passed_depths
             
             mut_fixation_matrix += (mutations).sum(axis=0)
             rev_fixation_matrix += (reversions).sum(axis=0)

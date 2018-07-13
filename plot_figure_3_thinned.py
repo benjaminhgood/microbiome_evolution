@@ -396,6 +396,10 @@ for species_idx in xrange(0,len(species_names)):
     
     all_syn_differences.extend( syn_differences[species_name] )
     all_syn_opportunities.extend( syn_opportunities[species_name] )
+    
+    if not (syn_opportunities[species_name]>=0).all():
+        print species_name, "bad syn opps"
+        
     all_non_differences.extend( non_differences[species_name] )
     all_non_opportunities.extend( non_opportunities[species_name] )
     all_core_differences.extend( core_differences[species_name] )
@@ -571,6 +575,9 @@ for species_idx in xrange(0,len(species_names)):
     all_syn_singletons.extend(closest_syn_singleton_vector)
     all_syn_differences.extend(closest_syn_difference_vector)
     all_syn_opportunities.extend(closest_syn_opportunity_vector)
+    
+    if not (closest_syn_opportunity_vector>=0).all():
+        print species_name, "bad closest syn opportunities"
     
     all_non_singletons.extend(closest_non_singleton_vector)
     all_non_opportunities.extend(closest_non_opportunity_vector)
