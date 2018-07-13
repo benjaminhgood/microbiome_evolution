@@ -791,9 +791,6 @@ upper_threshold=config.consensus_upper_threshold):
             # site*sample*sample matrix of sites where we can look for differences            
             confident_sites = numpy.logical_and(high_freq_sites[:,:,None], high_freq_sites[:,None,:])*passed_depths
             
-            # Sites that we can't (but we would have)
-            non_confident_sites = numpy.logical_not(confident_sites)*passed_depths
-            
             site_difference_matrix = numpy.logical_or(derived_sites[:,:,None]*ancestral_sites[:,None,:],  ancestral_sites[:,:,None]*derived_sites[:,None,:] )
             
             # this is really the only place you have to switch 
@@ -813,6 +810,10 @@ upper_threshold=config.consensus_upper_threshold):
             # Confident sites is now asymmetric
             confident_sites *= site_sufficient_sample_size_matrix[:,:,None]
             
+            # Sites that we can't count (but we would have counted in passed_sites)
+            non_confident_sites = numpy.logical_not(confident_sites)*passed_depths
+            
+            
             # total number of differences between i and j 
             # (regardless of singleton/doubleton status)
             differences = (site_difference_matrix*confident_sites).sum(axis=0)
@@ -821,7 +822,7 @@ upper_threshold=config.consensus_upper_threshold):
             
             doubletons = (confident_sites * numpy.logical_not(site_difference_matrix) * potential_doubletons[:,:,None]).sum(axis=0)
             
-            opportunities = (passed_sites - non_confident_sites).sum(axis=0) 
+            opportunities = passed_sites - (numpy.logical_not(confident_sites)*passed_depths).sum(axis=0) 
             
             singleton_matrix += singletons
             doubleton_matrix += doubletons
@@ -873,30 +874,35 @@ upper_threshold=config.consensus_upper_threshold, min_change=config.fixation_min
             # Sites where the major allele is at sufficiently high frequency
             high_freq_sites = numpy.logical_or(ancestral_sites, derived_sites)
             # Those where it is not
+            intermediate_freq_sites = numpy.logical_not(high_freq_sites)
             
             # site*sample*sample matrix of sites with sufficient coverage in both samples
             passed_depths = (depths>0)[:,:,None]*(depths>0)[:,None,:]
 
             # site*sample*sample matrix of sites where we can look for differences            
             confident_sites = numpy.logical_and(high_freq_sites[:,:,None], high_freq_sites[:,None,:])*passed_depths
+            
+
+            # site*sample*sample matrix of sites that are missing data 
+            # based on allele freqs, but which had sufficient coverage
+            # (we need to remove these from opportunities below)
+            missing_data_sites = numpy.logical_or(intermediate_freq_sites[:,:,None],intermediate_freq_sites[:,None,:])*passed_depths
               
             # Calculate mutations and reversions
             mutations = (ancestral_sites[:,:,None])*(derived_sites[:,None,:])*confident_sites
             
-            mutation_opportunities = (ancestral_sites[:,:,None])*confident_sites
-            
             reversions = (derived_sites[:,:,None])*(ancestral_sites[:,None,:])*confident_sites
             
-            reversion_opportunities = (derived_sites[:,:,None])*confident_sites
-
+            # sites were you could have had a reversion
+            reversion_opportunities = derived_sites[:,:,None]*confident_sites
+            
             mut_fixation_matrix += (mutations).sum(axis=0)
             rev_fixation_matrix += (reversions).sum(axis=0)
             
-            rev_opportunity_matrix += reversion_opportunities.sum(axis=0)
-            mut_opportunity_matrix += mutation_opportunities.sum(axis=0)
+            rev_opportunity_matrix += (reversion_opportunities).sum(axis=0)
+            mut_opportunity_matrix += (passed_sites - missing_data_sites.sum(axis=0) - reversion_opportunities.sum(axis=0) ) 
             
-    return mut_fixation_matrix, rev_fixation_matrix, mut_opportunity_matrix, rev_opportunity_matrix
-    
+    return mut_fixation_matrix, rev_fixation_matrix, mut_opportunity_matrix, rev_opportunity_matrix    
     
 
 def calculate_fixation_matrix(allele_counts_map, passed_sites_map, allowed_variant_types=set([]), allowed_genes=set([]), lower_threshold=config.consensus_lower_threshold, 
