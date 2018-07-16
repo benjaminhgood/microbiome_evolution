@@ -138,8 +138,8 @@ data = {}
 
 for species_name in good_species_list:
 
-    #if not species_name.startswith('Bacteroides'):
-    #    continue
+    if not species_name.startswith('Bacteroides'):
+        continue
 
     sys.stderr.write("Loading haploid samples...\n")
     # Only plot samples above a certain depth threshold that are "haploids"
@@ -545,7 +545,7 @@ divergence_axis.loglog(theory_ds, theory_dNdSs,'r-')
 
 cumulative_axis.set_xlim([1e-05,1e-02])
 cumulative_axis.set_ylim([5e-02,2])
-cumulative_singleton_axis.set_ylim([1e-01,100])
+cumulative_singleton_axis.set_ylim([5e-02,2])
 
 
 singleton_axis.set_xlim([1e-06,1e-01])

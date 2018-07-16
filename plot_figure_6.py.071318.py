@@ -110,10 +110,6 @@ species_snp_change_distribution = {}
 species_gene_change_distribution = {}
 
 # observed within host value for twins
-pooled_young_twin_snp_change_distribution = []
-pooled_young_twin_gene_change_distribution = []
-
-# observed within host value for twins
 pooled_twin_snp_change_distribution = []
 pooled_twin_gene_change_distribution = []
 
@@ -121,6 +117,7 @@ pooled_twin_gene_change_distribution = []
 pooled_snp_change_distribution = []
 pooled_gene_change_distribution = []
 
+pooled_replacement_snp_change_distribution = []
 pooled_replacement_gene_change_distribution = []
 
 # typical value, median other sample
@@ -133,7 +130,7 @@ pooled_min_between_gene_change_distribution = []
 
 replacement_map = {}
 
-countries = ["United States", "United Kingdom", "Western Europe"]
+countries = ["United States", "United Kingdom"]
 
 for species_name in good_species_list:
 
@@ -157,7 +154,6 @@ for species_name in good_species_list:
        
     hmp_samples = set()
     twin_samples = set()
-    young_twin_samples = set()
     
     qp_counts = {country:[0,0,0,0] for country in countries}
     
@@ -209,10 +205,6 @@ for species_name in good_species_list:
                     twin_samples.add(sample_i)
                     twin_samples.add(sample_j)
                         
-                        
-                elif country=='Western Europe':
-                    young_twin_samples.add(sample_i)
-                    young_twin_samples.add(sample_j)
                 else:
                     pass
                         
@@ -240,12 +232,8 @@ for species_name in good_species_list:
 
     twin_samples = list(twin_samples)
     allowed_twin_sample_set = set(twin_samples)
-    
-    young_twin_samples = list(young_twin_samples)
-    allowed_young_twin_sample_set = set(young_twin_samples)
-    
         
-    combined_samples = (snp_samples+twin_samples+young_twin_samples)
+    combined_samples = (snp_samples+twin_samples)
     allowed_combined_sample_set = set(combined_samples)
     
     sys.stderr.write("Proceeding with %d longitudinal comparisons with %d samples!\n" % (sample_size, len(snp_samples)))
@@ -340,60 +328,14 @@ for species_name in good_species_list:
         if (perr<-0.5) or (gene_perr < -0.5):
             continue
         
-        if (nerr > max([0.5, 0.1*num_snp_changes])) or (gene_nerr > max([0.5, 0.1*num_gene_changes])):     
-            continue 
-            
+        if (nerr > 0.1*num_snp_changes) or (gene_nerr > 0.1*num_gene_changes):
+            continue # Only take things with low-ish FPR
+             
+        
         pooled_twin_snp_change_distribution.append(num_snp_changes)
         pooled_twin_gene_change_distribution.append(num_gene_changes)    
-    
-    ############################
-    #
-    # Calculate between-twin changes for young twins from Korpela et al
-    #
-    ############################
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, young_twin_samples)
-    
-    for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
-    #    
-        i = same_subject_idxs[0][sample_pair_idx]
-        j = same_subject_idxs[1][sample_pair_idx]
-    
-        sample_i = young_twin_samples[i] 
-        sample_j = young_twin_samples[j]
-        
-        if not ((sample_i in allowed_young_twin_sample_set) and (sample_j in allowed_young_twin_sample_set)):
-            continue
-        
-        L, perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-        
-        nerr = L*perr
-        
-        num_mutations = len(mutations)
-        num_reversions = len(reversions)
-        num_snp_changes = num_mutations+num_reversions
-        
-        gene_L, gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-        
-        gene_nerr = gene_L*gene_perr
-        num_gains = len(gains)
-        num_losses = len(losses)
-        num_gene_changes = num_gains+num_losses
-        
-        if (perr<-0.5) or (gene_perr < -0.5):
-            continue
-        
-        if (nerr > max([0.5, 0.1*num_snp_changes])) or (gene_nerr > max([0.5, 0.1*num_gene_changes])):     
-            continue 
             
-        pooled_young_twin_snp_change_distribution.append(num_snp_changes)
-        pooled_young_twin_gene_change_distribution.append(num_gene_changes)            
  
- 
-    ###
-    #
-    # Now do it for the HMP samples
-    #
-    ###
     same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
     
     for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
@@ -409,51 +351,76 @@ for species_name in good_species_list:
         
         L, perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
         
-        nerr = L*perr
+        perr = L*perr
         
-        num_mutations = len(mutations)
-        num_reversions = len(reversions)
-        num_snp_changes = num_mutations+num_reversions
+        if perr>=0.5:
+            
+            # Calculate a more fine grained value!
         
-        gene_L, gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-        
-        gene_nerr = gene_L*gene_perr
-        num_gains = len(gains)
-        num_losses = len(losses)
-        num_gene_changes = num_gains+num_losses
-        
-        if (perr<-0.5) or (gene_perr < -0.5):
-            continue
-        
-        if (nerr > max([0.5, 0.1*num_snp_changes])) or (gene_nerr > max([0.5, 0.1*num_gene_changes])):
-            continue # Only take things with low-ish FPR
+            dfs = numpy.array([0.6,0.7,0.8,0.9])
+            perrs = diversity_utils.calculate_fixation_error_rate(sfs_map, sample_i, sample_j,dfs=dfs) * L # (correcting for multiple hypothesis testing, good.
+    
+            if (perrs<0.5).any():
+                # take most permissive one!
+                perr_idx = numpy.nonzero(perrs<0.5)[0][0]
+                df = dfs[perr_idx]
+                perr = perrs[perr_idx]
+            
+                # recalculate stuff!    
+                dummy_L, dummy_perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j,lower_threshold=(1-df)/2.0, upper_threshold=(1+df)/2.0)
+                
+            else:
+                df = 2
+                perr = 1
+                mutations = None
+                reversions = None
+    
+        if mutations==None or perr>=0.5:
+            num_mutations = 0
+            num_reversions = 0
+            num_snp_changes = -1
+        else:
+            num_mutations = len(mutations)
+            num_reversions = len(reversions)
+            num_snp_changes = num_mutations+num_reversions
     
         
-        if not ((sample_i in allowed_sample_set) and (sample_j in allowed_sample_set)):
-            continue
+        gene_L, gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+    
+        if gene_L>0:
+            gene_perr = gene_L*gene_perr
         
-        pooled_snp_change_distribution.append(num_snp_changes)
-                
-        species_snp_change_distribution[species_name].append( num_snp_changes)
+        if (gains==None) or (gene_perr<-0.5) or (gene_perr>0.5):
+            num_gains = 0
+            num_losses = 0
+            num_gene_changes = -1
+        else:
+            num_gains = len(gains)
+            num_losses = len(losses)
+            num_gene_changes = num_gains+num_losses
+    
+    
+        if (num_snp_changes>-0.5):
+            pooled_snp_change_distribution.append(num_snp_changes)
+            species_snp_change_distribution[species_name].append(num_snp_changes)
             
-        good_idxs = sample_utils.calculate_samples_in_different_subjects( subject_sample_map, snp_samples, sample_i)
+            good_idxs = sample_utils.calculate_samples_in_different_subjects( subject_sample_map, snp_samples, sample_i)
 
-        # typical
-        pooled_between_snp_change_distribution.append( numpy.median(snp_difference_matrix[i, good_idxs]) )
+            # typical
+            pooled_between_snp_change_distribution.append( numpy.median(snp_difference_matrix[i, good_idxs]) )
             
-        # minimum
-        pooled_min_between_snp_change_distribution.append( snp_difference_matrix[i, good_idxs].min() )
+            # minimum
+            pooled_min_between_snp_change_distribution.append( snp_difference_matrix[i, good_idxs].min() )
             
             
-        if (num_snp_changes>=replacement_difference_threshold):
+        if (num_snp_changes>=modification_difference_threshold):
             sample_pair = (sample_i, sample_j)
             if sample_pair not in replacement_map:
                 replacement_map[sample_pair] = []
             replacement_map[sample_pair].append(species_name)
-            pooled_replacement_gene_change_distribution.append( num_gene_changes )   
             
-        if (num_snp_changes<=modification_difference_threshold):
-        
+            
+        if (num_snp_changes<modification_difference_threshold) and (num_snp_changes>-0.5):
             total_snp_modification_map[species_name] += num_snp_changes
             total_null_snp_modification_map[species_name] += perr
             
@@ -914,37 +881,24 @@ pooled_snp_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label=('Within
 
 pooled_twin_gene_change_distribution = numpy.array(pooled_twin_gene_change_distribution)
 pooled_gene_change_distribution = numpy.array(pooled_gene_change_distribution)
-pooled_replacement_gene_change_distribution = numpy.array(pooled_replacement_gene_change_distribution)
 pooled_between_gene_change_distribution = numpy.array(pooled_between_gene_change_distribution)
 pooled_min_between_gene_change_distribution = numpy.array(pooled_min_between_gene_change_distribution)
 
 pooled_gene_change_distribution = numpy.clip(pooled_gene_change_distribution, 1e-01,1e08)
-pooled_replacement_gene_change_distribution = numpy.clip(pooled_replacement_gene_change_distribution, 1e-01,1e08)
-
 pooled_twin_gene_change_distribution = numpy.clip(pooled_twin_gene_change_distribution, 1e-01,1e08)
 pooled_between_gene_change_distribution = numpy.clip(pooled_between_gene_change_distribution, 1e-01,1e08)
 pooled_min_between_gene_change_distribution = numpy.clip(pooled_min_between_gene_change_distribution, 1e-01,1e08)
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
-print "regular", xs, ns
+pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=1,where='mid',path_effects=[pe.Stroke(linewidth=5, foreground='#9ecae1'), pe.Normal()])
 
-pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=2,where='mid',path_effects=[pe.Stroke(linewidth=5, foreground='#9ecae1'), pe.Normal()])
 
 pooled_gene_axis.loglog([1e-01,1e05],[1.0/ns[0],1.0/ns[0]],'k:')
 
 pooled_gene_axis.set_ylim([1.0/ns[0],1.3])
 pooled_gene_axis.set_yticklabels([])
 #pooled_snp_axis.set_yticklabels(['0.01','0.1','1'])
-
-
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_replacement_gene_change_distribution, min_x=1e-02, max_x=1e09)
-
-print "replacement", xs, ns
-
-pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=1,where='mid',path_effects=[pe.Stroke(linewidth=5, foreground='#fee0d2'), pe.Normal()])
-
-
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_twin_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
