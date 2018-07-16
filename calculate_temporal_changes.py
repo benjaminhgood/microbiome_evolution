@@ -17,7 +17,7 @@ import gzip
 import os
 
 temporal_change_directory = '%stemporal_changes/' % (parse_midas_data.data_directory)
-intermediate_filename_template = '%s%s.txt.debug.gz'  
+intermediate_filename_template = '%s%s.txt.gz'  
 
 min_coverage = config.min_median_coverage
 min_sample_size = 2
