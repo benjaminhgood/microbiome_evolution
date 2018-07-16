@@ -221,8 +221,7 @@ def calculate_effective_NR(rsquared_ratio):
     return brentq(lambda x: normalized_neutral_rsquared(x)-rsquared_ratio, 0, 1e09)
      
  
- 
-    
+     
 for species_idx in xrange(0,num_passed_species):
     species_name = passed_species[species_idx]
     # Load precomputed LD

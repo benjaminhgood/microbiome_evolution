@@ -1186,7 +1186,10 @@ def load_core_genes_from_pangenome(desired_species_name, min_copynum=0.3, min_pr
 # Returns map from subject_id -> visno -> [[sample_id, study_day_1], [sample_id, study_day_2], etc]
 #
 #######################################################################################
-def parse_subject_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp_data/HMP_ids_time.txt")): 
+#def parse_subject_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp_data/HMP_ids_time.txt")): 
+
+def parse_subject_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp_scripts/HMP1-2_ids_order.txt")): 
+
     file = open(filename,"r")
     file.readline() # header
     
@@ -1198,7 +1201,8 @@ def parse_subject_sample_time_map(filename=os.path.expanduser("~/ben_nandita_hmp
         subject_id= items[0].strip()
         sample_id = items[1].strip()
         visno     = int(items[5].strip())
-        study_day = int(items[6].strip())
+        #study_day = int(items[6].strip())
+        study_day=0
 
         if subject_id not in subject_sample_time_map:
             subject_sample_time_map[subject_id] = {}

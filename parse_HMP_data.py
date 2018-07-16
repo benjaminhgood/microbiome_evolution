@@ -107,6 +107,22 @@ def parse_sample_metadata_map():
         
     file.close()
     
+    # now load Korpela data
+    file = open(config.scripts_directory+"korpela_twin_ids.txt","r")
+    file.readline() # header
+    for line in file:
+        items = line.split("\t")
+        subject_id=items[0].strip()
+        sample_id = items[7].strip()
+        accession_id = items[2].strip()
+        country = items[3].strip()
+        continent = items[4].strip()
+        order = long(items[5].strip())
+        
+        sample_metadata_map[sample_id] = (subject_id, sample_id, accession_id, country, continent, order)
+        
+    file.close()
+
     return sample_metadata_map
     
 def filter_sample_metadata_map(sample_metadata_map, field, field_value):

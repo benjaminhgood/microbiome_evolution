@@ -222,6 +222,12 @@ for example_idx in xrange(0,len(examples)):
     #
     snp_substitution_rate = snp_difference_matrix*1.0/(snp_opportunity_matrix+(snp_opportunity_matrix==0))
     snp_substitution_rate = numpy.clip(snp_substitution_rate,1e-09,10)
+
+    # which samples are most closely related?
+    for i in range(0, len(snp_substitution_rate)):
+        for j in range(i+1, len(snp_substitution_rate)):
+            if snp_substitution_rate[i,j]<0.00001 and i!=j:
+                print snp_samples[i] +'\t' + snp_samples[j] + '\t' + str(snp_substitution_rate[i,j])
     #
     sys.stderr.write("Done!\n")   
     #
