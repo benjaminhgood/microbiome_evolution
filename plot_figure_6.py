@@ -61,6 +61,7 @@ replacement_difference_threshold = config.replacement_difference_threshold
 
 min_coverage = config.min_median_coverage
 min_sample_size = 5
+min_haploid_sample_size = 5
 
 variant_types = ['1D','4D']
 
@@ -135,7 +136,12 @@ replacement_map = {}
 
 countries = ["United States", "United Kingdom", "Western Europe"]
 
+young_twin_output_strs = []
+twin_output_strs = []
+
 for species_name in good_species_list:
+
+    sys.stderr.write("\nProcessing %s...\n" % species_name)
 
     # all samples
     all_samples = sample_order_map.keys()
@@ -148,7 +154,7 @@ for species_name in good_species_list:
     
     #print len(all_samples), len(highcoverage_samples), len(haploid_samples)
        
-    if len(haploid_samples) < min_sample_size:
+    if len(haploid_samples) < min_haploid_sample_size:
         continue
 
     same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, all_samples)
@@ -184,7 +190,10 @@ for species_name in good_species_list:
 
         if not ((sample_i in highcoverage_samples) and (sample_j in highcoverage_samples)):
             
-            qp_counts[country][0] += 1
+            # In one but not the other
+            if ((sample_i in highcoverage_samples) or (sample_j in highcoverage_samples)):
+            
+                qp_counts[country][0] += 1
             
         else:
             
@@ -194,7 +203,7 @@ for species_name in good_species_list:
                 
                 qp_counts[country][1] += 1
                     
-                if country=="United States":
+                if country==countries[0]:
                         
                     # An HMP pair
                 
@@ -203,14 +212,14 @@ for species_name in good_species_list:
                 
                     hmp_sample_size += 1
                         
-                elif country=='United Kingdom':
+                elif country==countries[1]:
                         
                     # A UK Twin pair
                     twin_samples.add(sample_i)
                     twin_samples.add(sample_j)
                         
                         
-                elif country=='Western Europe':
+                elif country==countries[2]:
                     young_twin_samples.add(sample_i)
                     young_twin_samples.add(sample_j)
                 else:
@@ -346,6 +355,10 @@ for species_name in good_species_list:
         pooled_twin_snp_change_distribution.append(num_snp_changes)
         pooled_twin_gene_change_distribution.append(num_gene_changes)    
     
+        if num_snp_changes<replacement_difference_threshold:
+            twin_output_strs.append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
+        
+    
     ############################
     #
     # Calculate between-twin changes for young twins from Korpela et al
@@ -362,6 +375,7 @@ for species_name in good_species_list:
         sample_j = young_twin_samples[j]
         
         if not ((sample_i in allowed_young_twin_sample_set) and (sample_j in allowed_young_twin_sample_set)):
+            print "Not in right sample set!", sample_i, sample_j
             continue
         
         L, perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
@@ -379,12 +393,16 @@ for species_name in good_species_list:
         num_losses = len(losses)
         num_gene_changes = num_gains+num_losses
         
-        if (perr<-0.5) or (gene_perr < -0.5):
+        if (perr<-0.5): # or (gene_perr < -0.5):
+            print "Invalid error rates!", sample_i, sample_j
             continue
         
-        if (nerr > max([0.5, 0.1*num_snp_changes])) or (gene_nerr > max([0.5, 0.1*num_gene_changes])):     
+        if (nerr > max([0.5, 0.1*num_snp_changes])): # or (gene_nerr > max([0.5, 0.1*num_gene_changes])):    
+            print "Bad error rates!", sample_i, sample_j, nerr, gene_nerr
             continue 
             
+        young_twin_output_strs.append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
+        
         pooled_young_twin_snp_change_distribution.append(num_snp_changes)
         pooled_young_twin_gene_change_distribution.append(num_gene_changes)            
  
@@ -581,6 +599,12 @@ for species_name in good_species_list:
     sys.stderr.write("Done with %s!\n" % species_name) 
     
 sys.stderr.write("Done looping over species!\n")    
+
+print "Young twins:"
+print "\n".join(young_twin_output_strs)
+
+print "All twins:"
+print "\n".join(twin_output_strs)
 
 
 species_names = []
@@ -867,6 +891,7 @@ pooled_twin_snp_change_distribution = numpy.array(pooled_twin_snp_change_distrib
 pooled_between_snp_change_distribution = numpy.array(pooled_between_snp_change_distribution)
 pooled_min_between_snp_change_distribution = numpy.array(pooled_min_between_snp_change_distribution)
 
+print pooled_young_twin_snp_change_distribution
 
 print "Mean within host snps =", pooled_snp_change_distribution.mean()
 print "Median withon host snps =", numpy.median(pooled_snp_change_distribution)
@@ -983,7 +1008,7 @@ print between_totals
 
 legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#08519c',label='Within-host\n(modification)')
 legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='r', alpha=0.5, label='Between-host\n(unrelated)')
-legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#8856a7', alpha=0.5, label='Between-host\n(twins)')
+legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#8856a7', alpha=0.5, label='Between-host\n(adult twins)')
 legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='k', alpha=0.5, label='De novo\nexpectation')
 
 legend_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   

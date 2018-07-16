@@ -106,16 +106,22 @@ sys.stderr.write("Done!\n")
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(7, 2))
-fig = pylab.gcf()
+#pylab.figure(1,figsize=(7, 2))
+#fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1],wspace=0.275)
+#outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1],wspace=0.275)
 
-right_grid = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[1,1],hspace=0.1,subplot_spec=outer_grid[1])
 
-pylab.figure(2)
+pylab.figure(1,figsize=(4.5, 2))
+fig = pylab.gcf()
+outer_grid  = gridspec.GridSpec(1,2, width_ratios=[3,1.3],wspace=0.4)
+right_grid = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[1,1],hspace=0.5,subplot_spec=outer_grid[1])
+
+
+pylab.figure(2,figsize=(3.42, 2))
 fig2 = pylab.gcf()
-count_axis = pylab.gca()
+outer_grid2  = gridspec.GridSpec(1,1)
+
 
 ###########################################
 #
@@ -312,11 +318,10 @@ divergence_axis.get_yaxis().tick_left()
 line, = divergence_axis.loglog([1e-06,1e-01],[1,1],'k:',linewidth=0.25)
 line.set_dashes((1,1))
 
-cumulative_axis = inset_axes(divergence_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=divergence_axis.transAxes)
-#-0.025
+#cumulative_axis = inset_axes(divergence_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=divergence_axis.transAxes)
 
-#cumulative_axis = plt.Subplot(fig, right_grid[0])
-#fig.add_subplot(cumulative_axis)
+cumulative_axis = plt.Subplot(fig, right_grid[0])
+fig.add_subplot(cumulative_axis)
 
 
 cumulative_axis.spines['top'].set_visible(False)
@@ -324,13 +329,14 @@ cumulative_axis.spines['right'].set_visible(False)
 cumulative_axis.get_xaxis().tick_bottom()
 cumulative_axis.get_yaxis().tick_left()
 
-cumulative_axis.set_ylabel('Cumulative')
+cumulative_axis.set_ylabel('Cumulative $d_N/d_S$')
+cumulative_axis.set_xlabel('Synonymous divergence')
 
 line, = cumulative_axis.loglog([1e-05,1e-02],[1,1],'k:',linewidth=0.25)
 line.set_dashes((1,1))
 
-singleton_axis = plt.Subplot(fig, outer_grid[1])
-fig.add_subplot(singleton_axis)
+singleton_axis = plt.Subplot(fig2, outer_grid2[0])
+fig2.add_subplot(singleton_axis)
 
 
 singleton_axis.spines['top'].set_visible(False)
@@ -341,19 +347,22 @@ singleton_axis.get_yaxis().tick_left()
 singleton_axis.set_xlabel('Closest divergence, $d^*$')
 singleton_axis.set_ylabel('Private nonsynonymous ratio, $d_N/d_S$')
 
-cumulative_singleton_axis = inset_axes(singleton_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=singleton_axis.transAxes)
+#cumulative_singleton_axis = inset_axes(singleton_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=singleton_axis.transAxes)
 #-0.025
 
-#cumulative_axis = plt.Subplot(fig, right_grid[0])
-#fig.add_subplot(cumulative_axis)
+cumulative_singleton_axis = plt.Subplot(fig, right_grid[1])
+fig.add_subplot(cumulative_singleton_axis)
 
+line, = cumulative_singleton_axis.loglog([1e-05,1e-02],[1,1],'k:',linewidth=0.25)
+line.set_dashes((1,1))
 
 cumulative_singleton_axis.spines['top'].set_visible(False)
 cumulative_singleton_axis.spines['right'].set_visible(False)
 cumulative_singleton_axis.get_xaxis().tick_bottom()
 cumulative_singleton_axis.get_yaxis().tick_left()
 
-cumulative_singleton_axis.set_ylabel('Cumulative')
+cumulative_singleton_axis.set_ylabel('Cumulative private $d_N/d_S$')
+cumulative_singleton_axis.set_xlabel('Closest synonymous \n divergence, $d_S^*$')
 
 
 all_syn_differences = []
@@ -396,6 +405,7 @@ for species_idx in xrange(0,len(species_names)):
     
     all_syn_differences.extend( syn_differences[species_name] )
     all_syn_opportunities.extend( syn_opportunities[species_name] )
+        
     all_non_differences.extend( non_differences[species_name] )
     all_non_opportunities.extend( non_opportunities[species_name] )
     all_core_differences.extend( core_differences[species_name] )
@@ -406,7 +416,7 @@ for species_idx in xrange(0,len(species_names)):
     bad_idxs = numpy.logical_not(good_idxs)
     
     
-    if True and species_name.startswith('Bacteroides'):
+    if False and species_name.startswith('Bacteroides'):
         divergence_axis.loglog(pS2s[good_idxs], pNpSs[good_idxs], 'r.', markersize=2,markeredgewidth=0,zorder=1,rasterized=True)
     else:
         divergence_axis.loglog(pS2s[good_idxs], pNpSs[good_idxs], '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0,rasterized=True)
@@ -420,6 +430,7 @@ all_core_differences = numpy.array(all_non_differences,dtype=numpy.int32)
 all_core_opportunities = numpy.array(all_non_opportunities,dtype=numpy.int32)
 
 all_core_divergence = all_core_differences*1.0/all_core_opportunities
+all_syn_divergence = all_syn_differences*1.0/all_syn_opportunities
 
 all_NS_differences = all_syn_differences + all_non_differences
 all_NS_opportunities = all_syn_opportunities + all_non_opportunities
@@ -437,34 +448,40 @@ for bootstrap_idx in xrange(0,num_bootstraps):
     lower_pNpSs = []
     upper_pNpSs = []
     
+    # bootstrap dataset using poisson resampling
+    # Pseudocounts are added so that things w/ zero counts are not "stuck" there in resampling
+    # Pseudocounts are chosen w/ dN/dS=1, so should be conservative?
+    # (alternatively, we could choose dN/dS=0.1, but that seems a little unfair)
+    pseudocount = 0 #1.0
+    bootstrapped_non_differences = poisson(all_non_differences+pseudocount) 
+    bootstrapped_syn_differences = poisson(all_syn_differences+all_syn_opportunities*pseudocount/all_non_opportunities)
+    bootstrapped_NS_differences = bootstrapped_non_differences + bootstrapped_syn_differences
+    bootstrapped_thinned_syn_differences_1 = binomial(bootstrapped_syn_differences,0.5)
+    bootstrapped_thinned_syn_differences_2 = bootstrapped_syn_differences-bootstrapped_thinned_syn_differences_1
+    
+    bootstrapped_divergence = bootstrapped_thinned_syn_differences_1 / (all_syn_opportunities/2.0)
+    
     for d in ds:
         
-        lower_idxs = (all_core_divergence <= d)*(all_NS_differences>0.5)
-        upper_idxs = (all_core_divergence > d)*(all_NS_differences>0.5)
+        lower_idxs = (bootstrapped_divergence <= d)*(all_NS_differences>0.5)*(bootstrapped_NS_differences>0.5)
+        upper_idxs = (bootstrapped_divergence > d)*(all_NS_differences>0.5)*(bootstrapped_NS_differences>0.5)
         
         if lower_idxs.sum()<1.5:
             lower_pNpSs.append(-1)
         else:
             
-            lower_bootstrapped_non_differences = binomial(all_NS_differences[lower_idxs], all_fractions[lower_idxs]) 
-            lower_bootstrapped_syn_differences = all_NS_differences[lower_idxs]-lower_bootstrapped_non_differences
-            
-            lower_cumulative_non_differences = lower_bootstrapped_non_differences.sum()
-            lower_cumulative_expected_non_differences = (lower_bootstrapped_syn_differences*1.0/all_syn_opportunities[lower_idxs]*all_non_opportunities[lower_idxs]).sum() 
-            lower_pNpSs.append( (lower_cumulative_non_differences+1)/(lower_cumulative_expected_non_differences+1) )
+            lower_cumulative_non_differences = (bootstrapped_non_differences)[lower_idxs].sum()
+            lower_cumulative_expected_non_differences = (bootstrapped_thinned_syn_differences_2[lower_idxs]*2.0/all_syn_opportunities[lower_idxs]*all_non_opportunities[lower_idxs]).sum() 
+            lower_pNpSs.append( (lower_cumulative_non_differences)/(lower_cumulative_expected_non_differences) )
         
         
         if upper_idxs.sum()<1.5:
             upper_pNpSs.append(-1)
         else:
-            upper_bootstrapped_non_differences = binomial(all_NS_differences[upper_idxs], all_fractions[upper_idxs]) 
-            upper_bootstrapped_syn_differences = all_NS_differences[upper_idxs]-upper_bootstrapped_non_differences
+            upper_cumulative_non_differences = (bootstrapped_non_differences[upper_idxs]).sum()
+            upper_cumulative_expected_non_differences = (bootstrapped_thinned_syn_differences_2[upper_idxs]*2.0/all_syn_opportunities[upper_idxs]*all_non_opportunities[upper_idxs]).sum() 
+            upper_pNpSs.append( (upper_cumulative_non_differences)/(upper_cumulative_expected_non_differences) )
         
-
-        
-            upper_cumulative_non_differences = upper_bootstrapped_non_differences.sum()
-            upper_cumulative_expected_non_differences = (upper_bootstrapped_syn_differences*1.0/all_syn_opportunities[upper_idxs]*all_non_opportunities[upper_idxs]).sum() 
-            upper_pNpSs.append( (upper_cumulative_non_differences+1)/(upper_cumulative_expected_non_differences+1) )
         
     cf_ratios.append(lower_pNpSs)
     sf_ratios.append(upper_pNpSs)
@@ -505,9 +522,9 @@ std_cf_ratios = numpy.array(std_cf_ratios)
 avg_sf_ratios = numpy.array(avg_sf_ratios)
 std_sf_ratios = numpy.array(std_sf_ratios)
 
-good_idxs = (avg_sf_ratios>-0.5)
-cumulative_axis.fill_between(ds[good_idxs], avg_sf_ratios[good_idxs]-2*std_sf_ratios[good_idxs], avg_sf_ratios[good_idxs]+2*std_sf_ratios[good_idxs],color='b',linewidth=0)
-cumulative_axis.loglog(ds[good_idxs], avg_sf_ratios[good_idxs],'b-')
+#good_idxs = (avg_sf_ratios>-0.5)
+#cumulative_axis.fill_between(ds[good_idxs], avg_sf_ratios[good_idxs]-2*std_sf_ratios[good_idxs], avg_sf_ratios[good_idxs]+2*std_sf_ratios[good_idxs],color='b',linewidth=0)
+#cumulative_axis.loglog(ds[good_idxs], avg_sf_ratios[good_idxs],'b-')
 
 good_idxs = (avg_cf_ratios>-0.5)
 cumulative_axis.fill_between(ds[good_idxs], avg_cf_ratios[good_idxs]-2*std_cf_ratios[good_idxs], avg_cf_ratios[good_idxs]+2*std_cf_ratios[good_idxs],color='r',linewidth=0)
@@ -522,7 +539,7 @@ divergence_axis.loglog(median_pSs, median_pNs*1.0/median_pSs, 'kx',markersize=2,
 
 divergence_axis.legend(loc='lower left',frameon=False,numpoints=1)
 
-divergence_axis.set_ylim([1e-02,30])    
+divergence_axis.set_ylim([1e-02,10])    
 divergence_axis.set_xlim([1e-06,1e-01])
 
 theory_ds = numpy.logspace(-6,-1,100)
@@ -534,7 +551,7 @@ divergence_axis.loglog(theory_ds, theory_dNdSs,'r-')
 
 cumulative_axis.set_xlim([1e-05,1e-02])
 cumulative_axis.set_ylim([5e-02,2])
-cumulative_singleton_axis.set_ylim([5e-02,10])
+cumulative_singleton_axis.set_ylim([5e-02,2])
 
 
 singleton_axis.set_xlim([1e-06,1e-01])
@@ -546,6 +563,7 @@ all_closest_differences = []
 all_closest_opportunities = []
 
 all_syn_singletons = []
+all_syn_differences = []
 all_syn_opportunities = []
 all_non_singletons = []
 all_non_opportunities = []
@@ -561,7 +579,11 @@ for species_idx in xrange(0,len(species_names)):
     all_closest_opportunities.extend(closest_opportunity_vector)
     
     all_syn_singletons.extend(closest_syn_singleton_vector)
+    all_syn_differences.extend(closest_syn_difference_vector)
     all_syn_opportunities.extend(closest_syn_opportunity_vector)
+    
+    if not (closest_syn_opportunity_vector>=0).all():
+        print species_name, "bad closest syn opportunities"
     
     all_non_singletons.extend(closest_non_singleton_vector)
     all_non_opportunities.extend(closest_non_opportunity_vector)
@@ -579,15 +601,22 @@ for species_idx in xrange(0,len(species_names)):
 all_closest_differences = numpy.array(all_closest_differences,dtype=numpy.int32)
 all_closest_opportunities = numpy.array(all_closest_opportunities,dtype=numpy.int32)
 all_syn_singletons = numpy.array(all_syn_singletons,dtype=numpy.int32)
+all_syn_differences = numpy.array(all_syn_differences,dtype=numpy.int32)
 all_syn_opportunities = numpy.array(all_syn_opportunities,dtype=numpy.int32)
 all_non_singletons = numpy.array(all_non_singletons,dtype=numpy.int32)
 all_non_opportunities = numpy.array(all_non_opportunities,dtype=numpy.int32)
+
+avg_singleton_dnds = all_non_singletons.sum()*1.0/all_non_opportunities.sum()/(all_syn_singletons.sum()*1.0/all_syn_opportunities.sum())
 
 all_core_divergence = all_closest_differences*1.0/all_closest_opportunities
 
 all_NS_singletons = all_syn_singletons + all_non_singletons
 all_NS_opportunities = all_syn_opportunities + all_non_opportunities
 all_fractions = all_non_singletons*1.0/(all_NS_singletons+(all_NS_singletons==0))
+
+all_syn_other = all_syn_differences-all_syn_singletons
+    
+print (all_syn_opportunities>=0).all()
     
 ds = numpy.logspace(-5,-2,20)
 
@@ -598,38 +627,56 @@ sys.stderr.write("Bootstrapping singleton dN/dS...\n")
 num_bootstraps = 1000
 for bootstrap_idx in xrange(0,num_bootstraps):
     
+    # bootstrap dataset using poisson resampling
+    # Pseudocounts are added so that things w/ zero counts are not "stuck" there in resampling
+    # Pseudocounts are chosen w/ dN/dS=1, so should be conservative?
+    # (alternatively, we could choose dN/dS=0.1, but that seems a little unfair)
+    pseudocount = 0.0
+    bootstrapped_non_singletons = poisson(all_non_singletons+pseudocount) 
+    bootstrapped_syn_singletons = poisson(all_syn_singletons+all_syn_opportunities*pseudocount/all_non_opportunities)
+    bootstrapped_syn_other = poisson(all_syn_other)
+
+    bootstrapped_NS_singletons = bootstrapped_non_singletons + bootstrapped_syn_singletons
+    
+    bootstrapped_thinned_syn_singletons_1 = binomial(bootstrapped_syn_singletons,0.5)
+    bootstrapped_thinned_syn_singletons_2 = bootstrapped_syn_singletons-bootstrapped_thinned_syn_singletons_1
+    bootstrapped_thinned_syn_other_1 = binomial(bootstrapped_syn_other,0.5)
+    
+    bootstrapped_divergence = (bootstrapped_thinned_syn_singletons_1 + bootstrapped_thinned_syn_other_1) / (all_syn_opportunities/2.0)
+   
+    #print (bootstrapped_non_singletons>=0).all()
+    #print (bootstrapped_thinned_syn_singletons_2>=0).all()
+    
+    
     lower_pNpSs = []
     upper_pNpSs = []
     
     for d in ds:
         
-        lower_idxs = (all_core_divergence <= d)*(all_NS_singletons>0.5)
+        lower_idxs = (bootstrapped_divergence <= d)*(all_NS_singletons>0.5)*(bootstrapped_NS_singletons>0.5)
+        upper_idxs = (bootstrapped_divergence > d)*(all_NS_singletons>0.5)*(bootstrapped_NS_singletons>0.5)
         
         if lower_idxs.sum()<1.5:
             lower_pNpSs.append(-1)
         else:
         
-            # bootstrapped version
-            lower_bootstrapped_non_singletons = binomial(all_NS_singletons[lower_idxs], all_fractions[lower_idxs]) 
-            lower_bootstrapped_syn_singletons = all_NS_singletons[lower_idxs]-lower_bootstrapped_non_singletons
+            numerators = (bootstrapped_non_singletons[lower_idxs])
+            denominators = (bootstrapped_thinned_syn_singletons_2[lower_idxs]*2.0/all_syn_opportunities[lower_idxs]*all_non_opportunities[lower_idxs]) 
         
-            lower_cumulative_non_singletons = lower_bootstrapped_non_singletons.sum()
-            lower_cumulative_expected_non_singletons = (lower_bootstrapped_syn_singletons*1.0/all_syn_opportunities[lower_idxs]*all_non_opportunities[lower_idxs]).sum() 
-            lower_pNpSs.append( (lower_cumulative_non_singletons+1)/(lower_cumulative_expected_non_singletons+1) )
+            lower_cumulative_non_singletons = numerators.sum() 
+            lower_cumulative_expected_non_singletons = denominators.sum()
+            lower_pNpSs.append( (lower_cumulative_non_singletons)/(lower_cumulative_expected_non_singletons) )
         
-        upper_idxs = (all_core_divergence > d)*(all_NS_singletons>0.5)
         
         
         if upper_idxs.sum()<1.5:
             upper_pNpSs.append(-1)
         else:
         
-            upper_bootstrapped_non_singletons = binomial(all_NS_singletons[upper_idxs], all_fractions[upper_idxs]) 
-            upper_bootstrapped_syn_singletons = all_NS_singletons[upper_idxs]-upper_bootstrapped_non_singletons
-        
-            upper_cumulative_non_singletons = upper_bootstrapped_non_singletons.sum()
-            upper_cumulative_expected_non_singletons = (upper_bootstrapped_syn_singletons*1.0/all_syn_opportunities[upper_idxs]*all_non_opportunities[upper_idxs]).sum() 
-            upper_pNpSs.append( (upper_cumulative_non_singletons+1)/(upper_cumulative_expected_non_singletons+1) )
+            
+            upper_cumulative_non_singletons = (bootstrapped_non_singletons[upper_idxs]).sum()
+            upper_cumulative_expected_non_singletons = (bootstrapped_thinned_syn_singletons_2[upper_idxs]*2.0/all_syn_opportunities[upper_idxs]*all_non_opportunities[upper_idxs]).sum() 
+            upper_pNpSs.append( (upper_cumulative_non_singletons)/(upper_cumulative_expected_non_singletons) )
         
 
         
@@ -640,6 +687,8 @@ for bootstrap_idx in xrange(0,num_bootstraps):
     
 cf_ratios = numpy.array(cf_ratios)
 sf_ratios = numpy.array(sf_ratios)
+
+print (cf_ratios>=0).all()
 
 sys.stderr.write("Done!\n")
 
@@ -657,6 +706,7 @@ for i in xrange(0,len(ds)):
         avg_cf_ratios.append(-1)
         std_cf_ratios.append(0)
     else:
+        #print ratios[good_idxs]
         avg_cf_ratios.append( ratios[good_idxs].mean() )
         std_cf_ratios.append( ratios[good_idxs].std() )
     
@@ -675,13 +725,22 @@ std_cf_ratios = numpy.array(std_cf_ratios)
 avg_sf_ratios = numpy.array(avg_sf_ratios)
 std_sf_ratios = numpy.array(std_sf_ratios)
 
-good_idxs = (avg_sf_ratios>-0.5)
-cumulative_singleton_axis.fill_between(ds[good_idxs], avg_sf_ratios[good_idxs]-2*std_sf_ratios[good_idxs], avg_sf_ratios[good_idxs]+2*std_sf_ratios[good_idxs],color='b',linewidth=0)
-cumulative_singleton_axis.loglog(ds[good_idxs], avg_sf_ratios[good_idxs], 'b-')
+print avg_cf_ratios
+print std_cf_ratios
+
+#good_idxs = (avg_sf_ratios>-0.5)
+#cumulative_singleton_axis.fill_between(ds[good_idxs], avg_sf_ratios[good_idxs]-2*std_sf_ratios[good_idxs], avg_sf_ratios[good_idxs]+2*std_sf_ratios[good_idxs],color='b',linewidth=0)
+#cumulative_singleton_axis.loglog(ds[good_idxs], avg_sf_ratios[good_idxs], 'b-')
+
+#cumulative_singleton_axis.loglog(ds, avg_singleton_dnds*numpy.ones_like(ds),'k-')
+
+#cumulative_singleton_axis.loglog(TODO)
 
 good_idxs = (avg_cf_ratios>-0.5)
 cumulative_singleton_axis.fill_between(ds[good_idxs], avg_cf_ratios[good_idxs]-2*std_cf_ratios[good_idxs], avg_cf_ratios[good_idxs]+2*std_cf_ratios[good_idxs],color='r',linewidth=0)
 cumulative_singleton_axis.loglog(ds[good_idxs], avg_cf_ratios[good_idxs], 'r-')
+
+
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_3.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=600)

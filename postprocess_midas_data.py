@@ -72,7 +72,7 @@ sys.stderr.write('Done calculating singleton rates!\n')
 
 # Calculate private SNVs
 sys.stderr.write('Calculating private SNVs...\n')
-#os.system('python %scalculate_private_snvs.py %s' % (parse_midas_data.scripts_directory, species_name))
+os.system('python %scalculate_private_snvs.py %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating private SNVs!\n')
 
 # Calculate temporal changes
