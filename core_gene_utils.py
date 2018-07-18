@@ -3,15 +3,21 @@ import sys
 import config
 import gzip
 import os.path
+import os
 import midas_db_utils
 
-default_external_shared_gene_filename = (config.data_directory+"external_shared_genes.txt.gz")
-default_external_core_gene_filename = (config.data_directory+"external_core_genes.txt.gz")
-default_external_stringent_core_gene_filename = (config.data_directory+"core_genes_stringent.txt.gz")
+core_genes_directory = ("%score_genes/" % config.data_directory)
+external_core_genes_directory = ("%score_genes/external" % config.data_directory)
 
-default_shared_gene_filename = (config.data_directory+"shared_genes.txt.gz")
-default_core_gene_filename = (config.data_directory+"core_genes.txt.gz")
-default_stringent_core_gene_filename = (config.data_directory+"core_genes_stringent.txt.gz")
+default_external_shared_gene_filename = (external_core_genes_directory+"shared_genes.txt.gz")
+default_external_core_gene_filename = (external_core_genes_directory+"core_genes.txt.gz")
+default_external_stringent_core_gene_filename = (external_core_genes_directory+"core_genes_stringent.txt.gz")
+default_external_gene_freq_template = (external_core_genes_directory+"%s_gene_freqs.txt.gz")
+
+default_shared_gene_filename = (core_genes_directory+"shared_genes.txt.gz")
+default_core_gene_filename = (core_genes_directory+"core_genes.txt.gz")
+default_stringent_core_gene_filename = (core_genes_directory+"core_genes_stringent.txt.gz")
+default_gene_freq_template = (core_genes_directory+"%s_gene_freqs.txt.gz")
 
 def parse_core_genes(desired_species_name="", core_gene_filename=default_core_gene_filename, external_core_gene_filename=default_external_core_gene_filename, external_filtering=True):
     
@@ -125,11 +131,39 @@ def get_good_pangenome_samples(marker_coverages, gene_copynum_matrix):
     
     good_sample_idxs = (num_present_genes>0.3*num_reference_genes)*(num_high_genes<0.3*num_present_genes)
     return good_sample_idxs
+
+
+def parse_gene_freqs(desired_species_name, use_external=False):
+    
+    if use_external:
+        filename_template = default_external_gene_freq_template
+    else:
+        filename_template = default_gene_freq_template
+    
+    
+    filename = filename_template % (desired_species_name)
+    if not os.path.isfile(filename):
+        return None
+        
+    file = gzip.open(filename,"r")
+    gene_freq_map = {}
+    for line in file:
+        items = line.split()
+        gene_name = items[0]
+        f = float(items[1])
+        gene_freq_map[gene_name] = f
+    file.close()
+    
+    return gene_freq_map
+            
     
 # Actually calculate the core genes
 if __name__=='__main__':
     
     import parse_midas_data
+    
+    os.system('mkdir -p %s' % core_genes_directory)
+    os.system('mkdir -p %s' % external_core_genes_directory)
     
     pangenome_species = parse_midas_data.parse_good_species_list()
  
@@ -179,6 +213,7 @@ if __name__=='__main__':
 
         if bad_pangenome_data:
             # Just use reference genes
+            sys.stderr.write("Bad pangenome data for %s!\n" % species_name)
             shared_gene_names = sorted(midas_shared_genes)
             core_gene_names = sorted(reference_genes - midas_shared_genes)
             stringent_gene_names = sorted(reference_genes - midas_shared_genes)
@@ -194,7 +229,7 @@ if __name__=='__main__':
             good_sample_idxs = get_good_pangenome_samples(marker_coverages, gene_copynum_matrix)
             bad_sample_idxs = numpy.logical_not(good_sample_idxs)
                     
-            sys.stderr.write("%d bad samples!\n" % bad_sample_idxs.sum())
+            #sys.stderr.write("%d bad samples!\n" % bad_sample_idxs.sum())
             
             gene_samples = gene_samples[good_sample_idxs]
             marker_coverages = marker_coverages[good_sample_idxs]
@@ -203,31 +238,55 @@ if __name__=='__main__':
             reference_gene_idxs = numpy.array([gene_name in reference_genes for gene_name in gene_names])
             
             midas_shared_idxs = numpy.array([gene_name in midas_shared_genes for gene_name in gene_names])
+            
         
             # These are genes that have coverage >=3x normal in some sample. This are candidates for being linked to another species.
             # (they could also be multi-copy genes, but we can't look at much on these genes anyway, so might as well toss them out)
-            shared_idxs = ((gene_copynum_matrix>shared_cmin).sum(axis=1)>0.5)
-            
-            sys.stderr.write("%d putative shared genes\n" % (shared_idxs.sum()))
-            sys.stderr.write("%d shared genes in db\n" % (midas_shared_idxs.sum()))
+            metagenome_shared_idxs = ((gene_copynum_matrix>shared_cmin).sum(axis=1)>0.5)
             
             # Now union with those we identified from midas db
-            shared_idxs = numpy.logical_or(shared_idxs, midas_shared_idxs)
+            shared_idxs = numpy.logical_or(metagenome_shared_idxs, midas_shared_idxs)
             non_shared_idxs = numpy.logical_not(shared_idxs)
+            
             shared_gene_names = gene_names[shared_idxs]
-            sys.stderr.write("%d shared genes out of %d\n" % (len(shared_gene_names), len(gene_names)))
-            sys.stderr.write("(%d out of %d on reference genome)\n" % ((shared_idxs*reference_gene_idxs).sum(), reference_gene_idxs.sum())) 
+            
             # calculating good genes
             good_idxs = (((gene_copynum_matrix>=cmin)*(gene_copynum_matrix<=cmax)).sum(axis=1)*1.0/len(marker_coverages) >= min_good_fraction)
-            core_gene_names = gene_names[good_idxs*reference_gene_idxs*non_shared_idxs]
-            sys.stderr.write("%d core genes out of %d\n" % (len(core_gene_names), len(gene_names)))
-            sys.stderr.write("%d w/ relaxed criteria\n" % (good_idxs*reference_gene_idxs).sum())
+            core_gene_idxs = good_idxs*reference_gene_idxs*non_shared_idxs
+            core_gene_names = gene_names[core_gene_idxs]
+            
+            num_metagenome_and_midas = numpy.logical_and(midas_shared_idxs, metagenome_shared_idxs).sum()
+            num_metagenome_only = numpy.logical_and(metagenome_shared_idxs, numpy.logical_not(midas_shared_idxs)).sum()
+            num_midas_only = numpy.logical_and(midas_shared_idxs, numpy.logical_not(metagenome_shared_idxs)).sum()
+            num_metagenome_or_midas = shared_idxs.sum()
+            num_remaining = non_shared_idxs.sum()
+            num_reference_remaining = (non_shared_idxs*reference_gene_idxs).sum()
+            num_core = core_gene_idxs.sum()
+            
+            print "%s %d %d %d %d %d %d %d" % (species_name, num_metagenome_and_midas, num_metagenome_only, num_midas_only, num_metagenome_or_midas, num_remaining, num_reference_remaining, num_core)
+            
+            # Measure frequencies and output them
+            gene_prevalence_numerators = ((gene_copynum_matrix>=cmin)*(gene_copynum_matrix<=cmax)).sum(axis=1)
+            gene_prevalence_denominators = ((gene_copynum_matrix<=cmax).sum(axis=1))
+            
+            good_prevalence_idxs = (gene_prevalence_numerators>0.5)*(gene_prevalence_denominators>0.5)*non_shared_idxs
+            
+            gene_prevalence_names = gene_names[good_prevalence_idxs]
+            gene_prevalences = gene_prevalence_numerators[good_prevalence_idxs]*1.0/gene_prevalence_denominators[good_prevalence_idxs]
+            
+            
+            
+            gene_freq_output_file = gzip.GzipFile(default_gene_freq_template % species_name,"w")
+            for gene_name, f in zip(gene_prevalence_names, gene_prevalences):
+                gene_freq_output_file.write("%s %g\n" % (gene_name, f))
+            gene_freq_output_file.close()
+    
             
             # calculating good genes w/ stringent definition (100%)
             bad_idxs = (gene_copynum_matrix<config.gainloss_max_absent_copynum).sum(axis=1) > 0.5
             good_idxs = numpy.logical_not(bad_idxs)
             stringent_gene_names = gene_names[good_idxs*reference_gene_idxs*non_shared_idxs]
-            #sys.stderr.write("%d stringent core genes out of %d\n" % (len(stringent_gene_names), len(gene_names)))
+            #sys.stderr.write("%d stringent core genes out of %d\n" % (len(stringent_gene_names), len(gene_names)))    
         
         # Write output to file!
         shared_output_file.write("%s: %s\n" % (species_name, ", ".join([gene_name for gene_name in shared_gene_names])))

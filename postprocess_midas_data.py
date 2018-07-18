@@ -61,18 +61,18 @@ sys.stderr.write('Done calculating within-sample SFSs!\n')
 
 # Calculate substitution rates between samples
 sys.stderr.write('Calculating substitution rates...\n')
-os.system('python %scalculate_substitution_rates.py %s' % (parse_midas_data.scripts_directory, species_name))
+#os.system('python %scalculate_substitution_rates.py %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating substitution rates!\n')
 
 # Calculate singleton substitution rates
 sys.stderr.write('Calculating singleton rates...\n')
-os.system('python %scalculate_singletons.py %s' % (parse_midas_data.scripts_directory, species_name))
+#os.system('python %scalculate_singletons.py %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating singleton rates!\n')
 
 
 # Calculate private SNVs
 sys.stderr.write('Calculating private SNVs...\n')
-os.system('python %scalculate_private_snvs.py %s' % (parse_midas_data.scripts_directory, species_name))
+#os.system('python %scalculate_private_snvs.py %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating private SNVs!\n')
 
 # Calculate temporal changes

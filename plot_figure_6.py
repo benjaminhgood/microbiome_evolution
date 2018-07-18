@@ -21,7 +21,7 @@ from math import log10,ceil,log,exp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from numpy.random import randint
+from numpy.random import randint, random, choice
 import matplotlib.colors as mcolors
 import matplotlib.patheffects as pe
 
@@ -30,7 +30,7 @@ from scipy.cluster.hierarchy import cophenet
 from scipy.cluster.hierarchy import fcluster
 
 
-mpl.rcParams['font.size'] = 8
+mpl.rcParams['font.size'] = 7
 mpl.rcParams['lines.linewidth'] = 0.5
 mpl.rcParams['legend.frameon']  = False
 mpl.rcParams['legend.fontsize']  = 'small'
@@ -60,11 +60,10 @@ replacement_difference_threshold = config.replacement_difference_threshold
 ################################################################################
 
 min_coverage = config.min_median_coverage
-min_sample_size = 5
-min_haploid_sample_size = 5
+min_sample_size = 3
+min_haploid_sample_size = 10
 
 variant_types = ['1D','4D']
-
 
 
 # Must compete divergence matrix on the fly! 
@@ -100,12 +99,38 @@ total_reversion_snps = {var_type: 0 for var_type in variant_types}
 total_mutation_snps = {var_type: 0 for var_type in variant_types}
 total_private_snps = {var_type: 0 for var_type in variant_types}
 
+#derived_freq_bins = numpy.array([-1,0,1.0/32,1.0/16,1.0/8,1.0/4,1.0/2,3.0/4,7.0/8,15.0/16, 31.0/32,1,2])
+#derived_virtual_xticks = list(derived_virtual_freqs[:-1]+0.5)
+#derived_virtual_xticklabels = ['0','1/32','1/16','1/8','1/4','1/2','3/4','7/8','15/16','31/32','1']
+
+derived_freq_bins = numpy.array([-1,0,0.01,0.1,0.5,0.9,0.99,1,2])
+derived_virtual_freqs = numpy.arange(0,len(derived_freq_bins)-1)
+
+derived_virtual_xticks = list(derived_virtual_freqs[:-1]+0.5)
+derived_virtual_xticklabels = ['0','.01','.1','.5','.9','.99','1']
+
+
+total_freq_snps = {var_type: numpy.zeros_like(derived_virtual_freqs) for var_type in variant_types}
+total_freq_all_snps = numpy.zeros_like(derived_virtual_freqs)
+total_null_freq_all_snps = numpy.zeros_like(derived_virtual_freqs)*1.0
+
 total_snp_mutrevs = {'muts': 0, 'revs':0}
 total_random_null_snp_mutrevs = {'muts':0, 'revs':0}
 total_between_null_snp_mutrevs = {'muts': 0, 'revs':0}
 
 total_gene_gainlosses = {'gains':0, 'losses':0}
 total_between_null_gene_gainlosses = {'gains':0, 'losses':0}
+
+gene_freq_bins = numpy.array([-1,0.1,0.9,2])
+gene_freq_xticks      = [-3,  -2,   -1,   0,   1,    2,   3]
+gene_freq_xticklabels = ['0','0.1','0.9','1','0.9','0.1','0']
+
+total_freq_gains = numpy.zeros(len(gene_freq_bins)-1)*1.0
+total_freq_losses = numpy.zeros_like(total_freq_gains)
+total_null_freq_losses = numpy.zeros_like(total_freq_gains)
+
+gene_gain_virtual_freqs = numpy.array([2.5,1.5,0.5])
+gene_loss_virtual_freqs = numpy.array([-2.5,-1.5,-0.5])
 
 species_snp_change_distribution = {}
 species_gene_change_distribution = {}
@@ -261,6 +286,15 @@ for species_name in good_species_list:
     
     import calculate_private_snvs
     private_snv_map = calculate_private_snvs.load_private_snv_map(species_name)
+    
+    import calculate_snp_prevalences
+    snv_freq_map = calculate_snp_prevalences.parse_population_freqs(species_name,polarize_by_consensus=True)
+    snv_freq_values = snv_freq_map.values()
+    
+    import core_gene_utils
+    gene_freq_map = core_gene_utils.parse_gene_freqs(species_name)
+    gene_freq_values = numpy.array(gene_freq_map.values())
+    gene_freq_weights = gene_freq_values*1.0/gene_freq_values.sum()
     
     sys.stderr.write("Loading SFSs for %s...\t" % species_name)
     dummy_samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])) 
@@ -481,16 +515,13 @@ for species_name in good_species_list:
             private_variant_type_counts = {var_type: 0 for var_type in variant_types}
             reversion_variant_type_counts = {var_type: 0 for var_type in variant_types}
             
+            
+            
             for snp_change in mutations:
+            
                 if snp_change[3] in variant_types:
                     variant_type_counts[snp_change[3]] += 1
                     mutation_variant_type_counts[snp_change[3]] += 1
-                    
-                    location_tuple = (snp_change[1],snp_change[2])
-                    
-                    if location_tuple in private_snv_map:
-                        private_variant_type_counts[snp_change[3]] += 1
-                    
                 else:
                     pass
                     
@@ -501,6 +532,66 @@ for species_name in good_species_list:
                 else:
                     pass
             
+            for snp_change in (mutations+reversions):        
+                gene_name, contig, position, variant_type, A1, D1, A2, D2 = snp_change
+                
+                f1 = A1*1.0/D2
+                f2 = A2*1.0/D2
+                
+                is_reversion = (f1>f2)
+                
+                location_tuple = (contig, position)
+                
+                is_private_snv = (location_tuple in private_snv_map)
+                
+                if is_private_snv and (variant_type in variant_types):
+                    private_variant_type_counts[variant_type] += 1   
+                    
+                # Now calculate frequency-stratified version
+                
+                if location_tuple in snv_freq_map:
+                    f = snv_freq_map[location_tuple]
+                else:
+                    sys.stderr.write("SNP not in map. Shouldn't happen!\n")
+                    f = -0.5
+                
+                # Let's impose that private snvs have zero freq        
+                if is_private_snv:
+                    f = -0.5
+                
+                # Change f so that it represents
+                # frequency of allele at second timepoint
+                if is_reversion:
+                    f = 1-f
+                
+                f_idx = ((f>derived_freq_bins[:-1])*(f<=derived_freq_bins[1:])).argmax()    
+                
+                if variant_type in variant_types:
+                    total_freq_snps[variant_type][f_idx] += 1
+                total_freq_all_snps[f_idx] += 1
+                
+                # Now draw a null from genome
+                L = snp_opportunity_matrix[i,j]
+                L_snv = len(snv_freq_map) # A slight overestimate
+                snv_fraction = L_snv*1.0/L
+                num_bootstraps = 10
+                for bootstrap_idx in xrange(0,num_bootstraps):
+                    
+                    if random()<snv_fraction:
+                        f = snv_freq_values[randint(0,len(snv_freq_values))]
+                        rev_f = 1-f
+                    
+                        f_idx = ((f>derived_freq_bins[:-1])*(f<=derived_freq_bins[1:])).argmax()    
+                    
+                        rev_f_idx = ((rev_f>derived_freq_bins[:-1])*(rev_f<=derived_freq_bins[1:])).argmax()  
+                    
+                        total_null_freq_all_snps[f_idx] += (1-f)*1.0/num_bootstraps
+                        total_null_freq_all_snps[rev_f_idx] += f*1.0/num_bootstraps
+                        
+                    else:
+                    
+                        total_null_freq_all_snps[0] += 1.0/num_bootstraps
+                           
             # Add them to running total
             # & form running total for this sample only
             observed_sample_size = 0
@@ -511,7 +602,7 @@ for species_name in good_species_list:
                 total_reversion_snps[var_type] += reversion_variant_type_counts[var_type]
                 observed_sample_size += variant_type_counts[var_type]
             
-            # Now get a null from randomly drawing from genome
+            # Opportunities for these two samples
             total_opportunities = sum([opportunity_matrices[var_type][i,j] for var_type in variant_types])
             
             for var_type in variant_types:
@@ -547,6 +638,38 @@ for species_name in good_species_list:
             
             # If there are gene changes to look at: 
             if num_gene_changes > -0.5:
+            
+                for gene_change in gains:
+                    gene_name = gene_change[0]
+                    
+                    if gene_name in gene_freq_map:
+                        f = gene_freq_map[gene_name]
+                    else:
+                        f = 0
+                    
+                    f_idx = ((f>gene_freq_bins[:-1])*(f<=gene_freq_bins[1:])).argmax()    
+                    total_freq_gains[f_idx] += 1
+                    
+                        
+                    
+                for gene_change in losses:
+                    gene_name = gene_change[0]
+                    
+                    if gene_name in gene_freq_map:
+                        f = gene_freq_map[gene_name]
+                    else:
+                        f = 0
+                    
+                    f_idx = ((f>gene_freq_bins[:-1])*(f<=gene_freq_bins[1:])).argmax()    
+                    total_freq_losses[f_idx] += 1
+                    
+                    num_bootstraps = 10
+                    fs = choice(gene_freq_values, size=num_bootstraps, p=gene_freq_weights)
+                    for f in fs:
+                        f_idx = ((f>gene_freq_bins[:-1])*(f<=gene_freq_bins[1:])).argmax()    
+                        total_null_freq_losses[f_idx] += 1.0/num_bootstraps
+                
+            
             
                 gene_i = i
                 #print sample_i, sample_j
@@ -797,6 +920,41 @@ pooled_gene_axis.get_xaxis().tick_bottom()
 pooled_gene_axis.get_yaxis().tick_left()
  
 
+pylab.figure(3,figsize=(5,1.5))
+fig3 = pylab.gcf()
+
+outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1.1],hspace=0.8)
+
+frequency_axis = plt.Subplot(fig3, outer_grid[0])
+fig3.add_subplot(frequency_axis)
+
+frequency_axis.spines['top'].set_visible(False)
+frequency_axis.spines['right'].set_visible(False)
+frequency_axis.get_xaxis().tick_bottom()
+frequency_axis.get_yaxis().tick_left()
+ 
+frequency_axis.set_xlabel('Derived allele prevalence\nacross hosts')
+frequency_axis.set_ylabel('# SNV changes')
+
+frequency_axis.set_xticks(derived_virtual_xticks)
+frequency_axis.set_xticklabels(derived_virtual_xticklabels) #,rotation='vertical')
+
+gene_frequency_axis = plt.Subplot(fig3, outer_grid[1])
+fig3.add_subplot(gene_frequency_axis)
+
+gene_frequency_axis.spines['top'].set_visible(False)
+gene_frequency_axis.spines['right'].set_visible(False)
+gene_frequency_axis.get_xaxis().tick_bottom()
+gene_frequency_axis.get_yaxis().tick_left()
+ 
+gene_frequency_axis.set_xlabel('Gene prevalence across hosts')
+gene_frequency_axis.set_ylabel('# gene changes')
+
+gene_frequency_axis.set_xlim([gene_freq_xticks[0],gene_freq_xticks[-1]])
+gene_frequency_axis.set_xticks(gene_freq_xticks)
+gene_frequency_axis.set_xticklabels(gene_freq_xticklabels) #,rotation='vertical')
+
+
 ##############################################################################
 #
 # Plot results
@@ -1008,7 +1166,7 @@ print between_totals
 
 legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#08519c',label='Within-host\n(modification)')
 legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='r', alpha=0.5, label='Between-host\n(unrelated)')
-legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#8856a7', alpha=0.5, label='Between-host\n(adult twins)')
+legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='#8856a7', label='Between-host\n(adult twins)')
 legend_axis.bar([-2],[-1],width=0.2, linewidth=0,color='k', alpha=0.5, label='De novo\nexpectation')
 
 legend_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
@@ -1049,19 +1207,50 @@ fig2.savefig('%s/figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inch
 fig.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
-print 'Reversions', total_reversion_snps, total_reversion_snps['1D']*1.0/total_reversion_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
+print 'Reversions', total_reversion_snps, total_reversion_snps['1D']*1.0/(total_reversion_snps['4D']+(total_reversion_snps['4D']==0))/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
 
-print 'Mutations', total_mutation_snps, total_mutation_snps['1D']*1.0/total_mutation_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
+print 'Mutations', total_mutation_snps, total_mutation_snps['1D']*1.0/(total_mutation_snps['4D']+(total_mutation_snps['4D']==0))/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
 
-print 'Private', total_private_snps, total_private_snps['1D']*1.0/total_private_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
-
-from scipy.stats import fisher_exact
-print fisher_exact([[total_private_snps['1D'], total_random_null_snps['1D']], [total_private_snps['4D'], total_random_null_snps['4D']]])
+print 'Private', total_private_snps, total_private_snps['1D']*1.0/(total_private_snps['4D']+(total_private_snps['4D']==0))/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
 
 print "All", total_snps, total_snps['1D']*1.0/total_snps['4D']/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
 
 print "Random", total_random_null_snps, 1.0
 
 print "Between", total_between_null_snps, total_between_null_snps['1D']*1.0/total_between_null_snps['4D'] /(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
+
+print '1D', total_freq_snps['1D']
+print '4D', total_freq_snps['4D']
+print 'all', total_freq_all_snps
+print 'null', total_null_freq_all_snps
+
+frequency_axis.bar(derived_virtual_freqs, total_freq_all_snps,width=0.3,linewidth=0,facecolor='#b15928',alpha=0.5,label='other')
+frequency_axis.bar(derived_virtual_freqs, total_freq_snps['1D']+total_freq_snps['4D'],width=0.3,linewidth=0,facecolor='#ff7f00',label='non')
+frequency_axis.bar(derived_virtual_freqs, total_freq_snps['4D'],width=0.3,linewidth=0,facecolor='#b3de69',label='syn')
+frequency_axis.bar(derived_virtual_freqs-0.3, total_null_freq_all_snps,width=0.3,linewidth=0,facecolor='k', alpha=0.5,label='de novo\nexpectation')
+
+frequency_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
+
+gene_frequency_axis.bar(gene_gain_virtual_freqs, total_freq_gains,width=0.3,linewidth=0,facecolor='#b3de69',label='gain')
+
+gene_frequency_axis.bar(gene_loss_virtual_freqs, total_freq_losses,width=0.3,linewidth=0, facecolor='#ff7f00',label='loss')
+
+gene_frequency_axis.bar(gene_loss_virtual_freqs-0.3, total_null_freq_losses,width=0.3,linewidth=0, facecolor='k', alpha=0.5,label='de novo\nexpectation')
+
+gene_frequency_axis.legend(loc='upper right',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
+
+
+fig3.savefig('%s/within_allele_freqs.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+
+from scipy.stats import fisher_exact
+
+for i in xrange(1,len(total_freq_all_snps)/2+1):
+    
+    non_counts = total_freq_snps['1D'][:i].sum()+total_freq_snps['1D'][-i:].sum()
+    syn_counts = total_freq_snps['4D'][:i].sum()+total_freq_snps['4D'][-i:].sum()
+    
+    
+    print derived_freq_bins[i], non_counts, syn_counts, non_counts*1.0/syn_counts/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']),  fisher_exact([[non_counts, total_random_null_snps['1D']], [syn_counts, total_random_null_snps['4D']]])
+
 
        
