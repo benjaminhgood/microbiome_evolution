@@ -740,8 +740,10 @@ width=0.7
 
 haploid_axis.barh(ys, num_haploid_samples,color=haploid_color,linewidth=0,label='QP',zorder=1)
 haploid_axis.barh(ys, num_samples,color=light_haploid_color,linewidth=0,label='non-QP',zorder=0)
-haploid_axis.set_xlim([0,425])
-haploid_axis.set_xticks([0,100,200,300,400])
+haploid_axis.set_xlim([0,650])
+#haploid_axis.set_xticks([0,100,200,300,400,500,600])
+haploid_axis.set_xticks([0,200,400,600])
+
 haploid_axis.yaxis.tick_right()
 haploid_axis.xaxis.tick_bottom()
 

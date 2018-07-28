@@ -315,8 +315,7 @@ divergence_axis.spines['right'].set_visible(False)
 divergence_axis.get_xaxis().tick_bottom()
 divergence_axis.get_yaxis().tick_left()
 
-line, = divergence_axis.loglog([1e-06,1e-01],[1,1],'k:',linewidth=0.25)
-line.set_dashes((1,1))
+
 
 #cumulative_axis = inset_axes(divergence_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=divergence_axis.transAxes)
 
@@ -330,9 +329,9 @@ cumulative_axis.get_xaxis().tick_bottom()
 cumulative_axis.get_yaxis().tick_left()
 
 cumulative_axis.set_ylabel('Cumulative $d_N/d_S$')
-cumulative_axis.set_xlabel('Synonymous divergence')
+cumulative_axis.set_xlabel('Synonymous divergence, $d_S$')
 
-line, = cumulative_axis.loglog([1e-05,1e-02],[1,1],'k:',linewidth=0.25)
+line, = cumulative_axis.loglog([1e-05,1e-02],[1,1],'k:',linewidth=0.25,zorder=1)
 line.set_dashes((1,1))
 
 singleton_axis = plt.Subplot(fig2, outer_grid2[0])
@@ -353,7 +352,7 @@ singleton_axis.set_ylabel('Private nonsynonymous ratio, $d_N/d_S$')
 cumulative_singleton_axis = plt.Subplot(fig, right_grid[1])
 fig.add_subplot(cumulative_singleton_axis)
 
-line, = cumulative_singleton_axis.loglog([1e-05,1e-02],[1,1],'k:',linewidth=0.25)
+line, = cumulative_singleton_axis.loglog([1e-05,1e-02],[1,1],'k:',linewidth=0.25,zorder=1)
 line.set_dashes((1,1))
 
 cumulative_singleton_axis.spines['top'].set_visible(False)
@@ -442,7 +441,7 @@ cf_ratios = [] # cumulative estimates <= total d
 sf_ratios = [] # cumulative estimates >= total d
 
 sys.stderr.write("Bootstrapping dN/dS...\n")
-num_bootstraps = 100
+num_bootstraps = 500
 for bootstrap_idx in xrange(0,num_bootstraps):
     
     lower_pNpSs = []
@@ -492,18 +491,27 @@ sf_ratios = numpy.array(sf_ratios)
 
 avg_cf_ratios = []
 std_cf_ratios = []
+median_cf_ratios = []
+lower_cf_ratios = []
+upper_cf_ratios = []
 
 avg_sf_ratios = [] 
 std_sf_ratios = [] 
 
 for i in xrange(0,len(ds)):
     
-    ratios = cf_ratios[:,i]
+    ratios = numpy.sort(cf_ratios[:,i])
     good_idxs = (ratios>-0.5)
     if good_idxs.sum()<1.5:
         avg_cf_ratios.append(-1)
         std_cf_ratios.append(0)
     else:
+    
+        median_cf_ratios.append(numpy.median(ratios[good_idxs]))
+        idx = long(0.025*good_idxs.sum())
+        lower_cf_ratios.append( ratios[good_idxs][idx] )
+        upper_cf_ratios.append(ratios[good_idxs][-idx-1])
+    
         avg_cf_ratios.append( ratios[good_idxs].mean() )
         std_cf_ratios.append( ratios[good_idxs].std() )
     
@@ -518,6 +526,9 @@ for i in xrange(0,len(ds)):
     
 avg_cf_ratios = numpy.array(avg_cf_ratios)
 std_cf_ratios = numpy.array(std_cf_ratios)
+median_cf_ratios = numpy.array(median_cf_ratios)
+upper_cf_ratios = numpy.array(upper_cf_ratios)
+lower_cf_ratios = numpy.array(lower_cf_ratios)
 
 avg_sf_ratios = numpy.array(avg_sf_ratios)
 std_sf_ratios = numpy.array(std_sf_ratios)
@@ -527,17 +538,16 @@ std_sf_ratios = numpy.array(std_sf_ratios)
 #cumulative_axis.loglog(ds[good_idxs], avg_sf_ratios[good_idxs],'b-')
 
 good_idxs = (avg_cf_ratios>-0.5)
-cumulative_axis.fill_between(ds[good_idxs], avg_cf_ratios[good_idxs]-2*std_cf_ratios[good_idxs], avg_cf_ratios[good_idxs]+2*std_cf_ratios[good_idxs],color='r',linewidth=0)
-cumulative_axis.loglog(ds[good_idxs], avg_cf_ratios[good_idxs],'r-')
+cumulative_axis.fill_between(ds[good_idxs], lower_cf_ratios[good_idxs], upper_cf_ratios[good_idxs],color='0.7',linewidth=0,zorder=0)
+cumulative_axis.loglog(ds[good_idxs], avg_cf_ratios[good_idxs],'k-',zorder=2)
       
 median_pSs = numpy.array(median_pSs)
 median_pNs = numpy.array(median_pNs)   
 
-divergence_axis.plot([1e-09],[100], '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0,label='All species')
+divergence_axis.plot([1e-09],[100], 'o', color='0.7', markersize=2,markeredgewidth=0,zorder=0,label='(Species x host x host)')
        
-divergence_axis.loglog(median_pSs, median_pNs*1.0/median_pSs, 'kx',markersize=2,label='Species median',alpha=0.5)
+divergence_axis.loglog(median_pSs, median_pNs*1.0/median_pSs, 'kx',markersize=2,label='Median of each species',alpha=0.5)
 
-divergence_axis.legend(loc='lower left',frameon=False,numpoints=1)
 
 divergence_axis.set_ylim([1e-02,10])    
 divergence_axis.set_xlim([1e-06,1e-01])
@@ -547,7 +557,13 @@ theory_ds = numpy.logspace(-6,-1,100)
 #theory_dNdSs = asymptotic_dNdS+(1-asymptotic_dNdS)*(1-numpy.exp(-sbymu*theory_ds))/(theory_ds*sbymu)
 theory_dNdSs = theory_dN(theory_ds)/theory_ds
 
-divergence_axis.loglog(theory_ds, theory_dNdSs,'r-')
+line, = divergence_axis.loglog([1e-06,1e-01],[1,1],'k:',linewidth=0.25,label='Neutral model')
+line.set_dashes((1,1))
+divergence_axis.loglog(theory_ds, theory_dNdSs,'r-',label='Purifying selection model')
+
+#divergence_axis.legend(loc='lower left',frameon=False,numpoints=1)
+divergence_axis.legend(loc='upper right',frameon=False,numpoints=1)
+
 
 cumulative_axis.set_xlim([1e-05,1e-02])
 cumulative_axis.set_ylim([5e-02,2])
@@ -624,7 +640,7 @@ cf_ratios = [] # cumulative estimates <= total d
 sf_ratios = [] # cumulative estimates >= total d
 
 sys.stderr.write("Bootstrapping singleton dN/dS...\n")
-num_bootstraps = 1000
+num_bootstraps = 10000
 for bootstrap_idx in xrange(0,num_bootstraps):
     
     # bootstrap dataset using poisson resampling
@@ -688,25 +704,31 @@ for bootstrap_idx in xrange(0,num_bootstraps):
 cf_ratios = numpy.array(cf_ratios)
 sf_ratios = numpy.array(sf_ratios)
 
-print (cf_ratios>=0).all()
-
 sys.stderr.write("Done!\n")
 
 avg_cf_ratios = []
 std_cf_ratios = []
+median_cf_ratios = []
+lower_cf_ratios = []
+upper_cf_ratios = []
 
 avg_sf_ratios = [] 
 std_sf_ratios = [] 
 
 for i in xrange(0,len(ds)):
     
-    ratios = cf_ratios[:,i]
+    ratios = numpy.sort(cf_ratios[:,i])
     good_idxs = (ratios>-0.5)
     if good_idxs.sum()<1.5:
         avg_cf_ratios.append(-1)
         std_cf_ratios.append(0)
     else:
-        #print ratios[good_idxs]
+    
+        median_cf_ratios.append(numpy.median(ratios[good_idxs]))
+        idx = long(0.025*good_idxs.sum())
+        lower_cf_ratios.append( ratios[good_idxs][idx] )
+        upper_cf_ratios.append(ratios[good_idxs][-idx-1])
+    
         avg_cf_ratios.append( ratios[good_idxs].mean() )
         std_cf_ratios.append( ratios[good_idxs].std() )
     
@@ -721,24 +743,20 @@ for i in xrange(0,len(ds)):
     
 avg_cf_ratios = numpy.array(avg_cf_ratios)
 std_cf_ratios = numpy.array(std_cf_ratios)
+median_cf_ratios = numpy.array(median_cf_ratios)
+upper_cf_ratios = numpy.array(upper_cf_ratios)
+lower_cf_ratios = numpy.array(lower_cf_ratios)
 
 avg_sf_ratios = numpy.array(avg_sf_ratios)
 std_sf_ratios = numpy.array(std_sf_ratios)
 
-print avg_cf_ratios
-print std_cf_ratios
-
 #good_idxs = (avg_sf_ratios>-0.5)
-#cumulative_singleton_axis.fill_between(ds[good_idxs], avg_sf_ratios[good_idxs]-2*std_sf_ratios[good_idxs], avg_sf_ratios[good_idxs]+2*std_sf_ratios[good_idxs],color='b',linewidth=0)
-#cumulative_singleton_axis.loglog(ds[good_idxs], avg_sf_ratios[good_idxs], 'b-')
-
-#cumulative_singleton_axis.loglog(ds, avg_singleton_dnds*numpy.ones_like(ds),'k-')
-
-#cumulative_singleton_axis.loglog(TODO)
+#cumulative_axis.fill_between(ds[good_idxs], avg_sf_ratios[good_idxs]-2*std_sf_ratios[good_idxs], avg_sf_ratios[good_idxs]+2*std_sf_ratios[good_idxs],color='b',linewidth=0)
+#cumulative_axis.loglog(ds[good_idxs], avg_sf_ratios[good_idxs],'b-')
 
 good_idxs = (avg_cf_ratios>-0.5)
-cumulative_singleton_axis.fill_between(ds[good_idxs], avg_cf_ratios[good_idxs]-2*std_cf_ratios[good_idxs], avg_cf_ratios[good_idxs]+2*std_cf_ratios[good_idxs],color='r',linewidth=0)
-cumulative_singleton_axis.loglog(ds[good_idxs], avg_cf_ratios[good_idxs], 'r-')
+cumulative_singleton_axis.fill_between(ds[good_idxs], lower_cf_ratios[good_idxs], upper_cf_ratios[good_idxs],color='0.7',linewidth=0,zorder=0)
+cumulative_singleton_axis.loglog(ds[good_idxs], avg_cf_ratios[good_idxs],'k-',zorder=1)
 
 
 

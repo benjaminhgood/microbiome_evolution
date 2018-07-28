@@ -119,51 +119,6 @@ for species_name in good_species_list:
     replacement_shared_snps = []
     replacement_shared_snp_opportunities = []
     
-    # get temporal samples
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs = parse_midas_data.calculate_ordered_subject_pairs(sample_order_map, haploid_samples)
-    
-    sys.stderr.write("Loading pre-computed temporal changes for %s...\n" % species_name)
-    temporal_change_map = calculate_temporal_changes.load_temporal_change_map(species_name)
-    sys.stderr.write("Done!\n")
-    
-    if len(temporal_change_map)==0:
-        continue
-    
-    for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
-   
-        i = same_subject_idxs[0][sample_pair_idx]
-        j = same_subject_idxs[1][sample_pair_idx]
-
-        sample_i = haploid_samples[i]
-        sample_j = haploid_samples[j]
-        
-        L, perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-        
-        total_num_changes = len(mutations)+len(reversions)
-        
-        private_L, private_perr, private_reversions = calculate_temporal_changes.calculate_private_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
-        
-        if L==0 or private_L==0:
-            continue
-            
-        if total_num_changes==0:
-            continue
-            
-        if private_L*private_perr > 0.5:
-            continue
-        
-        print private_L, len(private_reversions) 
-            
-        if total_num_changes>config.modification_difference_threshold:
-            #print "Replacement!"
-            replacement_shared_snp_opportunities.append(private_L)
-            replacement_shared_snps.append(private_L-len(private_reversions))
-        else:   
-            shared_snp_opportunities.append(private_L)
-            shared_snps.append(private_L-len(private_reversions))
-            
-            
-    within_host_data[species_name] = shared_snps, shared_snp_opportunities, replacement_shared_snps, replacement_shared_snp_opportunities
     
     
 species_names = []
@@ -272,29 +227,12 @@ for species_idx in xrange(0,len(species_names)):
     all_doubletons.extend(doubletons[higher_idxs])
     all_doubleton_opportunities.extend(doubleton_opportunities[higher_idxs] )
     
-    if species_name in within_host_data:
-        
-        shared_snps, shared_snp_opportunities, replacement_snps, replacement_opportunities = within_host_data[species_name]    
-
-        #print replacement_snps
-        #print replacement_opportunities
-
-        within_shared_snps.extend(shared_snps)
-        within_shared_snp_opportunities.extend(shared_snp_opportunities)
-        replacement_shared_snps.extend(replacement_snps)
-        replacement_shared_snp_opportunities.extend(replacement_opportunities)
-        
+       
 
 low_doubletons = numpy.array(low_doubletons)
 low_doubleton_opportunities = numpy.array(low_doubleton_opportunities)
 all_doubletons = numpy.array(all_doubletons)
 all_doubleton_opportunities = numpy.array(all_doubleton_opportunities)
-
-within_shared_snps = numpy.array(within_shared_snps)
-within_shared_snp_opportunities = numpy.array(within_shared_snp_opportunities)
-
-replacement_shared_snps = numpy.array(replacement_shared_snps)
-replacement_shared_snp_opportunities = numpy.array(replacement_shared_snp_opportunities)
 
 #print replacement_shared_snps
 #print replacement_shared_snp_opportunities    
@@ -327,8 +265,6 @@ bootstrapped_fake_low_ps = []
 bootstrapped_fake_all_ps = []
 real_all_ps = all_doubletons*1.0/all_doubleton_opportunities 
 real_low_ps = low_doubletons*1.0/low_doubleton_opportunities 
-within_ps = within_shared_snps*1.0/within_shared_snp_opportunities
-replacement_ps = replacement_shared_snps*1.0/replacement_shared_snp_opportunities
 
 num_bootstraps = 10
 for bootstrap_idx in xrange(0,num_bootstraps):
@@ -363,18 +299,18 @@ sharing_axis.step(xs,ns*1.0/ns[0],'k-',label='All (matched)',zorder=2)
 #xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(bootstrapped_fake_low_ps, min_x=0,max_x=1)
 #sharing_axis.step(xs,ns*1.0/ns[0],'r-',label='Low $d_S$ (pooled)',zorder=1,alpha=0.5)
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(real_low_ps, min_x=0,max_x=2)
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(real_low_ps[low_doubleton_opportunities>10], min_x=0,max_x=2)
 sharing_axis.step(xs,ns*1.0/ns[0],'r-',label='Low $d_S$',zorder=1,alpha=0.5)
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(real_all_ps, min_x=0,max_x=2)
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(real_all_ps[all_doubleton_opportunities>10], min_x=0,max_x=2)
 sharing_axis.step(xs,ns*1.0/ns[0],'k-',label='All',zorder=1,alpha=0.5)
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(replacement_ps, min_x=0,max_x=2)
-sharing_axis.step(xs,ns*1.0/ns[0],'b-',label='Within-host (rep)',zorder=3,alpha=0.5)
+#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(replacement_ps, min_x=0,max_x=2)
+#sharing_axis.step(xs,ns*1.0/ns[0],'b-',label='Within-host (rep)',zorder=3,alpha=0.5)
 
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_ps, min_x=0,max_x=2)
-sharing_axis.step(xs,ns*1.0/ns[0],'b-',label='Within-host (mod)',zorder=3)
+#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(within_ps, min_x=0,max_x=2)
+#sharing_axis.step(xs,ns*1.0/ns[0],'b-',label='Within-host (mod)',zorder=3)
 
 
 

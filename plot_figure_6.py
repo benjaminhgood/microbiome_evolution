@@ -491,7 +491,9 @@ for species_name in good_species_list:
         good_idxs = sample_utils.calculate_samples_in_different_subjects( subject_sample_map, snp_samples, sample_i)
 
         # typical
-        pooled_between_snp_change_distribution.append( numpy.median(snp_difference_matrix[i, good_idxs]) )
+        pooled_between_snp_change_distribution.append( choice( snp_difference_matrix[i, good_idxs] ) )
+        
+        #numpy.median(snp_difference_matrix[i, good_idxs]) )
             
         # minimum
         pooled_min_between_snp_change_distribution.append( snp_difference_matrix[i, good_idxs].min() )
@@ -813,16 +815,22 @@ fig.add_subplot(cax)
 # Real figure
 #
 ###############
-pylab.figure(2,figsize=(6,4))
+pylab.figure(2,figsize=(7,4))
 fig2 = pylab.gcf()
 # make three panels panels
+outer_outer_grid_2 = gridspec.GridSpec(1,1) #2, width_ratios=[1,0.2],wspace=0.1) 
+outer_grid_2 = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[1,0.7],hspace=0.6, subplot_spec=outer_outer_grid_2[0])
 
-outer_grid  = gridspec.GridSpec(2,1, height_ratios=[2,1],hspace=0.85)
+pylab.figure(3,figsize=(5,1.5))
+fig3 = pylab.gcf()
+outer_grid_3 = gridspec.GridSpec(1,1)
 
-upper_grid = gridspec.GridSpecFromSubplotSpec(1,4, width_ratios=[1,1,1,0.6],wspace=0.45,subplot_spec=outer_grid[1])
+prevalence_grid = gridspec.GridSpecFromSubplotSpec(1,3, width_ratios=[1,1,0.3],wspace=0.5,subplot_spec=outer_grid_2[1])
 
-dnds_axis = plt.Subplot(fig2, upper_grid[0])
-fig2.add_subplot(dnds_axis)
+upper_grid = gridspec.GridSpecFromSubplotSpec(1,4, width_ratios=[1,1,1,0.6],wspace=0.45,subplot_spec=outer_grid_3[0])
+
+dnds_axis = plt.Subplot(fig3, upper_grid[0])
+fig3.add_subplot(dnds_axis)
 dnds_axis.set_ylabel('# changes')
 
 dnds_axis.spines['top'].set_visible(False)
@@ -839,8 +847,8 @@ dnds_axis.set_yticks([0,100,200,300])
 # TODO: significance of DNDS < 1!
 
 # Mutation / reversion
-mutrev_axis = plt.Subplot(fig2, upper_grid[1])
-fig2.add_subplot(mutrev_axis)
+mutrev_axis = plt.Subplot(fig3, upper_grid[1])
+fig3.add_subplot(mutrev_axis)
 
 mutrev_axis.spines['top'].set_visible(False)
 mutrev_axis.spines['right'].set_visible(False)
@@ -860,8 +868,8 @@ mutrev_axis.set_xticklabels(['away\nfrom\nref','toward\nref'],fontsize=6)
 
 
 # Gain / loss
-gainloss_axis = plt.Subplot(fig2, upper_grid[2])
-fig2.add_subplot(gainloss_axis)
+gainloss_axis = plt.Subplot(fig3, upper_grid[2])
+fig3.add_subplot(gainloss_axis)
 gainloss_axis.spines['top'].set_visible(False)
 gainloss_axis.spines['right'].set_visible(False)
 gainloss_axis.get_xaxis().tick_bottom()
@@ -874,8 +882,8 @@ gainloss_axis.set_xticklabels(['loss','gain'])
 #gainloss_axis.set_yticklabels([])
 
 
-legend_axis = plt.Subplot(fig2, upper_grid[3])
-fig2.add_subplot(legend_axis)
+legend_axis = plt.Subplot(fig3, upper_grid[3])
+fig3.add_subplot(legend_axis)
 
 legend_axis.set_ylim([0,1])
 legend_axis.set_xlim([0,1])
@@ -889,11 +897,11 @@ legend_axis.set_xticks([])
 legend_axis.set_yticks([])
 
 
-pooled_grid = gridspec.GridSpecFromSubplotSpec(1,2,width_ratios=[1,1],wspace=0.15,subplot_spec=outer_grid[0])
+pooled_grid = gridspec.GridSpecFromSubplotSpec(1,3,width_ratios=[1,1,0.2],wspace=0.15,subplot_spec=outer_grid_2[0])
 
 pooled_snp_axis = plt.Subplot(fig2, pooled_grid[0])
 fig2.add_subplot(pooled_snp_axis)
-pooled_snp_axis.set_ylabel('Fraction $\geq n$')
+pooled_snp_axis.set_ylabel('Fraction comparisons $\geq n$')
 pooled_snp_axis.set_xlabel('# SNV changes')
 #pooled_axis.set_ylim([-35,35])
 #pooled_snp_axis.set_xlim([2e-01,1e05])
@@ -919,14 +927,32 @@ pooled_gene_axis.spines['right'].set_visible(False)
 pooled_gene_axis.get_xaxis().tick_bottom()
 pooled_gene_axis.get_yaxis().tick_left()
  
+legend2_axis = plt.Subplot(fig2, pooled_grid[2])
+fig2.add_subplot(legend2_axis)
 
-pylab.figure(3,figsize=(5,1.5))
-fig3 = pylab.gcf()
+legend2_axis.set_ylim([0,1])
+legend2_axis.set_xlim([0,1])
 
-outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1.1],hspace=0.8)
+legend2_axis.spines['top'].set_visible(False)
+legend2_axis.spines['right'].set_visible(False)
+legend2_axis.spines['left'].set_visible(False)
+legend2_axis.spines['bottom'].set_visible(False)
 
-frequency_axis = plt.Subplot(fig3, outer_grid[0])
-fig3.add_subplot(frequency_axis)
+legend2_axis.set_xticks([])
+legend2_axis.set_yticks([])
+
+legend2_axis.plot([-2,-1],[-1,-1],'-',linewidth=1, color='#08519c',label='Within-host')
+legend2_axis.plot([-2,-1],[-1,-1],'-',color='#08519c',linewidth=1, label='modification',zorder=2,path_effects=[pe.Stroke(linewidth=5, foreground='#9ecae1'), pe.Normal()])
+legend2_axis.plot([-2,-1],[-1,-1],'-',color='#08519c', label='replacement',linewidth=1,path_effects=[pe.Stroke(linewidth=5, foreground='#fee0d2'), pe.Normal()])
+legend2_axis.plot([-2,-1],[-1,-1], '-',linewidth=1,color='w', alpha=0.5, label=' ')
+legend2_axis.plot([-2,-1],[-1,-1], '-',linewidth=1,color='r', alpha=0.5, label='Between-host\n(unrelated)')
+legend2_axis.plot([-2,-1],[-1,-1],'-',linewidth=1,color='#8856a7', label='Between-host\n(adult twins)')
+
+legend2_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
+
+
+frequency_axis = plt.Subplot(fig2, prevalence_grid[0])
+fig2.add_subplot(frequency_axis)
 
 frequency_axis.spines['top'].set_visible(False)
 frequency_axis.spines['right'].set_visible(False)
@@ -939,8 +965,10 @@ frequency_axis.set_ylabel('# SNV changes')
 frequency_axis.set_xticks(derived_virtual_xticks)
 frequency_axis.set_xticklabels(derived_virtual_xticklabels) #,rotation='vertical')
 
-gene_frequency_axis = plt.Subplot(fig3, outer_grid[1])
-fig3.add_subplot(gene_frequency_axis)
+frequency_axis.set_ylim([0,200])
+
+gene_frequency_axis = plt.Subplot(fig2, prevalence_grid[1])
+fig2.add_subplot(gene_frequency_axis)
 
 gene_frequency_axis.spines['top'].set_visible(False)
 gene_frequency_axis.spines['right'].set_visible(False)
@@ -953,6 +981,46 @@ gene_frequency_axis.set_ylabel('# gene changes')
 gene_frequency_axis.set_xlim([gene_freq_xticks[0],gene_freq_xticks[-1]])
 gene_frequency_axis.set_xticks(gene_freq_xticks)
 gene_frequency_axis.set_xticklabels(gene_freq_xticklabels) #,rotation='vertical')
+
+gene_frequency_axis.plot([0,0],[100,100],'k-')
+gene_frequency_axis.set_ylim([0,100])
+
+gene_legend_axis = plt.Subplot(fig2, prevalence_grid[2])
+fig2.add_subplot(gene_legend_axis)
+
+gene_legend_axis.set_ylim([0,1])
+gene_legend_axis.set_xlim([0,1])
+
+gene_legend_axis.spines['top'].set_visible(False)
+gene_legend_axis.spines['right'].set_visible(False)
+gene_legend_axis.spines['left'].set_visible(False)
+gene_legend_axis.spines['bottom'].set_visible(False)
+
+gene_legend_axis.set_xticks([])
+gene_legend_axis.set_yticks([])
+
+gene_legend_axis.bar([-2],[-1],width=0.2, linewidth=0,facecolor='#b3de69',label='gain')
+gene_legend_axis.bar([-2],[-1],width=0.2, linewidth=0,facecolor='#ff7f00',label='loss')
+gene_legend_axis.bar([-2],[-1],width=0.2, linewidth=0,facecolor='0.7',label='de novo\nexpectation')
+
+gene_legend_axis.legend(loc='center left',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
+
+
+pylab.figure(4,figsize=(2,2))
+fig4 = pylab.gcf()
+outer_grid_4 = gridspec.GridSpec(1,1)
+
+avg_axis = plt.Subplot(fig4, outer_grid_4[0])
+fig4.add_subplot(avg_axis)
+
+#avg_axis.set_ylabel('Microbiome-wide avg')
+avg_axis.set_xlim([0.5,2.5])
+avg_axis.set_xticks([])
+
+avg_axis.spines['top'].set_visible(False)
+avg_axis.spines['right'].set_visible(False)
+avg_axis.get_xaxis().tick_bottom()
+avg_axis.get_yaxis().tick_left()
 
 
 ##############################################################################
@@ -1054,44 +1122,89 @@ print pooled_young_twin_snp_change_distribution
 print "Mean within host snps =", pooled_snp_change_distribution.mean()
 print "Median withon host snps =", numpy.median(pooled_snp_change_distribution)
 
-pooled_snp_change_distribution = numpy.clip(pooled_snp_change_distribution, 1e-01,1e08)
-pooled_twin_snp_change_distribution = numpy.clip(pooled_twin_snp_change_distribution, 1e-01,1e08)
-pooled_between_snp_change_distribution = numpy.clip(pooled_between_snp_change_distribution, 1e-01,1e08)
-pooled_min_between_snp_change_distribution = numpy.clip(pooled_min_between_snp_change_distribution, 1e-01,1e08)
+num_replacements = (pooled_snp_change_distribution>replacement_difference_threshold).sum()
+num_twin_replacements = (pooled_twin_snp_change_distribution>1000).sum()
+
+
+print num_replacements, "replacements", "(%g)" % (num_replacements*1.0/len(pooled_snp_change_distribution))
+
+print num_twin_replacements, "old twin replacements", "(%g)" % (num_twin_replacements*1.0/len(pooled_twin_snp_change_distribution))
 
 
 
-#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
-#pooled_snp_axis.step(xs,ns,'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host', where='mid')
+pooled_snp_change_distribution = numpy.clip(pooled_snp_change_distribution, 1e-06,1e08)
+pooled_twin_snp_change_distribution = numpy.clip(pooled_twin_snp_change_distribution, 1e-06,1e08)
+pooled_between_snp_change_distribution = numpy.clip(pooled_between_snp_change_distribution, 1e-06,1e08)
+pooled_min_between_snp_change_distribution = numpy.clip(pooled_min_between_snp_change_distribution, 1e-06,1e08)
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_min_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
+# Plot SNP change averages
+
+print pooled_snp_change_distribution.mean()
+print pooled_between_snp_change_distribution.mean()
+
+avg_axis.bar([0.75],[pooled_snp_change_distribution.mean()],width=0.5,facecolor='#08519c',linewidth=0,log=True)
+avg_axis.bar([1.75],[pooled_between_snp_change_distribution.mean()],width=0.5, facecolor='r',alpha=0.5,linewidth=0,log=True)
+#avg_axis.semilogy([-1],[0],'k.')
+
+avg_axis.set_ylim([1,1e05])
+
+fig4.savefig('%s/supplemental_within_between_avg.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
+
+
+# Now start plotting the SNP change distribution
+
+# First within hosts
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution, min_x=1e-02, max_x=1e09)
+
+pooled_snp_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label=('Within-host (n=%d)' % ns[0]), where='mid',zorder=4)
+
+# This lets you set the y range
 
 ymin = 1.0/ns[0]
 ymax = 1.3
 
-pooled_snp_axis.loglog([1e-01,1e05],[ymin,ymin],'k:')
+# Put on log scale
+pooled_snp_axis.loglog([0.1],[1],'k.')
+pooled_gene_axis.loglog([0.1],[1],'k.')
+pooled_gene_axis.set_yticklabels([])
 
-pooled_snp_axis.set_ylim([1.0/ns[0],1.3])
+pooled_snp_axis.set_ylim([ymin,ymax])
 
-pooled_snp_axis.fill_between([1e-01,modification_difference_threshold],[ymin,ymin],[ymax,ymax],color='#deebf7')
-pooled_snp_axis.fill_between([replacement_difference_threshold,1e05],[ymin,ymin],[ymax,ymax],color='#fee0d2')
+# Save intermediate version (for Keynote animations)
+fig2.savefig('%s/figure_6.1.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 
-pooled_snp_axis.text(exp((log(1e05)+log(replacement_difference_threshold))/2), ymax*1.2, 'putative\nreplacement',fontsize=6,fontstyle='italic',ha='center',color='#fc9272')
-pooled_snp_axis.text(exp((log(1)+log(modification_difference_threshold))/2), ymax*1.2, 'putative\nmodification',fontsize=6,fontstyle='italic',ha='center',color='#9ecae1')
-#pooled_snp_axis.text(exp((log(modification_difference_threshold)+log(replacement_difference_threshold))/2), ymax*1.2, 'unclassified',fontsize=6,fontstyle='italic',ha='center')
+# Now the typical between host
 
+# Random between host
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_snp_axis.step(xs,ns/ns[0],'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host', where='mid')
+# Min between host
+#xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_min_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
+
+pooled_snp_axis.step(xs,ns/ns[0],'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host', where='mid',zorder=2)
+
+# Save intermediate version (for Keynote animations)
+fig2.savefig('%s/figure_6.2.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
+
+# Now do twins
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_twin_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
-pooled_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='mid')
+pooled_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='mid',zorder=2)
 
-xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution, min_x=1e-02, max_x=1e09)
+# Save intermediate version (for Keynote animations)
+fig2.savefig('%s/figure_6.3.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 
-pooled_snp_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label=('Within-host (n=%d)' % ns[0]), where='mid')
+# Now fill in the graphics
 
+pooled_snp_axis.fill_between([1e-01,modification_difference_threshold],[ymin,ymin],[ymax,ymax],color='#deebf7',zorder=1)
+pooled_snp_axis.fill_between([replacement_difference_threshold,1e05],[ymin,ymin],[ymax,ymax],color='#fee0d2',zorder=1)
+
+pooled_snp_axis.text(exp((log(1e05)+log(replacement_difference_threshold))/2), ymax*1.2, 'putative\nreplacement',fontsize=6,fontstyle='italic',ha='center',color='#fc9272',zorder=1)
+pooled_snp_axis.text(exp((log(1)+log(modification_difference_threshold))/2), ymax*1.2, 'putative\nmodification',fontsize=6,fontstyle='italic',ha='center',color='#9ecae1',zorder=1)
+#pooled_snp_axis.text(exp((log(modification_difference_threshold)+log(replacement_difference_threshold))/2), ymax*1.2, 'unclassified',fontsize=6,fontstyle='italic',ha='center')
 
 # Now do same thing for genes
 
@@ -1202,10 +1315,6 @@ print "Printing replacement map!"
 for sample_pair in replacement_map.keys():
     print sample_pair, len(replacement_map[sample_pair]), replacement_map[sample_pair]
 
-sys.stderr.write("Saving figure...\t")
-fig2.savefig('%s/figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
-fig.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
-sys.stderr.write("Done!\n")
 
 print 'Reversions', total_reversion_snps, total_reversion_snps['1D']*1.0/(total_reversion_snps['4D']+(total_reversion_snps['4D']==0))/(total_random_null_snps['1D']*1.0/total_random_null_snps['4D']) 
 
@@ -1224,20 +1333,30 @@ print '4D', total_freq_snps['4D']
 print 'all', total_freq_all_snps
 print 'null', total_null_freq_all_snps
 
-frequency_axis.bar(derived_virtual_freqs, total_freq_all_snps,width=0.3,linewidth=0,facecolor='#b15928',alpha=0.5,label='other')
-frequency_axis.bar(derived_virtual_freqs, total_freq_snps['1D']+total_freq_snps['4D'],width=0.3,linewidth=0,facecolor='#ff7f00',label='non')
-frequency_axis.bar(derived_virtual_freqs, total_freq_snps['4D'],width=0.3,linewidth=0,facecolor='#b3de69',label='syn')
-frequency_axis.bar(derived_virtual_freqs-0.3, total_null_freq_all_snps,width=0.3,linewidth=0,facecolor='k', alpha=0.5,label='de novo\nexpectation')
+frequency_axis.bar(derived_virtual_freqs, total_freq_snps['4D'],width=0.3,linewidth=0,facecolor='#b3de69',label='syn (4D)',zorder=3)
 
-frequency_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
+frequency_axis.bar(derived_virtual_freqs, total_freq_snps['1D']+total_freq_snps['4D'],width=0.3,linewidth=0,facecolor='#ff7f00',label='non (1D)',zorder=2)
+
+frequency_axis.bar(derived_virtual_freqs, total_freq_all_snps,width=0.3,linewidth=0,facecolor='#b15928',label='(2D & 3D)',zorder=1)
+
+
+frequency_axis.bar(derived_virtual_freqs-0.3, total_null_freq_all_snps,width=0.3,linewidth=0,facecolor='0.7',label='de novo\nexpectation',zorder=0)
+
+frequency_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=2,handlelength=1)   
 
 gene_frequency_axis.bar(gene_gain_virtual_freqs, total_freq_gains,width=0.3,linewidth=0,facecolor='#b3de69',label='gain')
 
 gene_frequency_axis.bar(gene_loss_virtual_freqs, total_freq_losses,width=0.3,linewidth=0, facecolor='#ff7f00',label='loss')
 
-gene_frequency_axis.bar(gene_loss_virtual_freqs-0.3, total_null_freq_losses,width=0.3,linewidth=0, facecolor='k', alpha=0.5,label='de novo\nexpectation')
+gene_frequency_axis.bar(gene_loss_virtual_freqs-0.3, total_null_freq_losses,width=0.3,linewidth=0, facecolor='0.7',label='de novo\nexpectation')
 
-gene_frequency_axis.legend(loc='upper right',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
+#gene_frequency_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=3,handlelength=1)   
+
+sys.stderr.write("Saving figure...\t")
+fig2.savefig('%s/figure_6.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig2.savefig('%s/figure_6.svg' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+sys.stderr.write("Done!\n")
 
 
 fig3.savefig('%s/within_allele_freqs.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')

@@ -1,8 +1,8 @@
 import matplotlib  
 matplotlib.use('Agg') 
+import sample_utils
 import config
 import parse_midas_data
-import sample_utils
 
 
 import pylab
@@ -185,8 +185,13 @@ for example_idx in xrange(0,len(examples)):
 sys.stderr.write("Loading sample metadata...\n")
 subject_sample_map = sample_utils.parse_subject_sample_map()
 sample_country_map = sample_utils.parse_sample_country_map()
-sample_phenotype_map = sample_utils.parse_sample_phenotype_map()
+sample_continent_map = sample_utils.parse_sample_continent_map()
+
 sys.stderr.write("Done!\n")
+
+#continent_color_map = {'North America': '#deebf7', 'Asia': '#de2d26', 'Europe' : 'g'}
+continent_color_map = {'North America': '#8da0cb', 'Europe': '#66c2a5', 'Asia' : '#fc8d62'}
+
        
 for example_idx in xrange(0,len(examples)):
 
@@ -199,7 +204,7 @@ for example_idx in xrange(0,len(examples)):
     # Only plot samples above a certain depth threshold that are "haploids"
     snp_samples = diversity_utils.calculate_haploid_samples(species_name, debug=debug)
     # Only consider one sample per person
-    snp_samples =     snp_samples[parse_midas_data.calculate_unique_samples(subject_sample_map, sample_list=snp_samples)]
+    snp_samples =     snp_samples[sample_utils.calculate_unique_samples(subject_sample_map, sample_list=snp_samples)]
     sys.stderr.write("Proceeding with %d haploid samples!\n" % len(snp_samples))
 
 
@@ -230,7 +235,7 @@ for example_idx in xrange(0,len(examples)):
 
     # Calculate which pairs of idxs belong to the same sample, which to the same subject
     # and which to different subjects
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs =     parse_midas_data.calculate_subject_pairs(subject_sample_map, snp_samples)
+    same_sample_idxs, same_subject_idxs, diff_subject_idxs =     sample_utils.calculate_subject_pairs(subject_sample_map, snp_samples)
 
     diff_subject_snp_plowers = []
     diff_subject_snp_puppers = []
@@ -347,7 +352,7 @@ for example_idx in xrange(0,len(examples)):
             if (y1==ymin):
                 leaf_xs.append(x1)
         
-            if (y0<low_divergence_threshold) and (y1<low_divergence_threshold):
+            if False: #(y0<low_divergence_threshold) and (y1<low_divergence_threshold):
                 linewidth=0.75
                 color='0.4'
             else:
@@ -374,23 +379,14 @@ for example_idx in xrange(0,len(examples)):
     
         sample = snp_samples[idx]
     
-    
-        if sample_country_map[sample]=='United States':
-            if sample_phenotype_map[sample]==0:
-                color = '#9ecae1'
-            elif sample_phenotype_map[sample]==1:
-                color = '#3182bd'
-            else:
-                color = '#deebf7'      
-        else:
-            color = '#de2d26'
+        color = continent_color_map[sample_continent_map[sample]]
         
-        dendrogram_axis.plot([x],[y],'o',color=color,markeredgewidth=0,markersize=2)
+        dendrogram_axis.plot([x],[y],'o',color=color,markeredgewidth=0,markersize=1.3)
     
-    dendrogram_axis.plot( [0],[1e-09],'o',color='#9ecae1',markeredgewidth=0,markersize=2, label='USA (city 1)')
-    dendrogram_axis.plot( [0],[1e-09],'o',color='#3182bd',markeredgewidth=0,markersize=2, label='USA (city 2)')
-    dendrogram_axis.plot( [0],[1e-09],'o',color='#de2d26',markeredgewidth=0,markersize=2, label='China')
-
+    for continent in continent_color_map:
+        color = continent_color_map[continent]
+        dendrogram_axis.plot( [0],[1e-09],'o',color=color,markeredgewidth=0,markersize=3, label=continent)
+        
     if example_idx==0:
         dendrogram_axis.legend(loc='upper right',ncol=3,frameon=False,fontsize=5,numpoints=1)
     
@@ -553,7 +549,7 @@ for example_idx in xrange(0,len(examples)):
 
 sys.stderr.write("Saving figure...\t")
 divergence_fig.savefig('%s/supplemental_divergence_distribution.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
-dendrogram_fig.savefig('%s/figure_2.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+dendrogram_fig.savefig('%s/supplemental_trees.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
  
