@@ -62,25 +62,22 @@ def load_substitution_rate_map(species_name):
         
     return substitution_rate_map
 
-def calculate_mutrev_matrices_from_substitution_rate_map(substitution_rate_map, type, allowed_samples=[]):
-# once the map is loaded, then we can compute rate matrices in this definition (so, it relies on the previous def)    
+def calculate_mutrev_matrices_from_substitution_rate_map(substitution_rate_map, type, allowed_samples=[]): 
+    # Rewritten to preserve order of allowed samples
+    # If allowed samples contains things that are not in DB, it returns zero opportunities
 
-    sample_set = set([])
+    total_sample_set = set([])
     for sample_1, sample_2 in substitution_rate_map[type].keys():
-        sample_set.add(sample_1)
-        sample_set.add(sample_2)
-    
-    if len(allowed_samples)>0:
-        allowed_sample_set = set(allowed_samples)    
-    else:
-        allowed_sample_set = sample_set
+        total_sample_set.add(sample_1)
+        total_sample_set.add(sample_2)
+
+    if len(allowed_samples)==0:
+        allowed_samples = list(sorted(total_sample_set))    
         
-    sample_set = sample_set & allowed_sample_set
-    samples = list(sorted(sample_set))
+    # allows us to go from sample name to idx in allowed samples (to preserve order)
+    sample_idx_map = {allowed_samples[i]:i for i in xrange(0,len(allowed_samples))}
     
-    sample_idx_map = {samples[i]: i for i in xrange(0,len(samples))}
-    
-    mut_difference_matrix = numpy.zeros((len(samples), len(samples)))*1.0
+    mut_difference_matrix = numpy.zeros((len(allowed_samples), len(allowed_samples)))*1.0
     rev_difference_matrix = numpy.zeros_like(mut_difference_matrix)
     
     mut_opportunity_matrix = numpy.zeros_like(mut_difference_matrix)
@@ -91,7 +88,7 @@ def calculate_mutrev_matrices_from_substitution_rate_map(substitution_rate_map, 
         sample_i = sample_pair[0]
         sample_j = sample_pair[1]
         
-        if not (sample_i in sample_set and sample_j in sample_set):
+        if not ((sample_i in sample_idx_map) and (sample_j in sample_idx_map)):
             continue
         
         i = sample_idx_map[sample_i]
@@ -99,14 +96,13 @@ def calculate_mutrev_matrices_from_substitution_rate_map(substitution_rate_map, 
         
         num_muts, num_revs, num_mut_opportunities, num_rev_opportunities = substitution_rate_map[type][sample_pair]
         
-        
         mut_difference_matrix[i,j] = num_muts
         rev_difference_matrix[i,j] = num_revs
         
         mut_opportunity_matrix[i,j] = num_mut_opportunities
         rev_opportunity_matrix[i,j] = num_rev_opportunities
         
-    return samples, mut_difference_matrix, rev_difference_matrix, mut_opportunity_matrix, rev_opportunity_matrix
+    return allowed_samples, mut_difference_matrix, rev_difference_matrix, mut_opportunity_matrix, rev_opportunity_matrix
 
     
 def calculate_matrices_from_substitution_rate_map(substitution_rate_map, type, allowed_samples=[]):

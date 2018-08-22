@@ -111,14 +111,17 @@ haploid_color = '#08519c'
 # make three panels panels
 #outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1],wspace=0.275)
 
+# When it 1 then 2
+#pylab.figure(1,figsize=(4.5, 2))
+#fig = pylab.gcf()
+#outer_grid  = gridspec.GridSpec(1,2, width_ratios=[3,1.3],wspace=0.4)
+#right_grid = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[1,1],hspace=0.5,subplot_spec=outer_grid[1])
 
-pylab.figure(1,figsize=(4.5, 2))
+pylab.figure(1,figsize=(5, 3))
 fig = pylab.gcf()
-outer_grid  = gridspec.GridSpec(1,2, width_ratios=[3,1.3],wspace=0.4)
-right_grid = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[1,1],hspace=0.5,subplot_spec=outer_grid[1])
+outer_grid  = gridspec.GridSpec(1,1)
 
-
-pylab.figure(2,figsize=(3.42, 2))
+pylab.figure(2,figsize=(5, 3))
 fig2 = pylab.gcf()
 outer_grid2  = gridspec.GridSpec(1,1)
 
@@ -317,10 +320,10 @@ divergence_axis.get_yaxis().tick_left()
 
 
 
-#cumulative_axis = inset_axes(divergence_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=divergence_axis.transAxes)
+cumulative_axis = inset_axes(divergence_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=divergence_axis.transAxes)
 
-cumulative_axis = plt.Subplot(fig, right_grid[0])
-fig.add_subplot(cumulative_axis)
+#cumulative_axis = plt.Subplot(fig, right_grid[0])
+#fig.add_subplot(cumulative_axis)
 
 
 cumulative_axis.spines['top'].set_visible(False)
@@ -343,14 +346,14 @@ singleton_axis.spines['right'].set_visible(False)
 singleton_axis.get_xaxis().tick_bottom()
 singleton_axis.get_yaxis().tick_left()
 
-singleton_axis.set_xlabel('Closest divergence, $d^*$')
+singleton_axis.set_xlabel('Closest synonymous divergence, $d^*$')
 singleton_axis.set_ylabel('Private nonsynonymous ratio, $d_N/d_S$')
 
-#cumulative_singleton_axis = inset_axes(singleton_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=singleton_axis.transAxes)
+cumulative_singleton_axis = inset_axes(singleton_axis, width="25%", height="25%", borderpad=0, bbox_to_anchor=(-0.01,0,1, 1), bbox_transform=singleton_axis.transAxes)
 #-0.025
 
-cumulative_singleton_axis = plt.Subplot(fig, right_grid[1])
-fig.add_subplot(cumulative_singleton_axis)
+#cumulative_singleton_axis = plt.Subplot(fig, right_grid[1])
+#fig.add_subplot(cumulative_singleton_axis)
 
 line, = cumulative_singleton_axis.loglog([1e-05,1e-02],[1,1],'k:',linewidth=0.25,zorder=1)
 line.set_dashes((1,1))
@@ -557,12 +560,12 @@ theory_ds = numpy.logspace(-6,-1,100)
 #theory_dNdSs = asymptotic_dNdS+(1-asymptotic_dNdS)*(1-numpy.exp(-sbymu*theory_ds))/(theory_ds*sbymu)
 theory_dNdSs = theory_dN(theory_ds)/theory_ds
 
-line, = divergence_axis.loglog([1e-06,1e-01],[1,1],'k:',linewidth=0.25,label='Neutral model')
+line, = divergence_axis.loglog([1e-06,1e-03],[1,1],'k:',linewidth=0.25,label='Neutral model')
 line.set_dashes((1,1))
 divergence_axis.loglog(theory_ds, theory_dNdSs,'r-',label='Purifying selection model')
 
-#divergence_axis.legend(loc='lower left',frameon=False,numpoints=1)
-divergence_axis.legend(loc='upper right',frameon=False,numpoints=1)
+divergence_axis.legend(loc='lower left',frameon=False,numpoints=1)
+#divergence_axis.legend(loc='upper right',frameon=False,numpoints=1)
 
 
 cumulative_axis.set_xlim([1e-05,1e-02])
@@ -570,7 +573,7 @@ cumulative_axis.set_ylim([5e-02,2])
 cumulative_singleton_axis.set_ylim([5e-02,2])
 
 
-singleton_axis.set_xlim([1e-06,1e-01])
+singleton_axis.set_xlim([1e-06,1e-02])
 singleton_axis.set_ylim([1e-01,1e01])
 singleton_axis.loglog([1e-06,1e-01],[1,1],'k:')
 #cumulative_axis.set_xticklabels([])
@@ -762,7 +765,7 @@ cumulative_singleton_axis.loglog(ds[good_idxs], avg_cf_ratios[good_idxs],'k-',zo
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_3.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=600)
-fig2.savefig('%s/counts.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=600)
+fig2.savefig('%s/supplemental_singleton_dNdS.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=600)
 sys.stderr.write("Done!\n")
 
  

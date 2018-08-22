@@ -246,15 +246,15 @@ fig2 = pylab.gcf()
 outer_grid_2  = gridspec.GridSpec(1,2,width_ratios=[1,1.2])
 
 
-left_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[1,0.7],wspace=0,subplot_spec=outer_grid[0])
+left_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[0.7,1],wspace=0,subplot_spec=outer_grid[1])
 
-right_grid = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[2,1],hspace=0.5,subplot_spec=outer_grid[1])
+right_grid = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[2,1],hspace=0.5,subplot_spec=outer_grid[0])
 
 bottom_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[0.5, 0.7], wspace=0.6,subplot_spec=right_grid[1])
 
 bottom_right_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[1,0.1],wspace=0.01,subplot_spec=outer_grid_2[1])
 
-divergence_axis = plt.Subplot(fig, left_grid[1])
+divergence_axis = plt.Subplot(fig, left_grid[0])
 fig.add_subplot(divergence_axis)
 
 divergence_axis.set_xlabel('Divergence, $d$')
@@ -292,7 +292,7 @@ divergence_axis.tick_params(axis='y', direction='out',length=3,pad=1)
 #divergence_axis.spines['top'].set_visible(False)
 #divergence_axis.spines['right'].set_visible(False)
 #divergence_axis.get_xaxis().tick_bottom()
-divergence_axis.get_yaxis().tick_left()
+divergence_axis.get_yaxis().tick_right()
 
 
 

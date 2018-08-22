@@ -34,7 +34,9 @@ threshold_pi = 1e-03
 
 modification_difference_threshold = 20
 replacement_difference_threshold = 500
-#modification_difference_threshold = 100
+
+twin_modification_difference_threshold = 1000
+twin_replacement_difference_threshold = 1000
 
 gainloss_max_absent_copynum = 0.05
 gainloss_min_normal_copynum = 0.5
@@ -53,6 +55,10 @@ pipe_snps_lower_depth_factor=0.3
 pipe_snps_upper_depth_factor=3
 
 parse_snps_min_freq = 0.05
+
+between_host_min_sample_size = 33
+within_host_min_sample_size = 3
+within_host_min_haploid_sample_size = 10
 
 # Comment this out
 from parse_HMP_data import *
