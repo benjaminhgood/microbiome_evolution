@@ -20,6 +20,7 @@ import calculate_substitution_rates
 import calculate_temporal_changes
 import parse_patric
 import species_phylogeny_utils
+import core_gene_utils
 
 import stats_utils
 import matplotlib.colors as colors
@@ -73,7 +74,7 @@ else:
 modification_difference_threshold = config.modification_difference_threshold
 min_coverage = config.min_median_coverage
 clade_divergence_threshold = 1e-02 # TODO: change to top level clade definition later
-num_trials=1
+num_trials=100
 min_sample_size = 5
 
 within_host_classes = ['gains','losses','all','snps']
@@ -95,10 +96,6 @@ all_data={}
 #key=species
 #value={}, key=gene, valuee=num times gene shows up
 
-<<<<<<< HEAD
-good_species_list = good_species_list[0:2]
-=======
->>>>>>> bd42de6516ff06463f80093d0aa50aceb8888849
 
 for species_name in good_species_list: 
     dummy_samples, sfs_map = parse_midas_data.parse_within_sample_sfs(species_name, allowed_variant_types=set(['1D','2D','3D','4D'])) 
@@ -157,9 +154,12 @@ for species_name in good_species_list:
     # get all genome ids for this species' pan genome:
     genome_ids=parse_midas_data.get_ref_genome_ids(species_name)
     #
+    # Load the non-shared genes (whitelisted genes):
+    non_shared_genes = core_gene_utils.parse_non_shared_reference_genes(species_name)
+    
     # load the gene descriptions for all genomes coresponding to this speceis:
-    gene_descriptions=parse_patric.load_patric_gene_descriptions(genome_ids)
-    #
+    gene_descriptions=parse_patric.load_patric_gene_descriptions(genome_ids, non_shared_genes)
+   #
     # create gene categories (poor proxy for GO terms):
     gene_categories, gene_category_map = parse_patric.cluster_patric_gene_descriptions(gene_descriptions)
     #
@@ -185,7 +185,8 @@ for species_name in good_species_list:
     ##################
     #
     # load all pangenome genes for the species after clustering at 95% identity
-    pangenome_gene_names, pangenome_new_species_names=parse_midas_data.load_pangenome_genes(species_name)
+    pangenome_gene_names, pangenome_new_species_names=parse_midas_data.load_pangenome_genes(species_name, non_shared_genes)
+    #exclude any genes that are in the whitelisted set from pangenome_gene_names (the pangenome_new_species_names is not used):
     #
     #
     ###########################################
@@ -261,7 +262,7 @@ for species_name in good_species_list:
         # Load SNP and gene changes!
         #
         # First SNP changes
-        perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        snp_opportunities, perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
         #
         # Look at higher threshold if error rate is too high
         if perr>=0.5:
@@ -296,7 +297,7 @@ for species_name in good_species_list:
             num_snp_changes = num_mutations+num_reversions
             #
         # Now do gene changes
-        gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+        gene_opportunities, gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
         all_changes=gains+losses
         #
         if (gains==None) or (gene_perr<-0.5) or (gene_perr>0.5):
@@ -311,17 +312,10 @@ for species_name in good_species_list:
         # Don't want to look at modifications or things with high error rates!
         if num_snp_changes<0 or num_snp_changes>=modification_difference_threshold:
             continue
-<<<<<<< HEAD
-        
         if (num_snp_changes<=0) and (num_gene_changes<=0):
             continue
-         
-=======
-        #
         if num_snp_changes <0.5 and num_gene_changes <0.5:
             continue
-        #    
->>>>>>> bd42de6516ff06463f80093d0aa50aceb8888849
         gene_change_dictionary={'gains':gains, 'losses':losses, 'all':all_changes}
         #                
         #iterate through all_changes to store the gene_ids.
@@ -605,9 +599,9 @@ for species_name in good_species_list:
     all_data[species_name]={'gene_changes':all_gene_changes, 'null':all_species_null}
 
 if other_species_str=="":
-    pickle.dump( all_data, open( "all_species_gene_changes.p", "wb" ) )
+    pickle.dump( all_data, open( "/pollard/home/ngarud/tmp_intermediate_files/all_species_gene_changes.p", "wb" ) )
 else:
-    pickle.dump( all_data, open( "%s_gene_changes.p" % species_name, "wb" ) )  
+    pickle.dump( all_data, open( "/pollard/home/ngarud/tmp_intermediate_files/%s_gene_changes.p" % species_name, "wb" ) )  
 
 
 
