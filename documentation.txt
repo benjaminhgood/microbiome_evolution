@@ -52,11 +52,102 @@ qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP_MIDAS_species_snps_c
 # Eliminates need later on to merge sample reps). 
 ###########################################################
 
-# generate a list of subject_ids
-python ~/ben_nandita_hmp_scripts/get_list_of_subject_ids.py
-#python ~/ben_nandita_hmp_scripts/concatenate_fastq_sample_replicates_from_same_visno.py $subject_id
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/concatenate_fastq_sample_replicates
 
+
+##################
+# HMP1-2 data    #
+##################
+# Jason downloaded HMP1-2 sometime July 2018
+/pollard/data/metagenomes/HMP1-II/WMS/
+
+# parse the HMP1-2 metadata to obtain only stool samples and get the visnos etc in the same format as the old data:
+~/ben_nandita_hmp_scripts/parse_hmp1-2_data.py
+# which resulted in this file:
+~/ben_nandita_hmp_scripts/HMP1-2_ids_order.txt
+
+# need to uncompress the files that Jason downloaded
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/untar_HMP1-2
+
+# redo the uncompression for some files
+
+rm /pollard/home/ngarud/ben_nandita_hmp_scripts/HMP1-2_SRS_redo.txt
+while read sample; do
+    if [ ! -f /pollard/data/metagenomes/HMP1-II/untarred_files/${sample}/${sample}.denovo_duplicates_marked.trimmed.1.fastq ]
+    then
+	echo $sample >> /pollard/home/ngarud/ben_nandita_hmp_scripts/HMP1-2_SRS_redo.txt
+    fi
+done < /pollard/home/ngarud/ben_nandita_hmp_scripts/HMP1-2_SRS.txt
+
+
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/untar_HMP1-2_redo
+
+# next, need to concatenate the fastq files if there are multiple sample replicates for the same time point. 
+# generate a list of subject_ids
+python ~/ben_nandita_hmp_scripts/get_list_of_subject_ids.py
+python ~/ben_nandita_hmp_scripts/concatenate_fastq_sample_replicates_from_same_visno_HMP1-2.py $subject_id
+
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/concatenate_fastq_sample_replicates_HMP1-2
+
+rm /pollard/data/metagenomes/HMP1-II/merged_sample_replicates/700101840_1.fastq.gz 
+rm /pollard/data/metagenomes/HMP1-II/merged_sample_replicates/700101840_2.fastq.gz 
+
+nohup nice gzip -c /pollard/data/metagenomes/HMP1-II/untarred_files/SRS024549/SRS024549.denovo_duplicates_marked.trimmed.1.fastq >> /pollard/data/metagenomes/HMP1-II/merged_sample_replicates/700101840_1.fastq.gz &
+
+nohup nice gzip -c /pollard/data/metagenomes/HMP1-II/untarred_files/SRS024549/SRS024549.denovo_duplicates_marked.trimmed.2.fastq >> /pollard/data/metagenomes/HMP1-II/merged_sample_replicates/700101840_2.fastq.gz &
+
+rm /pollard/data/metagenomes/HMP1-II/merged_sample_replicates/700102356_1.fastq.gz 
+rm /pollard/data/metagenomes/HMP1-II/merged_sample_replicates/700102356_2.fastq.gz 
+nohup nice gzip -c /pollard/data/metagenomes/HMP1-II/untarred_files/SRS052027/SRS052027.denovo_duplicates_marked.trimmed.1.fastq >> /pollard/data/metagenomes/HMP1-II/merged_sample_replicates/700102356_1.fastq.gz &
+
+nohup nice gzip -c /pollard/data/metagenomes/HMP1-II/untarred_files/SRS052027/SRS052027.denovo_duplicates_marked.trimmed.2.fastq >> /pollard/data/metagenomes/HMP1-II/merged_sample_replicates/700102356_2.fastq.gz &
+
+# redo for two samples:
+
+#subject_id:
+
+for subject_id in 159591683 159490532; do
+    nohup nice python ~/ben_nandita_hmp_scripts/concatenate_fastq_sample_replicates_from_same_visno_HMP1-2.py $subject_id &
+done
+
+
+# run MIDAS:
+#outdir: ~/BenNanditaProject/MIDAS_intermediate_files_HMP1-2
+# get a list of all sample names (some have a 'c' appended to it to indicate that multiple samples have been concatenated). 
+ls /pollard/data/metagenomes/HMP1-II/merged_sample_replicates | grep _1 | cut -f 1 -d '_' > ~/BenNanditaProject/MIDAS_intermediate_files_HMP1-2/HMP1-2_samples.txt
+
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP1-2_MIDAS_species
+
+# some of the samples did not finish. Redo for these
+
+rm ~/BenNanditaProject/MIDAS_intermediate_files_HMP1-2/redo_samples.txt
+while read sample; do
+    if [ ! -f /pollard/home/ngarud/BenNanditaProject/MIDAS_intermediate_files_HMP1-2/${sample}/species/species_profile.txt ]
+    then
+	echo $sample >> ~/BenNanditaProject/MIDAS_intermediate_files_HMP1-2/redo_samples.txt
+    fi
+done < ~/BenNanditaProject/MIDAS_intermediate_files_HMP1-2/HMP1-2_samples.txt
+
+
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP1-2_MIDAS_species_redo_samples
+
+# get the time pair species list
+time_pair_species_list_for_midas_HMP1-2.py
+
+# run SNPs and gene
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP1-2_MIDAS_snps_timepts_matched
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP1-2_MIDAS_genes_timepts_matched
+
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP1-2_MIDAS_snps_timepts_matched_redo
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/qsub_script_HMP1-2_MIDAS_genes_timepts_matched_redo
+
+Redo:
+Genes:
+700107873
+700108095c
+
+SNPs
+700106325c
 
 ######################################
 # Run MIDAS on HMP sample replicates #
@@ -339,6 +430,43 @@ tar -cf genes_1.tar genes_1
 tar -cf genes_5.tar genes_5
 
 
+#########################################
+# Merge MIDAS: HMP1-2, Qin, Twins (all), Korpela #
+#########################################
+
+rm ~/BenNanditaProject/MIDAS_intermediate_files_hmp/HMP1-2_Kuleshov_Qin_Twins_Korpela_sample_paths.txt
+
+# sample path for HMP1-2
+ls -d ~/BenNanditaProject/MIDAS_intermediate_files_HMP1-2/7** > ~/BenNanditaProject/MIDAS_intermediate_files_hmp/HMP1-2_Kuleshov_Qin_Twins_Korpela_sample_paths.txt
+
+# Kuleshov
+ls -d ~/BenNanditaProject/MIDAS_intermediate_files_Kuleshov/MIDAS_1.2.2_output/SRR2822459 >> ~/BenNanditaProject/MIDAS_intermediate_files_hmp/HMP1-2_Kuleshov_Qin_Twins_Korpela_sample_paths.txt
+
+# Qin:
+ls -d ~/BenNanditaProject/MIDAS_intermediate_files_Qin_2012/MIDAS_1.2.2_output_Oct17/** >> ~/BenNanditaProject/MIDAS_intermediate_files_hmp/HMP1-2_Kuleshov_Qin_Twins_Korpela_sample_paths.txt
+
+# Twins:
+ls -d /pollard/home/ngarud/twin_project/MIDAS_intermediate_files_twins/ERR* >> ~/BenNanditaProject/MIDAS_intermediate_files_hmp/HMP1-2_Kuleshov_Qin_Twins_Korpela_sample_paths.txt
+
+# Korpela
+
+while read line; do
+    echo -e '/pollard/home/ngarud/Korpela_2018/MIDAS_intermediate_files/'$line >> ~/BenNanditaProject/MIDAS_intermediate_files_hmp/HMP1-2_Kuleshov_Qin_Twins_Korpela_sample_paths.txt
+done < /pollard/home/ngarud/Korpela_2018/family_microbiome_project/korpela_twin_ids_sample_only.txt
+
+OUTDIR=/pollard/home/ngarud/BenNanditaProject/ben_nandita_hmp_data/HMP1_2_Kuleshov_Qin_Twins_Korpela
+
+nohup nice merge_midas.py snps $OUTDIR/snps -i ~/BenNanditaProject/MIDAS_intermediate_files_hmp/HMP1-2_Kuleshov_Qin_Twins_Korpela_sample_paths.txt -t file --sample_depth 5 --site_depth 3 --min_samples 1 --max_species 150 --site_prev 0.0 --threads 7 > $OUTDIR/snps/snps.log &
+
+nohup nice merge_midas.py species $OUTDIR/species -i ~/BenNanditaProject/MIDAS_intermediate_files_hmp/HMP1-2_Kuleshov_Qin_Twins_Korpela_sample_paths.txt -t file  >& $OUTDIR/species/species.log &
+
+nohup nice merge_midas.py genes $OUTDIR/genes -i ~/BenNanditaProject/MIDAS_intermediate_files_hmp/HMP1-2_Kuleshov_Qin_Twins_Korpela_sample_paths.txt -t file --sample_depth 1 --min_samples 1 --max_species 150 >& $OUTDIR/genes/genes.log &
+
+# bzip files -- REDO
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/bzip_snps_Qin_HMP_Twins_Korpela
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/bzip_genes_Qin_HMP_Twins_Korpela
+qsub ~/ben_nandita_hmp_scripts/qsub_scripts/bzip_species_Qin_HMP_Twins_Korpela
+
 ################################
 # Merge MIDAS: HMP, Qin, Twins #
 ################################
@@ -357,6 +485,8 @@ nohup nice merge_midas.py genes $OUTDIR/genes -i /pollard/home/ngarud/twin_proje
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/bzip_snps_Qin_HMP_Twins
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/bzip_genes_Qin_HMP_Twins
 qsub ~/ben_nandita_hmp_scripts/qsub_scripts/bzip_species_Qin_HMP_Twins
+
+
 
 
 ################
@@ -496,8 +626,12 @@ nohup nice postprocess_midas_data.py Bacteroides_uniformis_57318 &
 #compile the error_pvalues cpp code as follows: 
 g++ -std=c++11 -O3 *.cpp -o annotate_pvalue
 
+# run core genes first:
+/pollard/home/ngarud/miniconda2/bin/python core_gene_utils.py
+
 # python script to run the above:
 postprocess_midas_data.py $species
+
 
 # qsub script to run the above:
 python ~/ben_nandita_hmp_scripts/print_good_species_list.py name> ~/tmp_intermediate_files/tmp_species_list.txt
@@ -1093,8 +1227,8 @@ while read species; do
 done < ~/tmp_intermediate_files/tmp_species_list.txt
 
 # aggregate the results accross species 
-gene_changes_annotation_cross_species.py
-
+python gene_changes_annotation_cross_species.py
+python snp_changes_annotation_cross_species.py 
 
 #####################################################################################################
 #
@@ -1388,3 +1522,7 @@ for species in B_vulgatus B_fragilis P_distasonis; do
 
 
 python ben_nandita_hmp_scripts/analyze_simulations_species_abundance.py
+
+
+
+

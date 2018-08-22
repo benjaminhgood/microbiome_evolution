@@ -92,6 +92,9 @@ for species_name in all_data.keys():
                     all_data['all_species']['null'][null_type][gene]={'all':[0]*num_trials,'gains':[0]*num_trials,'losses':[0]*num_trials}
                 for change_type in ['gains','losses','all']:
                     for i in range(0, num_trials):
+                        #print change_type
+                        #print all_data['all_species']['null'][null_type][gene][change_type]
+                        #print all_data[species_name]['null'][null_type][gene][change_type]
                         all_data['all_species']['null'][null_type][gene][change_type][i]+=all_data[species_name]['null'][null_type][gene][change_type][i]
 
                 
