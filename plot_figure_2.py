@@ -63,13 +63,18 @@ min_coverage = config.min_median_coverage
 alpha = 0.05 # Confidence interval range for rate estimates
 low_divergence_threshold = 2e-04
 min_change = 0.8
-min_sample_size = 33 # 46 gives at least 1000 pairs
+min_sample_size = 33 # 46 gives at least 1000 pairs, 33 gives at least 500 (actually 528)
 allowed_variant_types = set(['1D','2D','3D','4D'])
 
 divergence_matrices = {}
 low_divergence_pair_counts = {}
 null_low_divergence_pair_counts = [{} for i in xrange(0,num_bootstraps)]
 
+low_divergence_same_continent_counts = {True:0, False:0}
+null_low_divergence_same_continent_counts = [{True:0, False:0} for i in xrange(0,num_bootstraps)]
+
+
+low_divergence_snp_differences = []
 low_divergence_gene_differences = []
 low_divergence_clock_null_gene_differences = []
 normal_divergence_gene_differences = []
@@ -80,6 +85,7 @@ if debug:
 
 sys.stderr.write("Loading sample metadata...\n")
 subject_sample_map = sample_utils.parse_subject_sample_map()
+sample_continent_map = sample_utils.parse_sample_continent_map()
 sys.stderr.write("Done!\n")
 
 for species_name in good_species_list:
@@ -127,7 +133,7 @@ for species_name in good_species_list:
     for i in xrange(0, snp_opportunity_matrix.shape[0]):
         for j in xrange(i+1, snp_opportunity_matrix.shape[0]):
             if snp_opportunity_matrix[i,j]>0.5:
-                snp_substitution_rates.append(snp_substitution_matrix[i,j])  
+                snp_substitution_rates.append(snp_substitution_matrix[i,j]) 
     snp_substitution_rates = numpy.array(snp_substitution_rates)
     
     median_gene_difference = numpy.median(gene_differences)
@@ -143,6 +149,8 @@ for species_name in good_species_list:
             if snp_opportunity_matrix[i,j] > 0.5:
                 
                 if snp_substitution_matrix[i,j] <= low_divergence_threshold:
+                
+                    low_divergence_snp_differences.append(snp_difference_matrix[i,j])
                 
                     if gene_opportunity_matrix[i,j] > 0.5:
                         low_divergence_gene_differences.append(gene_difference_matrix[i,j])
@@ -162,6 +170,11 @@ for species_name in good_species_list:
                         
                     low_divergence_pair_counts[sample_pair] += 1
                     
+                    same_continent = (sample_continent_map[snp_samples[i]] == sample_continent_map[snp_samples[j]])
+                    
+                    low_divergence_same_continent_counts[same_continent] += 1
+                    
+                    
                     for bootstrap_idx in xrange(0,num_bootstraps):
                         
                         # now draw null pair from 
@@ -172,6 +185,12 @@ for species_name in good_species_list:
                             null_low_divergence_pair_counts[bootstrap_idx][null_pair] = 0
                         
                         null_low_divergence_pair_counts[bootstrap_idx][null_pair] += 1
+                        
+                        same_continent = (sample_continent_map[null_samples[0]] == sample_continent_map[null_samples[1]])
+                    
+                        null_low_divergence_same_continent_counts[bootstrap_idx][same_continent] += 1
+                    
+                        
                  
                 
     divergence_matrices[species_name] = snp_substitution_matrix
@@ -182,9 +201,24 @@ for species_name in good_species_list:
 species_names = []
 sample_sizes = []
 
-for species_name in species_phylogeny_utils.sort_phylogenetically(divergence_matrices.keys()):
+for species_name in divergence_matrices.keys():
+    species_names.append(species_name)
+    
+    if species_name=='Bacteroides_vulgatus_57955':
+        sample_sizes.append(-1000 )
+    else:
+        sample_sizes.append( -divergence_matrices[species_name].shape[0] )
+    
+sorted_species_names = species_phylogeny_utils.sort_phylogenetically(divergence_matrices.keys(),first_entry='Bacteroides_vulgatus_57955',second_sorting_attribute=sample_sizes)
+
+species_names = []
+sample_sizes = []
+for species_name in reversed(sorted_species_names):
     species_names.append(species_name)
     sample_sizes.append( divergence_matrices[species_name].shape[0] )
+    
+
+
     
 # sort in descending order of sample size
 # Sort by num haploids    
@@ -201,18 +235,24 @@ sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(5, 3))
+pylab.figure(1,figsize=(6, 3))
 fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1],hspace=0.275)
+outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1.2,1],wspace=0.3)
 
-left_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[1,1],wspace=0,subplot_spec=outer_grid[0])
+pylab.figure(2,figsize=(6, 2))
+fig2 = pylab.gcf()
+# make three panels panels
+outer_grid_2  = gridspec.GridSpec(1,2,width_ratios=[1,1.2])
+
+
+left_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[1,0.7],wspace=0,subplot_spec=outer_grid[0])
 
 right_grid = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[2,1],hspace=0.5,subplot_spec=outer_grid[1])
 
-bottom_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[0.7,1],wspace=0.55,subplot_spec=right_grid[1])
+bottom_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[0.5, 0.7], wspace=0.6,subplot_spec=right_grid[1])
 
-bottom_right_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[1,0.1],wspace=0.01,subplot_spec=bottom_grid[1])
+bottom_right_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[1,0.1],wspace=0.01,subplot_spec=outer_grid_2[1])
 
 divergence_axis = plt.Subplot(fig, left_grid[1])
 fig.add_subplot(divergence_axis)
@@ -253,6 +293,8 @@ divergence_axis.tick_params(axis='y', direction='out',length=3,pad=1)
 #divergence_axis.spines['right'].set_visible(False)
 #divergence_axis.get_xaxis().tick_bottom()
 divergence_axis.get_yaxis().tick_left()
+
+
 
 
 # Plot percentiles of divergence distribution
@@ -314,7 +356,7 @@ for species_idx in xrange(0,len(species_names)):
     divergence_axis.semilogx([quantiles[0],quantiles[-1]],[species_idx,species_idx], '-',color='#de2d26')
 
 
-histogram_axis = plt.Subplot(fig, bottom_grid[0])
+histogram_axis = plt.Subplot(fig, bottom_grid[1])
 fig.add_subplot(histogram_axis)
 
 histogram_axis.set_ylabel('Host pairs')
@@ -344,7 +386,7 @@ for bootstrap_idx in xrange(0,num_bootstraps):
     
     bootstrapped_histogram = numpy.array([(bootstrapped_low_divergence_counts==k).sum() for k in ks])*1.0
 
-    null_histogram += bootstrapped_histogram/num_bootstraps
+    null_histogram += bootstrapped_histogram*1.0/num_bootstraps
 
     pvalue += (bootstrapped_histogram[1:].sum() >= observed_histogram[1:].sum())
 
@@ -363,8 +405,23 @@ histogram_axis.set_ylim([1e-01,1e03])
 histogram_axis.set_xticks([1,2,3])
 histogram_axis.legend(loc='upper right',frameon=False,fontsize=4,numpoints=1, handlelength=1)
 
-gene_difference_axis = plt.Subplot(fig, bottom_right_grid[0])
-fig.add_subplot(gene_difference_axis)
+snp_difference_axis = plt.Subplot(fig2, outer_grid_2[0])
+fig2.add_subplot(snp_difference_axis)
+
+snp_difference_axis.set_xlabel('# SNV differences')
+snp_difference_axis.set_ylabel('Fraction $\leq n$')
+
+snp_difference_axis.spines['top'].set_visible(False)
+snp_difference_axis.spines['right'].set_visible(False)
+snp_difference_axis.get_xaxis().tick_bottom()
+snp_difference_axis.get_yaxis().tick_left()
+
+snp_difference_axis.semilogx([1,1])
+snp_difference_axis.set_xlim([1,1e03])
+snp_difference_axis.set_ylim([0,1.174])
+
+gene_difference_axis = plt.Subplot(fig2, bottom_right_grid[0])
+fig2.add_subplot(gene_difference_axis)
 
 gene_difference_axis.set_xlabel('# gene differences')
 gene_difference_axis.set_ylabel('Fraction $\leq n$')
@@ -378,9 +435,13 @@ gene_difference_axis.semilogx([1,1])
 gene_difference_axis.set_xlim([1,1e04])
 gene_difference_axis.set_ylim([0,1.174])
 
+low_divergence_snp_differences = numpy.array(low_divergence_snp_differences)
 low_divergence_gene_differences = numpy.array(low_divergence_gene_differences)
 low_divergence_clock_null_gene_differences = numpy.array(low_divergence_clock_null_gene_differences)
 normal_divergence_gene_differences = numpy.array(normal_divergence_gene_differences)
+
+xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(low_divergence_gene_differences, min_x=0.1,max_x=1e04)
+snp_difference_axis.step(xs,1-ns*1.0/ns[0],'r-',label='Closely\nrelated',zorder=1)
 
 
 xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(low_divergence_gene_differences, min_x=0.1,max_x=1e04)
@@ -399,9 +460,66 @@ gene_difference_axis.step(xs,1-ns*1.0/ns[0],'-', color='0.7', label='Scaled',zor
 #gene_difference_axis.legend(loc=(0.01,0.92),frameon=False,fontsize=4, ncol=3, numpoints=1, handlelength=1)
 gene_difference_axis.legend(loc=(0.9,0.15),frameon=False,fontsize=4, ncol=1, numpoints=1, handlelength=1)
 
+print low_divergence_same_continent_counts
+
+###
+#
+# Same / different continent distribution
+#
+###
+
+# Calculate observed histogram
+low_divergence_counts = numpy.array(low_divergence_pair_counts.values())
+
+observed_same = low_divergence_same_continent_counts[True] 
+observed_different = low_divergence_same_continent_counts[False]
+
+null_same = 0
+null_different = 0
+
+pvalue = 0
+
+# Calculate null histogram
+for bootstrap_idx in xrange(0,num_bootstraps):
+    
+    null_same += null_low_divergence_same_continent_counts[bootstrap_idx][True]*1.0/num_bootstraps 
+    
+    null_different += null_low_divergence_same_continent_counts[bootstrap_idx][False]*1.0/num_bootstraps 
+    
+    
+    pvalue += (null_low_divergence_same_continent_counts[bootstrap_idx][True] >= observed_same)
+
+pvalue = (pvalue+1.0)/(num_bootstraps+1.0)
+
+print "pvalue for closely related continent distribution =", pvalue
+
+print null_same, null_different
+
+continent_axis = plt.Subplot(fig, bottom_grid[0])
+fig.add_subplot(continent_axis)
+
+continent_axis.set_ylabel('Closely related strains')
+continent_axis.set_xlim([0,3])
+
+continent_axis.spines['top'].set_visible(False)
+continent_axis.spines['right'].set_visible(False)
+continent_axis.get_xaxis().tick_bottom()
+continent_axis.get_yaxis().tick_left()
+
+continent_axis.bar([1-0.3, 2-0.3], [observed_same, observed_different], width=0.3, linewidth=0, color='r',label='Obs',bottom=1e-03)
+
+continent_axis.bar([1, 2], [null_same, null_different], width=0.3, linewidth=0, color='0.7',label='Null',bottom=1e-03)
+
+continent_axis.set_ylim([0,1e03])
+continent_axis.set_xticks([1,2])
+continent_axis.set_xticklabels(['Same\ncontinent','Diff\ncontinent'], rotation='vertical',fontsize=4)
+
+continent_axis.legend(loc='upper right',frameon=False,fontsize=4,numpoints=1, handlelength=1)
 
 sys.stderr.write("Saving figure...\t")
-fig.savefig('%s/figure_2.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',dpi=600)
+fig.savefig('%s/figure_2.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+fig2.savefig('%s/supplemental_closely_related_differences.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
+
 
 sys.stderr.write("Done!\n")
 

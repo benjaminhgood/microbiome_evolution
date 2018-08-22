@@ -20,7 +20,7 @@ temporal_change_directory = '%stemporal_changes/' % (parse_midas_data.data_direc
 intermediate_filename_template = '%s%s.txt.gz'  
 
 min_coverage = config.min_median_coverage
-min_sample_size = 5
+min_sample_size = 2
 
 import stats_utils
 from math import log10,ceil

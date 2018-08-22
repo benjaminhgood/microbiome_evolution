@@ -219,6 +219,27 @@ def parse_sample_country_map(sample_metadata_map = {}):
     
     return sample_country_map
 
+#####
+#
+# Loads continent metadata for samples
+#
+#####
+def parse_sample_continent_map(sample_metadata_map = {}): 
+    
+    import config
+    
+    if len(sample_metadata_map)==0:
+        # Load it 
+        sample_metadata_map = parse_sample_metadata_map()
+        
+    sample_continent_map = {}
+    for sample_id in sample_metadata_map:
+        subject_id, dummy, accession_id, country, continent, order = sample_metadata_map[sample_id]
+         
+        if sample_id not in sample_continent_map:
+            sample_continent_map[sample_id] = continent
+    
+    return sample_continent_map
 
 def list_of_isolates_and_mixtures():
     

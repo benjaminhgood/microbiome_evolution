@@ -1710,7 +1710,7 @@ def calculate_temporal_samples(species_name, min_coverage=config.min_median_cove
     
     # Calculate which pairs of idxs belong to the same sample, which to the same subject
     # and which to different subjects
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs =     sample_utils.calculate_ordered_subject_pairs(sample_order_map, highcoverage_samples)
+    same_sample_idxs, same_subject_idxs, diff_subject_idxs =     sample_utils.calculate_nonconsecutive_ordered_subject_pairs(sample_order_map, highcoverage_samples)
 
 
     temporal_samples = set()

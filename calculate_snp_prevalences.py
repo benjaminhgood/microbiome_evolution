@@ -35,7 +35,7 @@ def parse_snp_prevalences(desired_species_name):
     
     
 # Loading file
-def parse_population_freqs(desired_species_name):
+def parse_population_freqs(desired_species_name, polarize_by_consensus=False):
     
     intermediate_filename = intermediate_filename_template % desired_species_name
     
@@ -54,9 +54,14 @@ def parse_population_freqs(desired_species_name):
         population_freq = float(items[2])
         snp_freq = float(items[3])
         
+        
         if population_freq==0:
             pass
         else:
+            
+            if population_freq>0.5:
+                population_freq = 1-population_freq
+        
             population_freqs[(contig,location)] = population_freq
                             
     file.close()

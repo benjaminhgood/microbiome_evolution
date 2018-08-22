@@ -106,16 +106,20 @@ sys.stderr.write("Done!\n")
 
 haploid_color = '#08519c'
 
-pylab.figure(1,figsize=(7, 2))
-fig = pylab.gcf()
+#pylab.figure(1,figsize=(7, 2))
+#fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1],wspace=0.275)
+#outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1,1],wspace=0.275)
 
-right_grid = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[1,1],hspace=0.1,subplot_spec=outer_grid[1])
 
-pylab.figure(2)
+pylab.figure(1,figsize=(3.4, 2))
+fig = pylab.gcf()
+outer_grid  = gridspec.GridSpec(1,1)
+
+pylab.figure(2,figsize=(3.4, 2))
 fig2 = pylab.gcf()
-count_axis = pylab.gca()
+outer_grid2  = gridspec.GridSpec(1,1)
+
 
 ###########################################
 #
@@ -329,8 +333,8 @@ cumulative_axis.set_ylabel('Cumulative')
 line, = cumulative_axis.loglog([1e-05,1e-02],[1,1],'k:',linewidth=0.25)
 line.set_dashes((1,1))
 
-singleton_axis = plt.Subplot(fig, outer_grid[1])
-fig.add_subplot(singleton_axis)
+singleton_axis = plt.Subplot(fig2, outer_grid2[0])
+fig2.add_subplot(singleton_axis)
 
 
 singleton_axis.spines['top'].set_visible(False)
@@ -396,9 +400,6 @@ for species_idx in xrange(0,len(species_names)):
     
     all_syn_differences.extend( syn_differences[species_name] )
     all_syn_opportunities.extend( syn_opportunities[species_name] )
-    
-    if not (syn_opportunities[species_name]>=0).all():
-        print species_name, "bad syn opps"
         
     all_non_differences.extend( non_differences[species_name] )
     all_non_opportunities.extend( non_opportunities[species_name] )
@@ -410,7 +411,7 @@ for species_idx in xrange(0,len(species_names)):
     bad_idxs = numpy.logical_not(good_idxs)
     
     
-    if True and species_name.startswith('Bacteroides'):
+    if False and species_name.startswith('Bacteroides'):
         divergence_axis.loglog(pS2s[good_idxs], pNpSs[good_idxs], 'r.', markersize=2,markeredgewidth=0,zorder=1,rasterized=True)
     else:
         divergence_axis.loglog(pS2s[good_idxs], pNpSs[good_idxs], '.', color='0.7', markersize=2,alpha=0.5,markeredgewidth=0,zorder=0,rasterized=True)
@@ -446,7 +447,7 @@ for bootstrap_idx in xrange(0,num_bootstraps):
     # Pseudocounts are added so that things w/ zero counts are not "stuck" there in resampling
     # Pseudocounts are chosen w/ dN/dS=1, so should be conservative?
     # (alternatively, we could choose dN/dS=0.1, but that seems a little unfair)
-    pseudocount = 1.0
+    pseudocount = 0 #1.0
     bootstrapped_non_differences = poisson(all_non_differences+pseudocount) 
     bootstrapped_syn_differences = poisson(all_syn_differences+all_syn_opportunities*pseudocount/all_non_opportunities)
     bootstrapped_NS_differences = bootstrapped_non_differences + bootstrapped_syn_differences
@@ -464,16 +465,16 @@ for bootstrap_idx in xrange(0,num_bootstraps):
             lower_pNpSs.append(-1)
         else:
             
-            lower_cumulative_non_differences = (1+bootstrapped_non_differences)[lower_idxs].sum()
-            lower_cumulative_expected_non_differences = (1+bootstrapped_thinned_syn_differences_2[lower_idxs]*2.0/all_syn_opportunities[lower_idxs]*all_non_opportunities[lower_idxs]).sum() 
+            lower_cumulative_non_differences = (bootstrapped_non_differences)[lower_idxs].sum()
+            lower_cumulative_expected_non_differences = (bootstrapped_thinned_syn_differences_2[lower_idxs]*2.0/all_syn_opportunities[lower_idxs]*all_non_opportunities[lower_idxs]).sum() 
             lower_pNpSs.append( (lower_cumulative_non_differences)/(lower_cumulative_expected_non_differences) )
         
         
         if upper_idxs.sum()<1.5:
             upper_pNpSs.append(-1)
         else:
-            upper_cumulative_non_differences = (1+bootstrapped_non_differences[upper_idxs]).sum()
-            upper_cumulative_expected_non_differences = (1+bootstrapped_thinned_syn_differences_2[upper_idxs]*2.0/all_syn_opportunities[upper_idxs]*all_non_opportunities[upper_idxs]).sum() 
+            upper_cumulative_non_differences = (bootstrapped_non_differences[upper_idxs]).sum()
+            upper_cumulative_expected_non_differences = (bootstrapped_thinned_syn_differences_2[upper_idxs]*2.0/all_syn_opportunities[upper_idxs]*all_non_opportunities[upper_idxs]).sum() 
             upper_pNpSs.append( (upper_cumulative_non_differences)/(upper_cumulative_expected_non_differences) )
         
         
@@ -545,7 +546,7 @@ divergence_axis.loglog(theory_ds, theory_dNdSs,'r-')
 
 cumulative_axis.set_xlim([1e-05,1e-02])
 cumulative_axis.set_ylim([5e-02,2])
-cumulative_singleton_axis.set_ylim([1e-01,100])
+cumulative_singleton_axis.set_ylim([5e-02,2])
 
 
 singleton_axis.set_xlim([1e-06,1e-01])
@@ -624,7 +625,7 @@ for bootstrap_idx in xrange(0,num_bootstraps):
     # Pseudocounts are added so that things w/ zero counts are not "stuck" there in resampling
     # Pseudocounts are chosen w/ dN/dS=1, so should be conservative?
     # (alternatively, we could choose dN/dS=0.1, but that seems a little unfair)
-    pseudocount = 1.0
+    pseudocount = 0.0
     bootstrapped_non_singletons = poisson(all_non_singletons+pseudocount) 
     bootstrapped_syn_singletons = poisson(all_syn_singletons+all_syn_opportunities*pseudocount/all_non_opportunities)
     bootstrapped_syn_other = poisson(all_syn_other)
@@ -646,36 +647,15 @@ for bootstrap_idx in xrange(0,num_bootstraps):
     
     for d in ds:
         
-        lower_idxs = (bootstrapped_divergence <= d)*(all_NS_singletons>0.5)*(bootstrapped_NS_singletons>0.5)*((all_syn_opportunities+all_non_opportunities)>100)
-        upper_idxs = (bootstrapped_divergence > d)*(all_NS_singletons>0.5)*(bootstrapped_NS_singletons>0.5)*((all_syn_opportunities+all_non_opportunities)>100)
+        lower_idxs = (bootstrapped_divergence <= d)*(all_NS_singletons>0.5)*(bootstrapped_NS_singletons>0.5)
+        upper_idxs = (bootstrapped_divergence > d)*(all_NS_singletons>0.5)*(bootstrapped_NS_singletons>0.5)
         
         if lower_idxs.sum()<1.5:
             lower_pNpSs.append(-1)
         else:
         
-            numerators = (1.0+bootstrapped_non_singletons[lower_idxs])
-            denominators = (1.0+bootstrapped_thinned_syn_singletons_2[lower_idxs]*2.0/all_syn_opportunities[lower_idxs]*all_non_opportunities[lower_idxs]) 
-        
-            if not (denominators>=0).all():
-                #print "negative D"
-        
-                if not (bootstrapped_thinned_syn_singletons_2[lower_idxs]>=0).all():
-                    #print "thinned singletons negative"
-                    pass
-                    
-                if not ((2.0/all_syn_opportunities[lower_idxs]*all_non_opportunities[lower_idxs]) >= 0).all():
-                    #print "opportunities negative"
-                    pass
-                    
-                    if not (all_non_opportunities[lower_idxs]>=0).all():
-                        #print "non opp negative"
-                        pass
-                        
-                    if not (all_syn_opportunities[lower_idxs]>=0).all():
-                        #print "syn opp negative"
-                        pass
-            
-            
+            numerators = (bootstrapped_non_singletons[lower_idxs])
+            denominators = (bootstrapped_thinned_syn_singletons_2[lower_idxs]*2.0/all_syn_opportunities[lower_idxs]*all_non_opportunities[lower_idxs]) 
         
             lower_cumulative_non_singletons = numerators.sum() 
             lower_cumulative_expected_non_singletons = denominators.sum()
@@ -688,8 +668,8 @@ for bootstrap_idx in xrange(0,num_bootstraps):
         else:
         
             
-            upper_cumulative_non_singletons = (1.0+bootstrapped_non_singletons[upper_idxs]).sum()
-            upper_cumulative_expected_non_singletons = (1.0+bootstrapped_thinned_syn_singletons_2[upper_idxs]*2.0/all_syn_opportunities[upper_idxs]*all_non_opportunities[upper_idxs]).sum() 
+            upper_cumulative_non_singletons = (bootstrapped_non_singletons[upper_idxs]).sum()
+            upper_cumulative_expected_non_singletons = (bootstrapped_thinned_syn_singletons_2[upper_idxs]*2.0/all_syn_opportunities[upper_idxs]*all_non_opportunities[upper_idxs]).sum() 
             upper_pNpSs.append( (upper_cumulative_non_singletons)/(upper_cumulative_expected_non_singletons) )
         
 
