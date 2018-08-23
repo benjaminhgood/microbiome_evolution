@@ -1,8 +1,8 @@
 import matplotlib  
 matplotlib.use('Agg') 
+import sample_utils
 import config
 import parse_midas_data
-import sample_utils
 import os.path
 import pylab
 import sys

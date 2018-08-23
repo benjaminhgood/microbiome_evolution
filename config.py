@@ -6,10 +6,8 @@
 import os.path 
 from math import log10
 
+#data_directory = os.path.expanduser("~/ben_nandita_hmp_data_082318/")
 data_directory = os.path.expanduser("~/ben_nandita_hmp_data_071518/")
-#data_directory = os.path.expanduser("~/ben_nandita_hmp_data_071118/")
-#data_directory = os.path.expanduser("~/ben_nandita_hmp_data_060518/")
-#data_directory = os.path.expanduser("~/ben_nandita_hmp_data_051318/")
 #data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
 analysis_directory = os.path.expanduser("~/ben_nandita_hmp_analysis/")
 scripts_directory = os.path.expanduser("~/ben_nandita_hmp_scripts/")
