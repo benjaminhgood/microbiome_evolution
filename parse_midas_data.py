@@ -505,7 +505,7 @@ def parse_snps(species_name, debug=False, allowed_samples=[], allowed_genes=[], 
     
     import calculate_snp_prevalences
     # Load population freqs (for polarization purposes)    
-    population_freqs = calculate_snp_prevalences.parse_population_freqs(species_name)
+    population_freqs = calculate_snp_prevalences.parse_population_freqs(species_name, polarize_by_consensus=False)
    
     # Open post-processed MIDAS output
     snp_file =  bz2.BZ2File("%ssnps/%s/annotated_snps.txt.bz2" % (data_directory, species_name),"r")

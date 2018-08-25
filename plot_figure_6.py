@@ -604,7 +604,8 @@ for species_name in good_species_list:
                 
                 qp_counts[cohort][1] += 1
                 qp_sample_sets[cohort].add(sample_i)
-                qp_sample_sets[cohort].add(sample_j)    
+                qp_sample_sets[cohort].add(sample_j) 
+                #print sample_i, sample_j   
             
             elif (sample_i not in haploid_samples) and (sample_j not in haploid_samples):
                 # pair that is non-QP at both timepoints

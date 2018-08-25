@@ -39,6 +39,10 @@ sample_2 = '700101638' #'700171066' #'700096380'  # simple polyploid
 sample_3 = '700116148'  # "complicated" haploid
 sample_4 = '700023267'  # simple haploid
 
+# Make label for samples in left
+left_samples = [sample_1, sample_2, sample_3, sample_4]
+    
+
 haploid_color = '#08519c'
 light_haploid_color = '#6699CC'
 diploid_color = '#de2d26' #'#fb6a4a' #
@@ -375,14 +379,11 @@ for rank_idx in xrange(0,len(within_rates)):
     between_axis.semilogy([rank_idx], [between_rates[rank_idx]],'.',color='k',markersize=2.5,alpha=0.5,markeredgewidth=0)
     #depth_axis.semilogy([rank_idx], [median_depths[rank_idx]],'.',color=haploid_color,markersize=2.5,alpha=0.5,markeredgewidth=0)
     
-    # Make label for samples in left
-    left_samples = [sample_1, sample_2, sample_3, sample_4]
     if sample_names[rank_idx] in left_samples:
-        
-        
+         
         sample_idx = left_samples.index(sample_names[rank_idx])
         
-        print "Printing number for", sample, sample_idx+1
+        print "Printing number for", sample_names[rank_idx], sample_idx+1
 
         polymorphism_axis.text(rank_idx, within_rate_uppers[rank_idx]*1.3,'%d' % (sample_idx+1),horizontalalignment='left', verticalalignment='bottom',fontsize=6)
         
@@ -550,6 +551,8 @@ sample_highcoverage_species = {}
 for species_name in good_species_list:
     
     desired_samples = diversity_utils.calculate_highcoverage_samples(species_name)
+    haploid_samples = diversity_utils.calculate_haploid_samples(species_name)
+    n_haploids = len(haploid_samples)
     
     for sample in desired_samples:
         if sample not in sample_highcoverage_species:
@@ -559,10 +562,6 @@ for species_name in good_species_list:
         sample_highcoverage_species[sample].append(species_name)
     
     sample_ploidy_map = {sample: 'polyploid' for sample in desired_samples}
-    
-    haploid_samples = diversity_utils.calculate_haploid_samples(species_name)
-    n_haploids = len(haploid_samples)
-    
     for sample in haploid_samples:
         sample_ploidy_map[sample] = 'haploid'
         sample_haploid_species[sample].append(species_name)

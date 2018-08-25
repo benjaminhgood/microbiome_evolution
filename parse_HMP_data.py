@@ -45,7 +45,8 @@ def parse_sample_metadata_map():
     sample_metadata_map = {}
     
     # First load HMP metadata
-    file = open(config.scripts_directory+"HMP1-2_ids_order.txt","r")
+    file = open(config.scripts_directory+"HMP_ids_order.txt","r")
+    #file = open(config.scripts_directory+"HMP1-2_ids_order.txt","r")
     file.readline() # header
     for line in file:
         items = line.split("\t")
