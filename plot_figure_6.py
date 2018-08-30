@@ -646,6 +646,7 @@ for species_name in good_species_list:
     
     import calculate_snp_prevalences
     snv_freq_map = calculate_snp_prevalences.parse_population_freqs(species_name,polarize_by_consensus=True)
+    snv_freq_keys = snv_freq_map.keys()
     snv_freq_values = snv_freq_map.values()
     
     import core_gene_utils
@@ -810,18 +811,32 @@ for species_name in good_species_list:
                     for bootstrap_idx in xrange(0,num_bootstraps):
                     
                         if random()<snv_fraction:
-                            f = snv_freq_values[randint(0,len(snv_freq_values))]
+                            # A polymorphic site
+                        
+                            random_snv_idx = randint(0,len(snv_freq_keys))
+                            random_snv_location = snv_freq_keys[random_snv_idx]
+                            f = snv_freq_values[random_snv_idx]
+                            
                             rev_f = 1-f
+                            
+                            if random_snv_location in private_snv_map:
+                                # A private SNV. Use private bins
+                                # use private         
+                                f_idx = 0
+                                rev_f_idx = -1
+                            else:
+                            
+                                f_idx = ((f>derived_freq_bins[:-1])*(f<=derived_freq_bins[1:])).argmax()    
                     
-                            f_idx = ((f>derived_freq_bins[:-1])*(f<=derived_freq_bins[1:])).argmax()    
+                                rev_f_idx = ((rev_f>derived_freq_bins[:-1])*(rev_f<=derived_freq_bins[1:])).argmax()  
                     
-                            rev_f_idx = ((rev_f>derived_freq_bins[:-1])*(rev_f<=derived_freq_bins[1:])).argmax()  
                     
+                            # Now add in probability weight
                             total_null_freq_all_snps[cohort][f_idx] += (1-f)*1.0/num_bootstraps
                             total_null_freq_all_snps[cohort][rev_f_idx] += f*1.0/num_bootstraps
                         
                         else:
-                    
+                            # A truly invariant site
                             total_null_freq_all_snps[cohort][0] += 1.0/num_bootstraps
                            
             
@@ -1130,12 +1145,12 @@ for cohort in cohorts:
     #gene_frequency_axis.legend(loc='upper center',frameon=False,fontsize=5,numpoints=1,ncol=3,handlelength=1) 
     
     # Now calculate statistical tests 
+    
+    # First check if prevalence is higher than null distribution
     num_bootstraps = 10000
-
-
-    observed_counts = total_freq_all_snps[cohort][:-1]
+    observed_counts = total_freq_all_snps[cohort] #[:-1]
     sample_size = observed_counts.sum()
-    null_counts = total_null_freq_all_snps[cohort][:-1]
+    null_counts = total_null_freq_all_snps[cohort] #[:-1]
     prevalence_weights = null_counts*1.0/null_counts.sum()
 
     observed_loglikelihood = multinomial_loglikelihood(observed_counts, sample_size, prevalence_weights)
@@ -1153,6 +1168,54 @@ for cohort in cohorts:
     
     print "Prevalence P-value:", p_value
     print "Observed loglikelihood:", observed_loglikelihood
+
+    # Then check whether SNV prevalence distribution is asymmetric
+    observed_counts = total_freq_all_snps[cohort]
+    sample_size = observed_counts.sum()
+    
+    null_counts = (observed_counts+observed_counts[::-1])/2.0
+    prevalence_weights = null_counts*1.0/null_counts.sum()
+
+    observed_loglikelihood = multinomial_loglikelihood(observed_counts, sample_size, prevalence_weights)
+
+    bootstrapped_loglikelihoods = []
+    for bootstrap_idx in xrange(0,num_bootstraps):
+    
+        bootstrapped_counts = sample_multinomial(sample_size, prevalence_weights)
+    
+        bootstrapped_loglikelihoods.append(multinomial_loglikelihood(bootstrapped_counts, sample_size, prevalence_weights))
+    
+    bootstrapped_loglikelihoods = numpy.array(bootstrapped_loglikelihoods)
+
+    p_value = ((bootstrapped_loglikelihoods<=observed_loglikelihood).sum()+1.0)/(len(bootstrapped_loglikelihoods)+1.0)
+    
+    print "SNV time-reversal P-value:", p_value
+    print "Observed loglikelihood:", observed_loglikelihood
+
+    # Then check whether SNV prevalence distribution is asymmetric
+    
+    observed_counts = numpy.hstack([total_freq_losses[cohort], total_freq_gains[cohort][::-1]])
+    sample_size = observed_counts.sum()
+    
+    null_counts = (observed_counts+observed_counts[::-1])/2.0
+    prevalence_weights = null_counts*1.0/null_counts.sum()
+
+    observed_loglikelihood = multinomial_loglikelihood(observed_counts, sample_size, prevalence_weights)
+
+    bootstrapped_loglikelihoods = []
+    for bootstrap_idx in xrange(0,num_bootstraps):
+    
+        bootstrapped_counts = sample_multinomial(sample_size, prevalence_weights)
+    
+        bootstrapped_loglikelihoods.append(multinomial_loglikelihood(bootstrapped_counts, sample_size, prevalence_weights))
+    
+    bootstrapped_loglikelihoods = numpy.array(bootstrapped_loglikelihoods)
+
+    p_value = ((bootstrapped_loglikelihoods<=observed_loglikelihood).sum()+1.0)/(len(bootstrapped_loglikelihoods)+1.0)
+
+    print "gene time-reversal P-value:", p_value
+    print "Observed loglikelihood:", observed_loglikelihood
+
 
     # Now do dN/dSs
 

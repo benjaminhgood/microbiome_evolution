@@ -7,7 +7,7 @@ import os
 import midas_db_utils
 
 core_genes_directory = ("%score_genes/" % config.data_directory)
-external_core_genes_directory = ("%score_genes/external" % config.data_directory)
+external_core_genes_directory = ("%score_genes/external/" % config.data_directory)
 
 default_external_shared_gene_filename = (external_core_genes_directory+"shared_genes.txt.gz")
 default_external_core_gene_filename = (external_core_genes_directory+"core_genes.txt.gz")
@@ -39,6 +39,7 @@ def parse_core_genes(desired_species_name="", core_gene_filename=default_core_ge
     
     external_core_genes = set()
     if os.path.isfile(external_core_gene_filename):
+        
         external_core_gene_file = gzip.GzipFile(external_core_gene_filename,"r")
         
         for line in external_core_gene_file:
@@ -58,7 +59,7 @@ def parse_core_genes(desired_species_name="", core_gene_filename=default_core_ge
     if external_filtering and len(external_core_genes)>0:
         # some externally provided core genes
         core_genes = (core_genes & external_core_genes)
-       
+        
     return core_genes
     
     
@@ -86,8 +87,9 @@ def parse_shared_genes(desired_species_name="", shared_gene_filename=default_sha
     
     external_shared_genes = set()
     if os.path.isfile(external_shared_gene_filename):
-        external_shared_gene_file = gzip.GzipFile(external_shared_gene_filename,"r")
         
+        external_shared_gene_file = gzip.GzipFile(external_shared_gene_filename,"r")
+            
         for line in external_shared_gene_file:
         
             items = line.split(":")
@@ -109,14 +111,15 @@ def parse_shared_genes(desired_species_name="", shared_gene_filename=default_sha
     if external_filtering and len(external_shared_genes)>0:
         # some externally provided core genes
         shared_genes = (shared_genes | external_shared_genes)
-       
+        
     return shared_genes
 
 def parse_non_shared_reference_genes(desired_species_name="", shared_gene_filename=default_shared_gene_filename, external_shared_gene_filename=default_external_shared_gene_filename, external_filtering=True):
     import parse_midas_data
     shared_genes = parse_shared_genes(desired_species_name, shared_gene_filename, external_shared_gene_filename, external_filtering)
     reference_genes = parse_midas_data.load_reference_genes(desired_species_name)
-    return set(reference_genes)-shared_genes
+    non_shared_reference_genes = set(reference_genes)-shared_genes
+    return non_shared_reference_genes
     
 def get_good_pangenome_samples(marker_coverages, gene_copynum_matrix):
 
