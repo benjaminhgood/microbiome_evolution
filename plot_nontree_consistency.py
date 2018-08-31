@@ -82,7 +82,7 @@ pylab.ylim([0,1.05])
 
 good_species_list = parse_midas_data.parse_good_species_list()
 if debug:
-    good_species_list = good_species_list[0:16]
+    good_species_list = good_species_list[0:3]
     
 sys.stderr.write("Loading sample metadata...\n")
 subject_sample_map = sample_utils.parse_subject_sample_map()

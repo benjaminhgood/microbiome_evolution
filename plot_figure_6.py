@@ -60,6 +60,9 @@ replacement_difference_threshold = config.replacement_difference_threshold
 twin_modification_difference_threshold = config.twin_modification_difference_threshold
 twin_replacement_difference_threshold = config.twin_replacement_difference_threshold
 
+twin_modification_difference_threshold = 1e06
+twin_replacement_difference_threshold = 1e06
+
 ################################################################################
 
 #####################
@@ -368,7 +371,7 @@ twin_frequency_axis.set_ylabel('# SNV changes')
 twin_frequency_axis.set_xticks(derived_virtual_xticks)
 twin_frequency_axis.set_xticklabels(derived_virtual_xticklabels) #,rotation='vertical')
 
-twin_frequency_axis.set_ylim([0,200])
+#twin_frequency_axis.set_ylim([0,200])
 
 twin_gene_frequency_axis = plt.Subplot(fig5, twin_prevalence_grid[1])
 fig5.add_subplot(twin_gene_frequency_axis)
@@ -386,7 +389,7 @@ twin_gene_frequency_axis.set_xticks(gene_freq_xticks)
 twin_gene_frequency_axis.set_xticklabels(gene_freq_xticklabels) #,rotation='vertical')
 
 twin_gene_frequency_axis.plot([0,0],[100,100],'k-')
-twin_gene_frequency_axis.set_ylim([0,100])
+#twin_gene_frequency_axis.set_ylim([0,100])
 
 twin_gene_legend_axis = plt.Subplot(fig5, twin_prevalence_grid[2])
 fig5.add_subplot(twin_gene_legend_axis)
@@ -408,11 +411,96 @@ twin_gene_legend_axis.bar([-2],[-1],width=0.2, linewidth=0,facecolor='0.7',label
 
 twin_gene_legend_axis.legend(loc='center left',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
 
+##############
+#
+# Young twin version of SNV & gene prevalence distribution
+#
+###############
+pylab.figure(7,figsize=(7,2))
+fig7 = pylab.gcf()
+# make three panels panels
+young_twin_prevalence_grid = gridspec.GridSpec(1,3, width_ratios=[1,1,0.3],wspace=0.5)
+
+young_twin_frequency_axis = plt.Subplot(fig7, young_twin_prevalence_grid[0])
+fig7.add_subplot(young_twin_frequency_axis)
+
+young_twin_gene_frequency_axis = plt.Subplot(fig7, young_twin_prevalence_grid[1])
+fig7.add_subplot(young_twin_gene_frequency_axis)
+
+young_twin_gene_legend_axis = plt.Subplot(fig7, young_twin_prevalence_grid[2])
+fig7.add_subplot(young_twin_gene_legend_axis)
+
+####################################################
+#
+# Set up Suppplemental Fig (temporal haploid classification)
+#
+####################################################
+# This figure spreads them all out
+
+pylab.figure(6,figsize=(5,6))
+fig6 = pylab.gcf()
+# make three panels panels
+outer_grid6  = gridspec.GridSpec(1,2,width_ratios=[1,1],wspace=0.2)
+
+hmp_haploid_axis = plt.Subplot(fig6, outer_grid6[0])
+fig6.add_subplot(hmp_haploid_axis)
+hmp_haploid_axis.set_xlabel('HMP timepoint pairs')
+
+twin_haploid_axis = plt.Subplot(fig6, outer_grid6[1])
+fig6.add_subplot(twin_haploid_axis)
+twin_haploid_axis.set_xlabel('Twin pairs')
+
+####################################################
+#
+# Supplemental figure w/ colorbars
+#
+####################################################
+
+cmap_str = 'YlGnBu'
+vmin = -2
+vmax = 3
+cmap = pylab.get_cmap(cmap_str) 
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=-1):
+    if n == -1:
+        n = cmap.N
+    new_cmap = mcolors.LinearSegmentedColormap.from_list(
+         'trunc({name},{a:.2f},{b:.2f})'.format(name=cmap.name, a=minval, b=maxval),
+         cmap(numpy.linspace(minval, maxval, n)))
+    return new_cmap
+
+cmap = truncate_colormap(cmap, 0.25, 1.0)
+cNorm  = colors.Normalize(vmin=0, vmax=vmax)
+scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
+
+
+pylab.figure(8,figsize=(5,3.5))
+fig8 = pylab.gcf()
+# make three panels panels
+outer_grid8  = gridspec.GridSpec(1,2,width_ratios=[50,1],wspace=0.05)
+
+change_axis = plt.Subplot(fig8, outer_grid8[0])
+fig8.add_subplot(change_axis)
+
+change_axis.set_ylabel('HMP timepoint pairs')
+
+#change_axis.spines['top'].set_visible(False)
+#change_axis.spines['right'].set_visible(False)
+change_axis.get_xaxis().tick_bottom()
+change_axis.get_yaxis().tick_left()
+
+cax = plt.Subplot(fig8, outer_grid8[1])
+fig8.add_subplot(cax)
+
+
 ################################
 #
 # Now do calculation
 #
 ################################
+
+hmp_species_qp_counts = {}
+twin_species_qp_counts = {}
 
 species_snp_change_distribution = {cohort: {} for cohort in cohorts}
 species_snp_nerrs = {cohort: {} for cohort in cohorts}
@@ -632,7 +720,10 @@ for species_name in good_species_list:
         
     if sample_size < min_sample_size:
         continue
-            
+    
+    hmp_species_qp_counts[species_name] = qp_counts['hmp']
+    twin_species_qp_counts[species_name] = qp_counts['twins']
+    
     for cohort in cohorts:
         species_snp_change_distribution[cohort][species_name] = []
         species_snp_nerrs[cohort][species_name] = []
@@ -928,6 +1019,8 @@ for cohort in cohorts:
     
         # If HMP, plot species-specific snp and gene change distribution
         
+        change_axis_labels = []
+        
         for species_idx in xrange(0,len(species_names)):
 
             species_name = species_names[species_idx]
@@ -954,12 +1047,16 @@ for cohort in cohorts:
             gene_is_significant = (total_gene_nerr < 0.1*total_gene_changes)
             
             label = species_name
+            change_axis_labels.append(species_name)
             if snv_is_significant and gene_is_significant:
                 label += " (S,G)"
+                pass
             elif snv_is_significant and (not gene_is_significant):
                 label += " (S)"
+                pass
             elif gene_is_significant and (not snv_is_significant):
                 label += " (G)"
+                pass
             else:
                 pass 
             
@@ -975,11 +1072,71 @@ for cohort in cohorts:
             line, = species_gene_axis.step(xs,ns,'-',color=color,linewidth=1, where='mid',zorder=4)
             
             species_legend_axis.plot([-1],[-1],'-',color=color, linewidth=1,label=label)
+            
+            snp_changes = list(sorted(species_snp_change_distribution[cohort][species_name]))
+            
+            gene_changes = list(sorted(species_gene_change_distribution[cohort][species_name]))
+            
+            # Plot SNP change colors
+            for idx in xrange(0,len(snp_changes)):
+        
+                if snp_changes[idx]<0.5:
+                    colorVal='0.7'
+                else:
+                    colorVal = scalarMap.to_rgba(log10(snp_changes[idx]))
+        
+                change_axis.fill_between([species_idx-0.3,species_idx+0.3], [idx,idx],[idx+1.05,idx+1.05],color=colorVal,linewidth=0)
     
+        
+                if snv_is_significant:
+            
+                    change_axis.text(species_idx, len(snp_changes),'*',fontsize=4)
+    
+            for idx in xrange(0,len(gene_changes)):
+        
+                if gene_changes[idx]<0.5:
+                    colorVal='0.7'
+                else:
+                    colorVal = scalarMap.to_rgba(log10(gene_changes[idx]))
+        
+                change_axis.fill_between([species_idx-0.3,species_idx+0.3], [-idx-1.05,-idx-1.05],[-idx,-idx],color=colorVal,linewidth=0)
+        
+                if gene_is_significant:
+            
+                    change_axis.text(species_idx, -len(gene_changes)-3,'*',fontsize=4)
+            
+
+        change_axis.set_ylim([-75,75])
+        change_axis.set_xlim([-1,len(change_axis_labels)])
+        change_axis.plot([-1,len(change_axis_labels)],[0,0],'k-')
+
+        change_axis.set_yticks([-70, -60,-50,-40,-30,-20,-10,0,10,20,30,40,50,60,70])
+        change_axis.set_yticklabels(['70', '60','50','40','30','20','10','0','10','20','30','40','50','60','70'])
+
+        xticks = numpy.arange(0,len(change_axis_labels))
+        xticklabels = change_axis_labels
+
+        change_axis.set_xticks(xticks)
+        change_axis.set_xticklabels(xticklabels, rotation='vertical',fontsize=4)
+
+        m = change_axis.scatter([200],[1],c=[0], vmin=0, vmax=vmax, cmap=cmap, marker='^')
+
+        cbar = fig.colorbar(m,cax=cax,orientation='vertical', ticks=[0,1,2,3])
+        cbar.set_ticklabels(['$1$','$10$','$10^{2}$','$10^{3}$'])
+        cbar.set_label('Number of changes',rotation=270,labelpad=10)
+        cl = pylab.getp(cbar.ax, 'ymajorticklabels')
+        pylab.setp(cl, fontsize=9) 
+        #fig.text(0.945,0.05,'$\\pi/\\pi_0$',fontsize=12)
+
+        cbar.ax.tick_params(labelsize=5)
+        change_axis.text(20,25,'SNVs',fontsize=5)
+        change_axis.text(20,-20,'Genes',fontsize=5)
+        
+            
         species_gene_axis.set_ylim([0.3,max_sample_size])
         species_snp_axis.set_ylim([0.3,max_sample_size])
         species_gene_axis.set_yticklabels([])        
-        species_legend_axis.legend(loc='center',frameon=False,fontsize=5,numpoints=1,ncol=3,handlelength=1)   
+        species_legend_axis.legend(loc='center', frameon=False,fontsize=5,numpoints=1,ncol=3,handlelength=1)   
     
     # Now plot pooled versions
         
@@ -1013,6 +1170,9 @@ for cohort in cohorts:
         avg_axis.bar([1.75], [pooled_between_snp_change_distribution[cohort].mean()],width=0.5, facecolor='r',alpha=0.5,linewidth=0,log=True)
 
         avg_axis.set_ylim([1,1e05])
+        avg_axis.set_ylabel('Avg # SNV differences')
+        avg_axis.set_xticks([1,2])
+        avg_axis.set_xticklabels(['Within\nhost','Between\nhost'])
     
         # Plot within and between for snvs
         
@@ -1123,7 +1283,10 @@ for cohort in cohorts:
         frequency_axis = twin_frequency_axis
         gene_frequency_axis = twin_gene_frequency_axis
         gene_legend_axis = twin_gene_legend_axis
-        
+    else:
+        frequency_axis = young_twin_frequency_axis
+        gene_frequency_axis = young_twin_gene_frequency_axis
+        gene_legend_axis = young_twin_gene_legend_axis
 
     frequency_axis.bar(derived_virtual_freqs, total_freq_snps[cohort]['4D'],width=0.3,linewidth=0,facecolor='#b3de69',label='syn (4D)',zorder=3)
 
@@ -1319,6 +1482,83 @@ for cohort in cohorts:
     print ""
       
 
+### Now plot temporal qp figures
+species_names = hmp_species_qp_counts.keys()
+
+species_names = list(sorted(species_names, key=lambda s: sum(hmp_species_qp_counts[s])))
+
+ys = numpy.arange(0,len(species_names))
+
+yticklabels = []
+
+for y,species_name in zip(ys,species_names):
+
+    yticklabels.append(species_name)
+    
+
+    total_samples = sum(hmp_species_qp_counts[species_name])
+    
+    if total_samples>0:
+    
+        qp_samples = hmp_species_qp_counts[species_name][1]
+        non_qp_samples = hmp_species_qp_counts[species_name][2]
+        mixed_samples = hmp_species_qp_counts[species_name][3]
+        dropout_samples = hmp_species_qp_counts[species_name][0]
+        
+        hmp_haploid_axis.barh([y],[qp_samples],linewidth=0, color='#08519c')
+        
+        hmp_haploid_axis.barh([y],[non_qp_samples], left=[qp_samples], linewidth=0, color='#de2d26')
+        
+        hmp_haploid_axis.barh([y],[mixed_samples], left=[qp_samples+non_qp_samples], linewidth=0, color='#8856a7')
+        
+        hmp_haploid_axis.barh([y],[dropout_samples], left=[qp_samples+non_qp_samples+mixed_samples], linewidth=0, color='0.7')
+        
+    total_samples = sum(twin_species_qp_counts[species_name])
+    
+    if total_samples>0:
+    
+        qp_samples = twin_species_qp_counts[species_name][1]
+        non_qp_samples = twin_species_qp_counts[species_name][2]
+        mixed_samples = twin_species_qp_counts[species_name][3]
+        dropout_samples = twin_species_qp_counts[species_name][0]
+        
+        twin_haploid_axis.barh([y],[qp_samples],linewidth=0,label='QP->QP', color='#08519c')
+        
+        twin_haploid_axis.barh([y],[non_qp_samples], left=[qp_samples], linewidth=0, color='#de2d26')
+        
+        twin_haploid_axis.barh([y],[mixed_samples], left=[qp_samples+non_qp_samples], linewidth=0, color='#8856a7')
+        
+        twin_haploid_axis.barh([y],[dropout_samples], left=[qp_samples+non_qp_samples+mixed_samples], linewidth=0, color='0.7')
+        
+hmp_haploid_axis.yaxis.tick_left()
+hmp_haploid_axis.xaxis.tick_bottom()
+  
+twin_haploid_axis.yaxis.tick_left()
+twin_haploid_axis.xaxis.tick_bottom()
+
+hmp_haploid_axis.set_yticks(ys+0.5)
+twin_haploid_axis.set_yticks(ys+0.5)
+hmp_haploid_axis.set_ylim([-1,len(ys)])
+twin_haploid_axis.set_ylim([-1,len(ys)])
+
+hmp_haploid_axis.set_yticklabels(yticklabels,fontsize=5)
+hmp_haploid_axis.set_yticklabels([])
+
+hmp_haploid_axis.tick_params(axis='y', direction='out',length=3,pad=1)
+twin_haploid_axis.tick_params(axis='y', direction='out',length=3,pad=1)
+
+hmp_haploid_axis.set_xlim([0,200])
+twin_haploid_axis.set_xlim([0,200])
+
+
+### Do stuff for legend
+hmp_haploid_axis.barh([-10],[1],linewidth=0,label='QP->QP', color='#08519c')
+hmp_haploid_axis.barh([-10],[1],linewidth=0,label='non->non', color='#de2d26')
+hmp_haploid_axis.barh([-10],[1],linewidth=0,label='mixed', color='#8856a7')
+hmp_haploid_axis.barh([-10],[1],linewidth=0,label='dropout', color='0.7')
+hmp_haploid_axis.legend(loc='lower right',frameon=False)
+
+
 sys.stderr.write("Saving figures...\t")
 fig2.savefig('%s/figure_5.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
 fig.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')
@@ -1326,6 +1566,8 @@ sys.stderr.write("Done!\n")
 fig3.savefig('%s/supplemental_young_twin_within.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig4.savefig('%s/supplemental_within_between_avg.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig5.savefig('%s/supplemental_twin_modification_frequency.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
+fig6.savefig('%s/supplemental_temporal_haploid.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
+fig8.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 
 
 

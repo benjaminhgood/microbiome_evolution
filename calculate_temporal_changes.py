@@ -137,10 +137,10 @@ upper_threshold=config.consensus_upper_threshold):
 
     sample_pair = sample_1, sample_2
     if sample_pair not in temporal_change_map:
-        return -1, None, None
+        return -1, -1, [], []
         
     if 'snps' not in temporal_change_map[sample_pair]:
-        return -1, None, None
+        return -1, -1, [], []
         
     # otherwise, some hope! 
     snp_opportunities, snp_perr, snp_changes = temporal_change_map[sample_pair]['snps']
@@ -167,10 +167,10 @@ def calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_
 
     sample_pair = sample_1, sample_2
     if sample_pair not in temporal_change_map:
-        return -1, None, None
+        return -1, -1, [], []
         
     if 'genes' not in temporal_change_map[sample_pair]:
-        return -1, None, None
+        return -1, -1, [], []
         
     # otherwise, some hope! 
     gene_opportunities, gene_perr, gene_changes = temporal_change_map[sample_pair]['genes']
@@ -236,14 +236,16 @@ if __name__=='__main__':
         # Only plot samples above a certain depth threshold that are involved in timecourse
         snp_samples = diversity_utils.calculate_temporal_samples(species_name)
     
-        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
-        sample_size = len(same_subject_idxs[0])
-    
-        if sample_size < min_sample_size:
+        # On purpose looking at non-consecutive pairs too
+        # (restriction to consecutive pairs is later)
+        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_nonconsecutive_ordered_subject_pairs(sample_order_map, snp_samples)
+        
+        if len(same_subject_idxs[0]) < min_sample_size:
             sys.stderr.write("Not enough temporal samples!\n")
             continue
+          
         
-        sys.stderr.write("Proceeding with %d temporal samples!\n" % sample_size)
+        sys.stderr.write("Proceeding with %d comparisons of %d temporal samples!\n" % (len(same_subject_idxs[0]), len(snp_samples)))
 
         # Analyze SNPs, looping over chunk sizes. 
         # Clunky, but necessary to limit memory usage on cluster
@@ -253,9 +255,29 @@ if __name__=='__main__':
         shared_pangenome_genes = core_gene_utils.parse_shared_genes(species_name)
         sys.stderr.write("Done! %d shared genes and %d non-shared genes\n" % (len(shared_pangenome_genes), len(non_shared_genes)))
 
+        # Now calculate gene differences
+        # Load gene coverage information for species_name
+        sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
+        gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples, disallowed_genes=shared_pangenome_genes)
+        sys.stderr.write("Done!\n")
+    
+        snp_samples = gene_samples
+    
+        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_nonconsecutive_ordered_subject_pairs(sample_order_map, snp_samples)
+    
+        if len(same_subject_idxs[0]) < min_sample_size:
+            sys.stderr.write("Not enough temporal samples!\n")
+            continue
+        
+        # Use if HMP    
         import calculate_private_snvs
         private_snv_map = calculate_private_snvs.load_private_snv_map(species_name)
     
+        # If other dataset, use this (and uncomment private snv line below)
+        #import calculate_snp_prevalences
+        #snv_freq_map = calculate_snp_prevalences.parse_population_freqs(species_name,polarize_by_consensus=True)
+        
+        
         # Load SNP information for species_name
         sys.stderr.write("Loading SNPs for %s...\n" % species_name)    
         snp_changes = {}
@@ -279,7 +301,10 @@ if __name__=='__main__':
             sys.stderr.write("Loading chunk starting @ %d...\n" % final_line_number)
             dummy_samples, allele_counts_map, passed_sites_map, final_line_number = parse_midas_data.parse_snps(species_name, debug=debug, allowed_samples=snp_samples, chunk_size=chunk_size,initial_line_number=final_line_number,allowed_genes=non_shared_genes)
             sys.stderr.write("Done! Loaded %d genes\n" % len(allele_counts_map.keys()))
-            snp_samples = dummy_samples
+            
+            # Calculate private snvs
+            # (use this if applying to a different dataset)
+            # private_snv_map = calculate_private_snvs.calculate_private_snv_map_from_external_snv_prevalence_map(allele_counts_map, snv_freq_map)
         
             # All
             chunk_snp_difference_matrix, chunk_snp_opportunity_matrix = diversity_utils.calculate_fixation_matrix(allele_counts_map, passed_sites_map)   # 
@@ -293,7 +318,7 @@ if __name__=='__main__':
             snp_opportunity_matrix += chunk_snp_opportunity_matrix
 
         
-            same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
+            #same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, snp_samples)
         
             for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
     
@@ -332,7 +357,6 @@ if __name__=='__main__':
                 tracked_private_snp_opportunities[sample_pair] += len(chunk_tracked_private_snps)
                                
         # Calculate SNP error rate
-        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, snp_samples)   
         for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
     
             i = same_subject_idxs[0][sample_pair_idx]
@@ -346,32 +370,6 @@ if __name__=='__main__':
             
             snp_perrs[sample_pair] = perr
             tracked_private_snp_perrs[sample_pair] = perr
-            
-        # Now calculate gene differences
-        # Load gene coverage information for species_name
-        sys.stderr.write("Loading pangenome data for %s...\n" % species_name)
-        gene_samples, gene_names, gene_presence_matrix, gene_depth_matrix, marker_coverages, gene_reads_matrix = parse_midas_data.parse_pangenome_data(species_name,allowed_samples=snp_samples, disallowed_genes=shared_pangenome_genes)
-        sys.stderr.write("Done!\n")
-    
-        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, gene_samples)
-    
-        sys.stderr.write("Calculating gene changes...\n")
-        for sample_pair_idx in xrange(0,len(same_subject_idxs[0])):
-    
-            i = same_subject_idxs[0][sample_pair_idx]
-            j = same_subject_idxs[1][sample_pair_idx]
-        
-            if not (marker_coverages[i]>=min_coverage)*(marker_coverages[j]>=min_coverage):
-                continue
-            
-            sample_i = gene_samples[i]
-            sample_j = gene_samples[j]
-        
-            sample_pair = (sample_i, sample_j)
-        
-            if sample_pair not in gene_changes:
-                snp_changes[sample_pair] = []
-                gene_changes[sample_pair] = []
     
             gene_changes[sample_pair].extend( gene_diversity_utils.calculate_gene_differences_between(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages) )
             
