@@ -194,6 +194,7 @@ for species_name in good_species_list:
 
     
     substitution_rate_matrix = difference_matrix*1.0/(opportunity_matrix+(opportunity_matrix==0))
+    syn_substitution_rate_matrix = syn_difference_matrix*1.0/(syn_opportunity_matrix+(syn_opportunity_matrix==0))
     
     sys.stderr.write("Done!\n")
     
@@ -241,11 +242,15 @@ for species_name in good_species_list:
     closest_non_difference_vector = []
     closest_non_opportunity_vector = [] 
     
-    for i in xrange(0, substitution_rate_matrix.shape[0]):
+    for i in xrange(0, syn_substitution_rate_matrix.shape[0]):
     
-        substitution_rates = substitution_rate_matrix[i,:]
+        substitution_rates = syn_substitution_rate_matrix[i,:]
     
-        bad_idxs = numpy.logical_or((difference_matrix[i,:]<0.5), (opportunity_matrix[i,:]<0.5))
+        # LEFT OFF HERE
+    
+        bad_idxs = (syn_opportunity_matrix[i,:]<0.5) # Make sure some things to compare to
+        bad_idxs[i] = True # Don't compare it to itself
+        #numpy.logical_or((difference_matrix[i,:]<0.5), (opportunity_matrix[i,:]<0.5))
         
         substitution_rates[bad_idxs] = 2 # so that it can't be too close
         
@@ -259,6 +264,7 @@ for species_name in good_species_list:
         
         closest_syn_singleton_vector.append( syn_singleton_matrix[i,closest_idx] )
         closest_syn_difference_vector.append( syn_difference_matrix[i,closest_idx] )
+        #closest_syn_difference_vector.append( syn_difference_matrix[i,closest_idx]-syn_singleton_matrix[i,closest_idx] + syn_singleton_matrix[closest_idx, i]  )
         closest_syn_opportunity_vector.append( syn_opportunity_matrix[i,closest_idx] )
         
         closest_non_singleton_vector.append( non_singleton_matrix[i,closest_idx] )
@@ -633,7 +639,12 @@ all_NS_singletons = all_syn_singletons + all_non_singletons
 all_NS_opportunities = all_syn_opportunities + all_non_opportunities
 all_fractions = all_non_singletons*1.0/(all_NS_singletons+(all_NS_singletons==0))
 
+####
+## Need to fix this!
+##
 all_syn_other = all_syn_differences-all_syn_singletons
+#all_syn_other = all_syn_differences # now that we've removed singletons from here
+
     
 print (all_syn_opportunities>=0).all()
     
@@ -660,9 +671,12 @@ for bootstrap_idx in xrange(0,num_bootstraps):
     bootstrapped_thinned_syn_singletons_1 = binomial(bootstrapped_syn_singletons,0.5)
     bootstrapped_thinned_syn_singletons_2 = bootstrapped_syn_singletons-bootstrapped_thinned_syn_singletons_1
     bootstrapped_thinned_syn_other_1 = binomial(bootstrapped_syn_other,0.5)
-    
     bootstrapped_divergence = (bootstrapped_thinned_syn_singletons_1 + bootstrapped_thinned_syn_other_1) / (all_syn_opportunities/2.0)
-   
+    
+    # Now that we've removed singletons from divergence estimate
+    #bootstrapped_thinned_syn_singletons_2 = bootstrapped_syn_singletons/2.0
+    #bootstrapped_divergence = bootstrapped_syn_other * 1.0 / (all_syn_opportunities)
+    
     #print (bootstrapped_non_singletons>=0).all()
     #print (bootstrapped_thinned_syn_singletons_2>=0).all()
     

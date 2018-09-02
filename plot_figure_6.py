@@ -1542,7 +1542,7 @@ hmp_haploid_axis.set_ylim([-1,len(ys)])
 twin_haploid_axis.set_ylim([-1,len(ys)])
 
 hmp_haploid_axis.set_yticklabels(yticklabels,fontsize=5)
-hmp_haploid_axis.set_yticklabels([])
+twin_haploid_axis.set_yticklabels([])
 
 hmp_haploid_axis.tick_params(axis='y', direction='out',length=3,pad=1)
 twin_haploid_axis.tick_params(axis='y', direction='out',length=3,pad=1)
