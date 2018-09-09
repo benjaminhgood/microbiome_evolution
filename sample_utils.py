@@ -211,7 +211,7 @@ def calculate_subject_pairs(subject_sample_map, sample_list=[]):
 # only once. 
 #
 ###############################################################################
-def calculate_ordered_subject_pairs(sample_order_map, sample_list=[]):
+def calculate_old_ordered_subject_pairs(sample_order_map, sample_list=[]):
 
     same_sample_idx_lower = []
     same_sample_idx_upper = []
@@ -272,7 +272,7 @@ def calculate_ordered_subject_pairs(sample_order_map, sample_list=[]):
 # only once. 
 #
 ###############################################################################
-def calculate_new_ordered_subject_pairs(sample_order_map, sample_list=[], take_longest=False):
+def calculate_ordered_subject_pairs(sample_order_map, sample_list=[], within_host_type='consecutive'):
 
     same_sample_idx_lower = []
     same_sample_idx_upper = []
@@ -285,74 +285,55 @@ def calculate_new_ordered_subject_pairs(sample_order_map, sample_list=[], take_l
     same_subject_pair_map = {}
     # in this list, store lower_idx, upper_idx, interval_length
 
+    # same sample pairs.. trivial
     same_sample_idx_lower = numpy.arange(0,len(sample_list))
     same_sample_idx_upper = numpy.arange(0,len(sample_list))
 
+    # reconstruct "timeseries" for each subject
+    subject_order_idx_map = {}
     for i in xrange(0,len(sample_list)):
-        for j in xrange(i+1,len(sample_list)):
-            # loop over all pairs of samples
-            
-                
-            subject1, order1 = sample_order_map[sample_list[i]]
-            subject2, order2 = sample_order_map[sample_list[j]]
-                
-            if subject1==subject2:
-                subject = subject1
-                # same subject!
-                if order2-order1>0.5:
-                    
-                    if subject not in same_subject_pair_map:
-                        same_subject_pair_map[subject] = []
-                    
-                    lower_idx = i
-                    upper_idx = j
-                    interval = order2-order1 
-                    same_subject_pair_map[subject].append( (lower_idx, upper_idx, interval) )
-                
-                elif order1-order2>0.5:
-                
-                    if subject not in same_subject_pair_map:
-                        same_subject_pair_map[subject] = []
-                    
-                    lower_idx = j
-                    upper_idx = i
-                    interval = order2-order1 
-                    same_subject_pair_map[subject].append( (lower_idx, upper_idx, interval) )
-                
-                else:
-                    # do not add
-                    pass
-                    
-            else:
-                
-                subject_pair = frozenset([subject1,subject2])
-                    
-                if subject_pair not in diff_subject_pair_map:
-                    diff_subject_pair_map[subject_pair] = []
-                        
-                diff_subject_pair_map[subject_pair].append( (i,j,max([order1,order2])))
-                
-    for subject in sorted(same_subject_pair_map):
+        subject, order = sample_order_map[sample_list[i]]    
         
-        # sort list by ascending order of interval length
-        lower_idxs, upper_idxs, intervals = (list(x) for x in zip(*sorted(same_subject_pair_map[subject],key = lambda item: item[2])))
+        if subject not in subject_order_idx_map:
+            subject_order_idx_map[subject] = {}
         
-        if take_longest:
-            same_subject_idx_lower.append(lower_idxs[-1])
-            same_subject_idx_upper.append(upper_idxs[-1])
-        else:
-            same_subject_idx_lower.append(lower_idxs[0])
-            same_subject_idx_upper.append(upper_idxs[0])
+        subject_order_idx_map[subject][order] = i
     
-    for subject_pair in sorted(diff_subject_pair_map):
+    # create index pairs within subjects
+    for subject in subject_order_idx_map:
         
-        # sort list by descending order of interval length
-        lower_idxs, upper_idxs, intervals = (list(x) for x in zip(*sorted(same_subject_pair_map[subject],key = lambda item: item[2])))
+        sorted_orders = list(sorted(subject_order_idx_map[subject].keys()))
         
-        diff_subject_idx_lower.append(lower_idxs[0])
-        diff_subject_idx_upper.append(upper_idxs[0])
-
+        # if at least two samples
+        if len(sorted_orders)>1.5:
             
+            if within_host_type=='longest':
+                same_subject_idx_lower.append( subject_order_idx_map[subject][sorted_orders[0]] )
+                same_subject_idx_upper.append( subject_order_idx_map[subject][sorted_orders[-1]] )
+            elif within_host_type=='consecutive':
+                for order_idx in xrange(1,len(sorted_orders)):
+                    same_subject_idx_lower.append( subject_order_idx_map[subject][sorted_orders[order_idx-1]] )
+                    same_subject_idx_upper.append( subject_order_idx_map[subject][sorted_orders[order_idx]] )
+            elif within_host_type=='nonconsecutive':
+                for order_idx_i in xrange(0,len(sorted_orders)):
+                    for order_idx_j in xrange(order_idx_i+1,len(sorted_orders)):
+                        same_subject_idx_lower.append( subject_order_idx_map[subject][sorted_orders[order_idx_i]] )
+                        same_subject_idx_upper.append( subject_order_idx_map[subject][sorted_orders[order_idx_j]] )
+               
+    # now create index pairs in different subjects
+    sorted_subjects = sorted(subject_order_idx_map.keys())
+    
+    for subject_i_idx in xrange(0,len(sorted_subjects)):
+        subject_i = sorted_subjects[subject_i_idx]
+        i = subject_order_idx_map[subject_i][min(subject_order_idx_map[subject_i].keys())]
+        
+        for subject_j_idx in xrange(subject_i_idx+1,len(sorted_subjects)):
+            subject_j = sorted_subjects[subject_j_idx]
+            j = subject_order_idx_map[subject_j][min(subject_order_idx_map[subject_j].keys())]
+            
+            diff_subject_idx_lower.append(i)
+            diff_subject_idx_upper.append(j)
+                 
     same_sample_idxs = (numpy.array(same_sample_idx_lower,dtype=numpy.int32), numpy.array(same_sample_idx_upper,dtype=numpy.int32))
     
     same_subject_idxs = (numpy.array(same_subject_idx_lower,dtype=numpy.int32), numpy.array(same_subject_idx_upper,dtype=numpy.int32))

@@ -6,8 +6,8 @@
 import os.path 
 from math import log10
 
-#data_directory = os.path.expanduser("~/ben_nandita_hmp_data_082318/")
-data_directory = os.path.expanduser("~/ben_nandita_hmp_data_071518/")
+data_directory = os.path.expanduser("~/ben_nandita_hmp_data_090718/")
+#data_directory = os.path.expanduser("~/ben_nandita_hmp_data_071518/")
 #data_directory = os.path.expanduser("~/ben_nandita_hmp_data/")
 analysis_directory = os.path.expanduser("~/ben_nandita_hmp_analysis/")
 scripts_directory = os.path.expanduser("~/ben_nandita_hmp_scripts/")
@@ -37,8 +37,8 @@ twin_modification_difference_threshold = 1000
 twin_replacement_difference_threshold = 1000
 
 gainloss_max_absent_copynum = 0.05
-gainloss_min_normal_copynum = 0.5
-gainloss_max_normal_copynum = 2
+gainloss_min_normal_copynum = 0.6
+gainloss_max_normal_copynum = 1.2
 
 core_genome_min_copynum = 0.3
 core_genome_max_copynum = 3 # BG: should we use a maximum for "core genome"? I'm going to go w/ yes for now
@@ -55,8 +55,11 @@ pipe_snps_upper_depth_factor=3
 parse_snps_min_freq = 0.05
 
 between_host_min_sample_size = 33
+between_host_ld_min_sample_size = 10
 within_host_min_sample_size = 3
 within_host_min_haploid_sample_size = 10
+
+between_low_divergence_threshold = 2e-04
 
 # Comment this out
 from parse_HMP_data import *

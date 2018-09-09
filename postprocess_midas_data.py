@@ -85,6 +85,10 @@ sys.stderr.write('Calculating SNV inconsistency...\n')
 os.system('python %scalculate_snv_distances.py --species %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating SNV inconsistency!\n')
 
+# Calculating linkage disequilibrium inconsistency (for recombination figure
+sys.stderr.write('Calculating LD...\n')
+os.system('python calculate_linkage_disequilibria.py --species %s' % (parse_midas_data.scripts_directory, species_name))
+sys.stderr.write("Done!\n")
 
    
 sys.stderr.write("Done postprocessing %s!\n\n" % species_name)

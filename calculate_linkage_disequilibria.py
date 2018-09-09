@@ -2,9 +2,11 @@ import sample_utils
 import config
 import parse_midas_data
 import os.path
+import os
 import pylab
 import sys
 import numpy
+import gzip
 
 import diversity_utils
 import gene_diversity_utils
@@ -14,19 +16,26 @@ import stats_utils
 from math import log10,ceil,fabs
 from numpy.random import randint, choice
 
-intermediate_filename = '%slinkage_disequilibria.txt' % (parse_midas_data.data_directory)
-old_intermediate_filename = '%slinkage_disequilibria.txt.old' % (parse_midas_data.data_directory)
-        
+ld_directory = '%slinkage_disequilibria/' % (parse_midas_data.data_directory)
+intermediate_filename_template = '%s%s.txt.gz'  
+       
 
-low_divergence_threshold = 5e-04 # this was picked by looking at inflection point of dN/dS vs dS plot 
-min_sample_size = 10
+low_divergence_threshold = config.between_low_divergence_threshold
+#low_divergence_threshold = 5e-04 # this was picked by looking at inflection point of dN/dS vs dS plot 
+min_sample_size = config.between_host_min_sample_size
+min_ld_sample_size = config.between_host_ld_min_sample_size
 allowed_variant_types = set(['1D','4D'])
 
 def load_ld_map(species_name):
 
     ld_map = {}
 
-    file = open(intermediate_filename,"r")
+    intermediate_filename = intermediate_filename_template % (ld_directory, species_name)
+
+    if not os.path.isfile(intermediate_filename):
+        return ld_map
+
+    file = gzip.open(intermediate_filename,"r")
     header_line = file.readline() # header
     header_items = header_line.split(",")
     
@@ -101,43 +110,6 @@ def load_ld_map(species_name):
         
     return ld_map
 
-
-def load_ld_map_old(species_name):
-
-    ld_map = {}
-
-    file = open(old_intermediate_filename,"r")
-    header_line = file.readline() # header
-    header_items = header_line.split(",")
-    
-    distance_items = header_items[3:-1]
-    distances = numpy.array([float(item.split(":")[1]) for item in distance_items])
-    
-    for line in file:
-        items = line.split(",")
-        if items[0].strip()!=species_name:
-            continue
-        
-        variant_type = items[1].strip()
-        pi = float(items[2])
-        
-        lds = []
-        counts = []
-        for item in items[3:]:
-            subitems = item.split(":")
-            lds.append(float(subitems[0]))
-            counts.append(float(subitems[1]))
-            
-        lds = numpy.array(lds)
-        counts = numpy.array(counts)
-        
-        ld_map[variant_type] = (distances, lds[:-1], counts[:-1], lds[-1], counts[-1], pi)
-        
-    return ld_map
-
-
-
-
 if __name__=='__main__':
 
 
@@ -159,10 +131,11 @@ if __name__=='__main__':
     sys.stderr.write("Done!\n")
     
     good_species_list = parse_midas_data.parse_good_species_list()
-    if debug:
-        good_species_list = good_species_list[:3]
-    elif species !='all':
+    if species!='all':
         good_species_list = [species]
+    if debug and len(good_species_list)>3.5:
+        good_species_list = good_species_list[:3]
+        
 
     #good_species_list=['Bacteroides_vulgatus_57955'] 
     # better binning scheme (multiple of 3)
@@ -180,6 +153,9 @@ if __name__=='__main__':
     
     # header of the output file.
     record_strs = [", ".join(['Species', 'CladeType', 'VariantType', 'Pi']+distance_strs)]
+    
+    os.system('mkdir -p %s' % ld_directory)
+
     
     for species_name in good_species_list:
 
@@ -237,8 +213,8 @@ if __name__=='__main__':
 
         snp_samples = coarse_grained_samples
 
-        if len(largest_clade_samples) < min_sample_size:
-            sys.stderr.write("Not enough haploid samples!\n")
+        if len(largest_clade_samples) < min_ld_sample_size:
+            sys.stderr.write("Not enough ld samples!\n")
             continue
         else:
             sys.stderr.write("Proceeding with %d coarse-grained samples in largest clade!\n" % len(largest_clade_samples))
@@ -497,13 +473,19 @@ if __name__=='__main__':
             
         sys.stderr.write("Done with %s!\n" % species_name) 
     
+         
+        sys.stderr.write("Writing intermediate file...\n")
+        intermediate_filename = intermediate_filename_template % (ld_directory, species_name)
+        file = gzip.open(intermediate_filename,"w")
+        record_str = "\n".join(record_strs)
+        file.write(record_str)
+        file.close()
+        sys.stderr.write("Done!\n")
+
     sys.stderr.write("Done looping over species!\n")
     
-    sys.stderr.write("Writing intermediate file...\n")
-    file = open(intermediate_filename,"w")
-    record_str = "\n".join(record_strs)
-    file.write(record_str)
-    file.close()
+    sys.stderr.write("Testing loading...\n")
+    ld_map = load_ld_map(good_species_list[0])
     sys.stderr.write("Done!\n")
 
  

@@ -21,7 +21,7 @@ from math import log10,ceil,log,exp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from numpy.random import randint, random, choice, multinomial
+from numpy.random import randint, random, choice, multinomial, shuffle
 import matplotlib.colors as mcolors
 import matplotlib.patheffects as pe
 
@@ -59,10 +59,7 @@ modification_difference_threshold = args.modification_threshold
 replacement_difference_threshold = config.replacement_difference_threshold
 twin_modification_difference_threshold = config.twin_modification_difference_threshold
 twin_replacement_difference_threshold = config.twin_replacement_difference_threshold
-
-twin_modification_difference_threshold = 1e06
-twin_replacement_difference_threshold = 1e06
-
+default_num_bootstraps = 10000
 ################################################################################
 
 #####################
@@ -77,6 +74,9 @@ min_haploid_sample_size = 10
 
 variant_types = ['1D','4D']
 
+within_host_type = 'consecutive' # consecutive timepoints
+#within_host_type = 'longest' # longest interval available
+
 # For partitioning SNVs according to prevalence
 derived_freq_bins = numpy.array([-1,0,0.01,0.1,0.5,0.9,0.99,1,2])
 derived_virtual_freqs = numpy.arange(0,len(derived_freq_bins)-1)
@@ -84,12 +84,18 @@ derived_virtual_xticks = list(derived_virtual_freqs[:-1]+0.5)
 derived_virtual_xticklabels = ['0','.01','.1','.5','.9','.99','1']
 
 # For partitioning genes into different prevalence classes
-gene_freq_bins = numpy.array([-1,0.1,0.9,2])
-gene_freq_xticks      = [-3,  -2,   -1,   0,   1,    2,   3]
-gene_freq_xticklabels = ['0','0.1','0.9','1','0.9','0.1','0']
+gene_freq_bins = numpy.array([-1,0.1,0.5,0.9,2])
+gene_freq_xticks      = [-4, -3,  -2,   -1,   0,   1,    2,   3, 4]
+gene_freq_xticklabels = ['0','0.1','0.5', '0.9','1','0.9','0.5', '0.1','0']
+gene_gain_virtual_freqs = numpy.array([3.5,2.5,1.5,0.5])
+gene_loss_virtual_freqs = numpy.array([-3.5,-2.5,-1.5,-0.5])
 
-gene_gain_virtual_freqs = numpy.array([2.5,1.5,0.5])
-gene_loss_virtual_freqs = numpy.array([-2.5,-1.5,-0.5])
+#gene_freq_bins = numpy.array([-1,0.1,0.9,2])
+#gene_freq_xticks      = [-3,  -2,   -1,   0,   1,    2,   3]
+#gene_freq_xticklabels = ['0','0.1', '0.9','1','0.9', '0.1','0']
+#gene_gain_virtual_freqs = numpy.array([2.5,1.5,0.5])
+#gene_loss_virtual_freqs = numpy.array([-2.5,-1.5,-0.5])
+
 
 #####
 #
@@ -100,9 +106,9 @@ cohorts = ["hmp", "twins", "young_twins"]
 countries = ["United States", "United Kingdom", "Western Europe"]
 country_cohort_map = {country: cohort for country,cohort in zip(countries,cohorts)}
 
-modification_difference_thresholds = {"hmp": modification_difference_threshold, "twins": twin_modification_difference_threshold, "young_twins": twin_modification_difference_threshold}
+modification_difference_thresholds = {"hmp": modification_difference_threshold, "twins": 1e06, "young_twins": twin_modification_difference_threshold}
 
-replacement_difference_thresholds = {"hmp": replacement_difference_threshold, "twins": twin_replacement_difference_threshold, "young_twins": twin_replacement_difference_threshold}
+replacement_difference_thresholds = {"hmp": replacement_difference_threshold, "twins": 1e06, "young_twins": twin_replacement_difference_threshold}
 
 ################################
 #
@@ -186,7 +192,7 @@ pooled_snp_axis.set_ylabel('Fraction comparisons $\geq n$')
 pooled_snp_axis.set_xlabel('# SNV changes')
 #pooled_axis.set_ylim([-35,35])
 #pooled_snp_axis.set_xlim([2e-01,1e05])
-pooled_snp_axis.set_xlim([1,1e05])
+pooled_snp_axis.set_xlim([0.6,1e05])
 
 pooled_snp_axis.set_xticklabels([])
 
@@ -315,14 +321,15 @@ young_gene_axis = plt.Subplot(fig3, outer_grid_3[1])
 fig3.add_subplot(young_gene_axis)
 
 young_gene_axis.set_xlim([1,1e04])
+young_gene_axis.set_xlabel('# gene changes')
 
 young_gene_axis.spines['top'].set_visible(False)
 young_gene_axis.spines['right'].set_visible(False)
 young_gene_axis.get_xaxis().tick_bottom()
 young_gene_axis.get_yaxis().tick_left()
 
-young_snp_axis.loglog([0.1],[1],'k.')
-young_gene_axis.loglog([0.1],[1],'k.')
+young_snp_axis.semilogx([0.1],[1],'k.')
+young_gene_axis.semilogx([0.1],[1],'k.')
 
 
 ##############
@@ -493,6 +500,39 @@ cax = plt.Subplot(fig8, outer_grid8[1])
 fig8.add_subplot(cax)
 
 
+##############
+#
+# Full distribution of SNV and gene prevalences
+#
+###############
+pylab.figure(9,figsize=(7,2))
+fig9 = pylab.gcf()
+# make three panels panels
+ks_prevalence_grid = gridspec.GridSpec(1,3, width_ratios=[1,1,1],wspace=0.1)
+
+snv_ks_axis = plt.Subplot(fig9, ks_prevalence_grid[0])
+fig9.add_subplot(snv_ks_axis)
+ 
+snv_ks_axis.set_xlabel('Derived allele prevalence\nacross hosts')
+snv_ks_axis.set_ylabel('CDF')
+snv_ks_axis.set_xlim([-0.05,1.05])
+snv_ks_axis.set_ylim([0,1])
+
+dnds_ks_axis = plt.Subplot(fig9, ks_prevalence_grid[1])
+fig9.add_subplot(dnds_ks_axis)
+dnds_ks_axis.set_xlim([-0.05,1.05])
+dnds_ks_axis.set_ylim([0,1])
+dnds_ks_axis.set_yticklabels([])
+
+dnds_ks_axis.set_xlabel('Derived allele prevalence\nacross hosts')
+
+gene_ks_axis = plt.Subplot(fig9, ks_prevalence_grid[2])
+fig9.add_subplot(gene_ks_axis)
+gene_ks_axis.set_xlabel('Gene prevalence\nacross hosts')
+gene_ks_axis.set_xlim([-0.05,1.05])
+gene_ks_axis.set_ylim([0,1])
+gene_ks_axis.set_yticklabels([])
+
 ################################
 #
 # Now do calculation
@@ -543,6 +583,18 @@ total_freq_gains = {cohort: numpy.zeros(len(gene_freq_bins)-1)*1.0 for cohort in
 total_freq_losses = {cohort: numpy.zeros_like(total_freq_gains[cohort]) for cohort in cohorts}
 total_null_freq_losses = {cohort: numpy.zeros_like(total_freq_gains[cohort]) for cohort in cohorts}
 
+
+# SNV and gene prevalences resolved by subject
+# so that we can do bootstrapping
+snv_prevalence_count_map = {cohort: {} for cohort in cohorts}
+gene_gain_count_map = {cohort: {} for cohort in cohorts}
+gene_loss_count_map = {cohort: {} for cohort in cohorts}
+
+snv_prevalence_map = {cohort : {} for cohort in cohorts}
+gene_gain_prevalence_map = {cohort: {} for cohort in cohorts}
+gene_loss_prevalence_map = {cohort: {} for cohort in cohorts}
+
+variant_type_prevalence_map = {cohort: {'1D':[], '4D':[]} for cohort in cohorts}
 output_strs = {cohort : [] for cohort in cohorts}
 
 ######
@@ -584,7 +636,7 @@ def get_sweep_prevalence(snp_change, snv_freq_map, private_snv_map):
     return f
     
 # Helper functions for stats
-from scipy.stats import fisher_exact
+from scipy.stats import fisher_exact, ks_2samp
 from numpy.random import multinomial as sample_multinomial
 from numpy.random import binomial as sample_binomial
 
@@ -602,6 +654,23 @@ def binomial_loglikelihoods(ns,ntots,ps):
     
     return loggamma(ntots+1).sum()-loggamma(ns+1).sum() - loggamma(anti_ns+1).sum() + (ns*numpy.log(ps+(ns==0))).sum() + (anti_ns*numpy.log(1-ps+(anti_ns==0))).sum()   
 
+def reversal_loglikelihoods(ns):
+    ntots = ns + ns[::-1]
+    ps = numpy.ones_like(ns)*0.5    
+    return binomial_loglikelihoods(ns,ntots,ps)
+
+def ks_distance(n1s, n2s):
+    if len(n1s)==0 or len(n2s)==0:
+        return 1e06
+        
+    ks, dummy = ks_2samp(n1s, n2s)
+    return ks
+    
+def symmetrized_ks_distance(prevalences):
+    prevalences = numpy.array(prevalences)
+    symmetrized_prevalences = numpy.hstack([prevalences, (1-prevalences)])
+    return ks_distance(prevalences, symmetrized_prevalences)
+    
 
 
 #####################
@@ -646,7 +715,8 @@ for species_name in good_species_list:
     if len(haploid_samples) < min_haploid_sample_size:
         continue
 
-    same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, all_samples)
+    all_samples = list(haploid_samples)
+    same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, all_samples, within_host_type=within_host_type)
 
     hmp_sample_size = 0        
 
@@ -705,8 +775,9 @@ for species_name in good_species_list:
     
     sys.stderr.write("Done!\n")
     
+    print species_name
     for cohort in cohorts:    
-        print ("%s:" % cohort), qp_counts[cohort][1], "QP pairs,", qp_counts[cohort][2], "non-QP pairs,", qp_counts[cohort][3], "mixed pairs", qp_counts[cohort][0], "species dropouts."
+        print ("%s:" % cohort), qp_counts[cohort][1], "temporal QP pairs."
    
     combined_sample_set = set()
     for cohort in cohorts:
@@ -794,7 +865,7 @@ for species_name in good_species_list:
         
         desired_samples = qp_sample_lists[cohort]
         
-        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, desired_samples)
+        same_sample_idxs, same_subject_idxs, diff_subject_idxs = sample_utils.calculate_ordered_subject_pairs(sample_order_map, desired_samples, within_host_type=within_host_type)
         
         #apply_sample_index_map_to_indices(sample_idx_map, idxs):
         #new_idxs = (numpy.array([sample_idx_map[i] for i in idxs[0]]), numpy.array([sample_idx_map[i] for i in idxs[1]]))
@@ -822,7 +893,7 @@ for species_name in good_species_list:
             num_reversions = len(reversions)
             num_snp_changes = num_mutations+num_reversions
         
-            gene_L, gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
+            gene_L, gene_perr, gains, losses = calculate_temporal_changes.calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_i, sample_j) #, min_normal_copynum = 0.6, max_normal_copynum = 1.2)
         
             gene_nerr = gene_L*gene_perr
             num_gains = len(gains)
@@ -871,7 +942,8 @@ for species_name in good_species_list:
             if (num_snp_changes<=modification_difference_threshold):
         
                 if cohort=='twins':
-                    output_strs[cohort].append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
+                    pass
+                    #output_strs[cohort].append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
                     
                 for snp_change in (mutations+reversions):        
                 
@@ -894,6 +966,19 @@ for species_name in good_species_list:
                     
                     total_freq_all_snps[cohort][f_idx] += 1
                 
+                    if (sample_i, sample_j, species_name) not in snv_prevalence_count_map[cohort]:
+                        snv_prevalence_count_map[cohort][(sample_i, sample_j, species_name)] = numpy.zeros_like(total_freq_all_snps[cohort])
+                        snv_prevalence_map[cohort][(sample_i, sample_j, species_name)] = []
+                        
+                    snv_prevalence_count_map[cohort][(sample_i, sample_j, species_name)][f_idx] += 1
+                    
+                    snv_prevalence_map[cohort][(sample_i, sample_j, species_name)].append(f) 
+                    
+                    if variant_type not in variant_type_prevalence_map[cohort]:
+                        variant_type_prevalence_map[cohort][variant_type] = []
+                    
+                    variant_type_prevalence_map[cohort][variant_type].append(f) 
+                    
                     # Now draw a null prevalence from the genome
                     L = snp_opportunity_matrix[i,j]
                     L_snv = len(snv_freq_map) # A slight overestimate
@@ -942,6 +1027,18 @@ for species_name in good_species_list:
                     f_idx = ((f>gene_freq_bins[:-1])*(f<=gene_freq_bins[1:])).argmax()    
                     total_freq_gains[cohort][f_idx] += 1
                     
+                    if (sample_i, sample_j, species_name) not in gene_gain_count_map[cohort]:
+                        
+                        gene_gain_count_map[cohort][(sample_i, sample_j, species_name)] = numpy.zeros_like(total_freq_gains[cohort])
+                        gene_loss_count_map[cohort][(sample_i, sample_j, species_name)] = numpy.zeros_like(total_freq_losses[cohort])
+                        gene_gain_prevalence_map[cohort][(sample_i, sample_j, species_name)] = []
+                        gene_loss_prevalence_map[cohort][(sample_i, sample_j, species_name)] = []     
+                        
+                        
+                    gene_gain_count_map[cohort][(sample_i, sample_j, species_name)][f_idx] += 1
+                    gene_gain_prevalence_map[cohort][(sample_i, sample_j, species_name)].append(f)
+                    
+                
                         
                     
                 for gene_change in losses:
@@ -955,6 +1052,18 @@ for species_name in good_species_list:
                     f_idx = ((f>gene_freq_bins[:-1])*(f<=gene_freq_bins[1:])).argmax()    
                     total_freq_losses[cohort][f_idx] += 1
                     
+                    if (sample_i, sample_j, species_name) not in gene_gain_count_map[cohort]:
+                        
+                        gene_gain_count_map[cohort][(sample_i, sample_j, species_name)] = numpy.zeros_like(total_freq_gains[cohort])
+                        gene_loss_count_map[cohort][(sample_i, sample_j, species_name)] = numpy.zeros_like(total_freq_losses[cohort])
+                        gene_gain_prevalence_map[cohort][(sample_i, sample_j, species_name)] = []
+                        gene_loss_prevalence_map[cohort][(sample_i, sample_j, species_name)] = []     
+                        
+                    gene_loss_count_map[cohort][(sample_i, sample_j, species_name)][f_idx] += 1
+                    
+                    gene_loss_prevalence_map[cohort][(sample_i, sample_j, species_name)].append(f)
+                
+                    
                     num_bootstraps = 10
                     fs = choice(gene_freq_values, size=num_bootstraps, p=gene_freq_weights)
                     for f in fs:
@@ -964,11 +1073,11 @@ for species_name in good_species_list:
         
 sys.stderr.write("Done looping over species!\n")    
 
-print "Young twins modifications:"
+print "Young twins data:"
 print "\n".join(output_strs['young_twins'])
 
-print "All twins modifications:"
-print "\n".join(output_strs['twins'])
+#print "All twins modifications:"
+#print "\n".join(output_strs['twins'])
 
 print "Printing replacement map!"
 for sample_pair in replacement_map['hmp'].keys():
@@ -1063,13 +1172,13 @@ for cohort in cohorts:
             # Plot SNVs
             xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(numpy.clip(species_snp_change_distribution[cohort][species_name],5e-01,1e09), min_x=1e-02, max_x=1e09)
 
-            line, = species_snp_axis.step(xs,ns,'-',linewidth=1, where='mid',zorder=4)
+            line, = species_snp_axis.step(xs,ns,'-',linewidth=1, where='post',zorder=4)
             color = pylab.getp(line,'color')
             
             # Plot genes
             xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(numpy.clip(species_gene_change_distribution[cohort][species_name],5e-01,1e09), min_x=1e-02, max_x=1e09)
 
-            line, = species_gene_axis.step(xs,ns,'-',color=color,linewidth=1, where='mid',zorder=4)
+            line, = species_gene_axis.step(xs,ns,'-',color=color,linewidth=1, where='post',zorder=4)
             
             species_legend_axis.plot([-1],[-1],'-',color=color, linewidth=1,label=label)
             
@@ -1143,24 +1252,90 @@ for cohort in cohorts:
     # First Break distributions into replacements and modifications
     modification_idxs = pooled_snp_change_distribution[cohort]<=modification_difference_thresholds[cohort]
     replacement_idxs = pooled_snp_change_distribution[cohort]>=replacement_difference_thresholds[cohort]
-     
-    true_modification_idxs = modification_idxs*numpy.logical_or(pooled_snp_change_distribution[cohort]>0.5, pooled_gene_change_distribution[cohort]>0.5)
+    
+    no_snv_change_idxs = numpy.logical_and(modification_idxs, pooled_snp_change_distribution[cohort]<0.5)
+    true_snv_modification_idxs = numpy.logical_and(modification_idxs, pooled_snp_change_distribution[cohort]>0.5)
+    
+    true_gene_modification_idxs = numpy.logical_and(modification_idxs, pooled_gene_change_distribution[cohort]>0.5)
+    
+    true_gene_and_snv_modification_idxs = numpy.logical_and(true_snv_modification_idxs, true_gene_modification_idxs)
+    true_gene_and_no_snv_modification_idxs = numpy.logical_and(no_snv_change_idxs, true_gene_modification_idxs)
+    
+      
+    true_modification_idxs = numpy.logical_or(true_snv_modification_idxs, true_gene_modification_idxs)
+    
             
-    modification_snp_change_distribution = pooled_snp_change_distribution[cohort][true_modification_idxs]
+    modification_snp_change_distribution = pooled_snp_change_distribution[cohort][modification_idxs]
     replacement_snp_change_distribution = pooled_snp_change_distribution[cohort][replacement_idxs]
         
-    modification_gene_change_distribution = pooled_gene_change_distribution[cohort][true_modification_idxs]
+    modification_gene_change_distribution = pooled_gene_change_distribution[cohort][modification_idxs]
     replacement_gene_change_distribution = pooled_gene_change_distribution[cohort][replacement_idxs]
         
+    current_num_species = 0
+    for species in species_snp_change_distribution[cohort]:
+        if len(species_snp_change_distribution[cohort][species])>0:
+            current_num_species += 1
     
+    snv_modification_species = {}
+    for sample_pair in snv_prevalence_map[cohort]:
+        if len(snv_prevalence_map[cohort][sample_pair])>0:
+            species_name = sample_pair[-1]
+            if species_name not in snv_modification_species:
+                snv_modification_species[species_name] = 0
+                
+            snv_modification_species[species_name] += len(snv_prevalence_map[cohort][sample_pair])
+
+    
+    # sort species by descending number of changes
+    sorted_snv_modification_species = []
+    for species_name in sorted(snv_modification_species.keys(), key=lambda x: snv_modification_species[x], reverse=True):
+        sorted_snv_modification_species.append((species_name, snv_modification_species[species_name]))
+
+    
+    gene_modification_species = {}
+    for sample_pair in gene_gain_prevalence_map[cohort]:
+        num_gene_changes = len(gene_gain_prevalence_map[cohort][sample_pair])+len(gene_loss_prevalence_map[cohort][sample_pair])
+        if num_gene_changes>0:
+        
+            species_name = sample_pair[-1]
+            
+            if species_name not in gene_modification_species:
+                gene_modification_species[species_name]=0
+                
+            gene_modification_species[species_name] += num_gene_changes
+            
+    # sort species by descending number of changes
+    sorted_gene_modification_species = []
+    for species_name in sorted(gene_modification_species.keys(), key=lambda x: gene_modification_species[x], reverse=True):
+        sorted_gene_modification_species.append((species_name, gene_modification_species[species_name]))
+            
     print "Cohort:", cohort
     print "".join(['-']*80)
-    print "%d total comparisons across %d species" % (len(pooled_snp_change_distribution[cohort]), len(species_snp_change_distribution[cohort]))
+    print "%d total comparisons across %d species" % (len(pooled_snp_change_distribution[cohort]), current_num_species)
     
     print "%d replacements (%g, %d total SNVs, %d total genes)" % (replacement_idxs.sum(), replacement_idxs.sum()*1.0/len(replacement_idxs), replacement_snp_change_distribution.sum(), replacement_gene_change_distribution.sum())
-    print "%d no change (%g)" % (modification_idxs.sum()-true_modification_idxs.sum(), (modification_idxs.sum()-true_modification_idxs.sum())*1.0/len(modification_idxs))
-    print "%d true modifications (%g, %d total SNVs, %d total genes)" % (true_modification_idxs.sum(), true_modification_idxs.sum()*1.0/len(true_modification_idxs), modification_snp_change_distribution.sum(), modification_gene_change_distribution.sum())
-        
+    
+    print "%d total modifications (%g)" % (true_modification_idxs.sum(), true_modification_idxs.sum()*1.0/len(true_modification_idxs))
+    
+    print "%d SNV modifications (%g, %d total SNVs in %d pairs across %d species)" % (true_snv_modification_idxs.sum(), true_snv_modification_idxs.sum()*1.0/len(true_snv_modification_idxs), modification_snp_change_distribution.sum(), len(snv_prevalence_count_map[cohort]), len(snv_modification_species))
+    print sorted_snv_modification_species
+    
+    print "%d gene modifications (%g, %d total genes in %d pairs across %d species)" % (true_gene_modification_idxs.sum(), true_gene_modification_idxs.sum()*1.0/len(true_gene_modification_idxs), modification_gene_change_distribution.sum(), len(gene_gain_count_map[cohort]), len(gene_modification_species))
+    print sorted_gene_modification_species
+    
+    print "p(gene change | snv change) = ", true_gene_and_snv_modification_idxs.sum()*1.0/true_snv_modification_idxs.sum()
+    
+    print "p(gene change | no snv change) = ", true_gene_and_no_snv_modification_idxs.sum()*1.0/no_snv_change_idxs.sum()
+    
+    n11 = true_gene_and_snv_modification_idxs.sum()
+    n10 = true_gene_and_no_snv_modification_idxs.sum()
+    n01 = true_snv_modification_idxs.sum()-n11
+    n00 = no_snv_change_idxs.sum()-n10
+    
+    oddsratio, pvalue = fisher_exact([[n11, n10],[n01, n00]])
+    print "Fisher exact pvalue =", pvalue
+
+    
     if cohort=='hmp':
         
         # Plot average within and between
@@ -1178,7 +1353,10 @@ for cohort in cohorts:
         
         xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution[cohort], min_x=1e-02, max_x=1e09)
 
-        pooled_snp_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label=('Within-host (n=%d)' % ns[0]), where='mid',zorder=4)
+        pooled_snp_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label=('Within-host (n=%d)' % ns[0]), where='post',zorder=4)
+        #pooled_snp_axis.plot(xs,ns/ns[0],'.-',color='#08519c',linewidth=1, label=('Within-host (n=%d)' % ns[0]),zorder=4)
+
+      
 
         # This lets you set the y range
 
@@ -1187,6 +1365,8 @@ for cohort in cohorts:
 
         # Put on log scale
         pooled_snp_axis.set_ylim([ymin,ymax])
+        pooled_gene_axis.set_ylim([ymin,ymax])
+        
         pooled_gene_axis.set_yticklabels([])
 
         
@@ -1203,7 +1383,8 @@ for cohort in cohorts:
         # Min between host
         #xs, ns =     stats_utils.calculate_unnormalized_survival_from_vector(pooled_min_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
 
-        pooled_snp_axis.step(xs,ns/ns[0],'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host', where='mid',zorder=2)
+        pooled_snp_axis.step(xs,ns/ns[0],'-',color='r',linewidth=0.5, alpha=0.5, label='Between-host', where='post',zorder=2)
+        #pooled_snp_axis.plot(xs,ns/ns[0],'.-',color='r',linewidth=0.5, alpha=0.5, label='Between-host',zorder=2)
 
         # Save intermediate version (for Keynote animations)
         fig2.savefig('%s/figure_6.2.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
@@ -1212,18 +1393,18 @@ for cohort in cohorts:
         # Genes: Plot modification and replacement within (separately)
         xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(modification_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
-        pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=2,where='mid',path_effects=[pe.Stroke(linewidth=5, foreground='#9ecae1'), pe.Normal()])
+        pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=2,where='post',path_effects=[pe.Stroke(linewidth=5, foreground='#9ecae1'), pe.Normal()])
 
         pooled_gene_axis.loglog([1e-01,1e05],[1.0/ns[0],1.0/ns[0]],'k:')
 
-        pooled_gene_axis.set_ylim([1.0/ns[0],1.3])
+        #pooled_gene_axis.set_ylim([1.0/ns[0],1.3])
         pooled_gene_axis.set_yticklabels([])
         #pooled_snp_axis.set_yticklabels(['0.01','0.1','1'])
 
 
         xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(replacement_gene_change_distribution, min_x=1e-02, max_x=1e09)
 
-        pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=1,where='mid',path_effects=[pe.Stroke(linewidth=5, foreground='#fee0d2'), pe.Normal()])
+        pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=1,where='post',path_effects=[pe.Stroke(linewidth=5, foreground='#fee0d2'), pe.Normal()])
     
             
             
@@ -1235,7 +1416,11 @@ for cohort in cohorts:
 
         xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution[cohort], min_x=1e-02, max_x=1e09)
 
-        pooled_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='mid',zorder=2)
+        pooled_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='post',zorder=2)
+
+        #pooled_snp_axis.plot(xs,ns/ns[0],'.-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]),zorder=2)
+
+
 
         # Save intermediate version (for Keynote animations)
         fig2.savefig('%s/figure_6.3.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
@@ -1251,7 +1436,7 @@ for cohort in cohorts:
         
         xs, ns = stats_utils.calculate_unnormalized_survival_from_vector( pooled_gene_change_distribution[cohort], min_x=1e-02, max_x=1e09)
 
-        pooled_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label='Twin',zorder=1,where='mid')
+        pooled_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label='Twin',zorder=1,where='post')
 
 
         
@@ -1263,11 +1448,11 @@ for cohort in cohorts:
         young_ymin = 1.0/ns[0]
         young_ymax = 1.3
 
-        young_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='mid',zorder=2)
+        young_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='post',zorder=2)
     
         xs, ns = stats_utils.calculate_unnormalized_survival_from_vector( pooled_gene_change_distribution[cohort], min_x=1e-02, max_x=1e09)
 
-        young_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='mid',zorder=2)
+        young_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='post',zorder=2)
         
         young_snp_axis.set_ylim([young_ymin, young_ymax])
         young_gene_axis.set_ylim([young_ymin, young_ymax])
@@ -1310,7 +1495,7 @@ for cohort in cohorts:
     # Now calculate statistical tests 
     
     # First check if prevalence is higher than null distribution
-    num_bootstraps = 10000
+    num_bootstraps = default_num_bootstraps
     observed_counts = total_freq_all_snps[cohort] #[:-1]
     sample_size = observed_counts.sum()
     null_counts = total_null_freq_all_snps[cohort] #[:-1]
@@ -1339,46 +1524,177 @@ for cohort in cohorts:
     null_counts = (observed_counts+observed_counts[::-1])/2.0
     prevalence_weights = null_counts*1.0/null_counts.sum()
 
-    observed_loglikelihood = multinomial_loglikelihood(observed_counts, sample_size, prevalence_weights)
+    #observed_loglikelihood = multinomial_loglikelihood(observed_counts, sample_size, prevalence_weights)  
+    observed_loglikelihood = reversal_loglikelihoods(observed_counts)
+    
+    #print snv_prevalence_count_map[cohort]
+
+    observed_prevalences = []
+    for sample_pair in snv_prevalence_map[cohort]:
+        snv_prevalence_map[cohort][sample_pair] = numpy.array(snv_prevalence_map[cohort][sample_pair])
+        if len(snv_prevalence_map[cohort][sample_pair]>100):
+            snv_prevalence_map[cohort][sample_pair] = choice(snv_prevalence_map[cohort][sample_pair],100)
+              
+        observed_prevalences.extend(snv_prevalence_map[cohort][sample_pair])
+    observed_prevalences = numpy.clip(observed_prevalences,0,1)
+               
+    observed_ks = symmetrized_ks_distance(observed_prevalences)    
 
     bootstrapped_loglikelihoods = []
+    bootstrapped_kss = []
     for bootstrap_idx in xrange(0,num_bootstraps):
     
-        bootstrapped_counts = sample_multinomial(sample_size, prevalence_weights)
+        # Old method: time-reverses each SNV independently. (not conservative)
+        # bootstrapped_counts = sample_multinomial(sample_size, prevalence_weights)
     
-        bootstrapped_loglikelihoods.append(multinomial_loglikelihood(bootstrapped_counts, sample_size, prevalence_weights))
-    
-    bootstrapped_loglikelihoods = numpy.array(bootstrapped_loglikelihoods)
+        # New method: time reverses sample pair
+        bootstrapped_counts = numpy.zeros_like(observed_counts)
+        bootstrapped_prevalences = []
+        for sample_pair in snv_prevalence_count_map[cohort]:
+            
+            if random()<0.5:
+                # normal order
+                bootstrapped_counts += snv_prevalence_count_map[cohort][sample_pair]
+            else:
+                # reverse
+                bootstrapped_counts += snv_prevalence_count_map[cohort][sample_pair][::-1]
+                
+            if random()<0.5:
+                bootstrapped_prevalences.extend( snv_prevalence_map[cohort][sample_pair] )
+            else:
+                bootstrapped_prevalences.extend( 1-snv_prevalence_map[cohort][sample_pair] )       
+                
+        bootstrapped_sample_size = bootstrapped_counts.sum()
+        
+        #bootstrapped_loglikelihood = multinomial_loglikelihood(bootstrapped_counts, bootstrapped_sample_size, prevalence_weights))
+        bootstrapped_loglikelihood = reversal_loglikelihoods(bootstrapped_counts)
+        bootstrapped_loglikelihoods.append(bootstrapped_loglikelihood)
+        bootstrapped_kss.append( symmetrized_ks_distance(bootstrapped_prevalences) ) 
 
+            
+    bootstrapped_loglikelihoods = numpy.array(bootstrapped_loglikelihoods)
+    bootstrapped_kss = numpy.array(bootstrapped_kss)
+    
     p_value = ((bootstrapped_loglikelihoods<=observed_loglikelihood).sum()+1.0)/(len(bootstrapped_loglikelihoods)+1.0)
+    
+    ks_p_value = ((bootstrapped_kss>=observed_ks).sum()+1.0)/(len(bootstrapped_kss)+1.0)
     
     print "SNV time-reversal P-value:", p_value
     print "Observed loglikelihood:", observed_loglikelihood
-
+    print "SNV ks P-value:", ks_p_value
     # Then check whether SNV prevalence distribution is asymmetric
     
     observed_counts = numpy.hstack([total_freq_losses[cohort], total_freq_gains[cohort][::-1]])
     sample_size = observed_counts.sum()
     
-    null_counts = (observed_counts+observed_counts[::-1])/2.0
+    null_counts = (observed_counts+observed_counts[::-1])*1.0/2.0
     prevalence_weights = null_counts*1.0/null_counts.sum()
 
-    observed_loglikelihood = multinomial_loglikelihood(observed_counts, sample_size, prevalence_weights)
+    #observed_loglikelihood = multinomial_loglikelihood(observed_counts, sample_size, prevalence_weights)
+    observed_loglikelihood = reversal_loglikelihoods(observed_counts)
+    
+    observed_gain_prevalences = []
+    observed_loss_prevalences = []
+    for sample_pair in gene_gain_count_map[cohort]:
+            
+        sample_gain_prevalences = gene_gain_prevalence_map[cohort][sample_pair]
+        sample_loss_prevalences = gene_loss_prevalence_map[cohort][sample_pair]
 
+        observed_gain_prevalences.extend( sample_gain_prevalences )
+        observed_loss_prevalences.extend( sample_loss_prevalences )
+    
+    if len(observed_gain_prevalences)==0:
+        print "Bad!"
+        observed_gain_prevalences.append(0.5)
+    if len(observed_loss_prevalences)==0:
+        observed_loss_prevalences.append(0.5)
+        
+    observed_ks, dummy = ks_2samp(observed_gain_prevalences, observed_loss_prevalences)
+        
+            
     bootstrapped_loglikelihoods = []
+    bootstrapped_kss = []
+    other_bootstrapped_kss = [] # bootstrapped using other method, useful for checking donating but not invasion of strains
     for bootstrap_idx in xrange(0,num_bootstraps):
     
-        bootstrapped_counts = sample_multinomial(sample_size, prevalence_weights)
-    
-        bootstrapped_loglikelihoods.append(multinomial_loglikelihood(bootstrapped_counts, sample_size, prevalence_weights))
-    
+        # Old method: time-reverses each gene independently. (not conservative)
+        #bootstrapped_counts = sample_multinomial(sample_size, prevalence_weights)
+        
+        # New method: time reverses sample pair
+        bootstrapped_counts = numpy.zeros_like(observed_counts)
+        bootstrapped_gain_prevalences = []
+        bootstrapped_loss_prevalences = []
+        other_bootstrapped_gain_prevalences = []
+        other_bootstrapped_loss_prevalences = []
+        
+        for sample_pair in gene_gain_count_map[cohort]:
+            
+            bootstrapped_gains = gene_gain_count_map[cohort][sample_pair]
+            bootstrapped_losses = gene_loss_count_map[cohort][sample_pair]
+            
+            sample_gain_prevalences = gene_gain_prevalence_map[cohort][sample_pair]
+            sample_loss_prevalences = gene_loss_prevalence_map[cohort][sample_pair]
+            
+            if random()<0.5:
+                bootstrapped_gains, bootstrapped_losses = bootstrapped_losses, bootstrapped_gains
+                sample_gain_prevalences, sample_loss_prevalences = sample_loss_prevalences, sample_gain_prevalences
+                    
+            bootstrapped_counts += numpy.hstack([bootstrapped_losses, bootstrapped_gains[::-1]])   
+            
+            bootstrapped_gain_prevalences.extend( sample_gain_prevalences )
+            bootstrapped_loss_prevalences.extend( sample_loss_prevalences )
+            
+            # In other bootstrap method, flip gains and losses independently of each other
+            # (ok null for read donating, bad null for invasion of strains)
+            if random()<0.5:
+                other_bootstrapped_gain_prevalences.extend( sample_gain_prevalences )
+            else:
+                other_bootstrapped_loss_prevalences.extend( sample_gain_prevalences ) 
+                
+            if random()<0.5:
+                other_bootstrapped_gain_prevalences.extend( sample_loss_prevalences )
+            else:
+                other_bootstrapped_loss_prevalences.extend( sample_loss_prevalences )   
+                 
+        bootstrapped_sample_size = bootstrapped_counts.sum()
+        
+        #print "O:", observed_counts
+        #print "B:", bootstrapped_counts
+        
+        
+        #bootstrapped_loglikelihood = multinomial_loglikelihood(bootstrapped_counts, bootstrapped_sample_size, prevalence_weights))
+        bootstrapped_loglikelihood = reversal_loglikelihoods(bootstrapped_counts)
+        
+        bootstrapped_loglikelihoods.append(bootstrapped_loglikelihood)
+        
+        if (len(bootstrapped_gain_prevalences)==0) or (len(bootstrapped_loss_prevalences)==0):
+            continue
+        
+        bootstrapped_ks, dummy = ks_2samp(bootstrapped_gain_prevalences, bootstrapped_loss_prevalences)
+        
+        bootstrapped_kss.append(bootstrapped_ks)
+        
+        other_bootstrapped_ks, dummy = ks_2samp(other_bootstrapped_gain_prevalences, other_bootstrapped_loss_prevalences)
+        
+        other_bootstrapped_kss.append(other_bootstrapped_ks)
+        
+        
     bootstrapped_loglikelihoods = numpy.array(bootstrapped_loglikelihoods)
-
+    bootstrapped_kss = numpy.array(bootstrapped_kss)
+    other_bootstrapped_kss = numpy.array(other_bootstrapped_kss)
+    
+    
     p_value = ((bootstrapped_loglikelihoods<=observed_loglikelihood).sum()+1.0)/(len(bootstrapped_loglikelihoods)+1.0)
+    
+    ks_p_value = ((bootstrapped_kss>=observed_ks).sum()+1.0)/(len(bootstrapped_kss)+1.0)
+    other_ks_p_value = ((other_bootstrapped_kss>=observed_ks).sum()+1.0)/(len(other_bootstrapped_kss)+1.0)
+
 
     print "gene time-reversal P-value:", p_value
     print "Observed loglikelihood:", observed_loglikelihood
-
+    print "gene ks P-value:", ks_p_value
+    print "other gene ks P-value (gains and losses reversed independently):", other_ks_p_value
+    
 
     # Now do dN/dSs
 
@@ -1414,20 +1730,47 @@ for cohort in cohorts:
 
     observed_loglikelihood = binomial_loglikelihoods(non_ns, total_ns, pooled_ps)
 
+    # 
+    for variant_type in variant_type_prevalence_map[cohort]:
+        if len(variant_type_prevalence_map[cohort][variant_type])>1000:
+            # downsample (For speed). Only used for twins
+            variant_type_prevalence_map[cohort][variant_type] = choice(variant_type_prevalence_map[cohort][variant_type], 1000)
+        
+        variant_type_prevalence_map[cohort][variant_type] = numpy.clip(variant_type_prevalence_map[cohort][variant_type],0,1)
+            
+    
+    observed_ks = ks_distance(variant_type_prevalence_map[cohort]['1D'], variant_type_prevalence_map[cohort]['4D']) 
+
+
     bootstrapped_loglikelihoods = []
+    bootstrapped_kss = []
     for bootstrap_idx in xrange(0,num_bootstraps):
     
         bootstrapped_non_ns = sample_binomial(total_ns, pooled_ps)
     
         bootstrapped_loglikelihoods.append(binomial_loglikelihoods(bootstrapped_non_ns, total_ns, pooled_ps))
+        
+        nonsynonymous_idxs = numpy.hstack([numpy.ones_like(variant_type_prevalence_map[cohort]['1D']), numpy.zeros_like(variant_type_prevalence_map[cohort]['4D'])])
+        
+        prevalences = numpy.hstack([variant_type_prevalence_map[cohort]['1D'], variant_type_prevalence_map[cohort]['4D']])
+        shuffle(prevalences)
+        
+        bootstrapped_nonsynonymous_prevalences = prevalences[nonsynonymous_idxs>0.5]
+        bootstrapped_synonymous_prevalences = prevalences[nonsynonymous_idxs<0.5]
+        bootstrapped_kss.append( ks_distance(bootstrapped_nonsynonymous_prevalences, bootstrapped_synonymous_prevalences) )
     
     bootstrapped_loglikelihoods = numpy.array(bootstrapped_loglikelihoods)
-
+    bootstrapped_kss = numpy.array(bootstrapped_kss)
+    
+    
     p_value = ((bootstrapped_loglikelihoods<=observed_loglikelihood).sum()+1.0)/(len(bootstrapped_loglikelihoods)+1.0)
+    ks_p_value = ((bootstrapped_kss>=observed_ks).sum()+1.0)/(len(bootstrapped_kss)+1.0)
+    
 
     print "dNdS uniformity P-value:", p_value
     print "Observed loglikelihood:", observed_loglikelihood
-
+    print "dNdS ks P-value:", ks_p_value
+    
     for i in xrange(1,len(total_freq_all_snps[cohort])/2+1):
     
         non_counts = total_freq_snps[cohort]['1D'][:i].sum()+total_freq_snps[cohort]['1D'][-i:].sum()
@@ -1480,7 +1823,41 @@ for cohort in cohorts:
     
     print ""
     print ""
-      
+     
+     
+    if cohort=='hmp':
+        # Plot ks figures
+         
+        # SNV one
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(observed_prevalences, min_x=-0.1, max_x=1.1)
+        snv_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=4,color='#08519c',label='Observed')
+            
+        symmetrized_prevalences = numpy.hstack([observed_prevalences, 1-observed_prevalences])
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(symmetrized_prevalences, min_x=-0.1, max_x=1.1)
+        snv_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=0.5, color='0.7', where='post',zorder=3,label='Symmetrized')
+        
+        # dN/dS one
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(variant_type_prevalence_map[cohort]['1D'], min_x=-0.1, max_x=1.1)
+        dnds_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=4,color='#ff7f00',label='non (1D)')
+        
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(variant_type_prevalence_map[cohort]['4D'], min_x=-0.1, max_x=1.1)
+        dnds_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=3,color='#b3de69',label='syn (4D)')
+
+        # gene one
+
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(observed_loss_prevalences, min_x=-0.1, max_x=1.1)
+        gene_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=3,color='#ff7f00',label='loss')
+ 
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(observed_gain_prevalences, min_x=-0.1, max_x=1.1)
+        
+        gene_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=4,color='#b3de69',label='gain')
+        
+       
+        
+        
+            
+
+        
 
 ### Now plot temporal qp figures
 species_names = hmp_species_qp_counts.keys()
@@ -1568,6 +1945,7 @@ fig4.savefig('%s/supplemental_within_between_avg.pdf' % (parse_midas_data.analys
 fig5.savefig('%s/supplemental_twin_modification_frequency.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig6.savefig('%s/supplemental_temporal_haploid.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig8.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
+fig9.savefig('%s/supplemental_within_ks.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 
 
 

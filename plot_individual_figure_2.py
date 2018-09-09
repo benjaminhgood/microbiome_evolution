@@ -74,7 +74,6 @@ allowed_variant_types = set(['1D','2D','3D','4D'])
 sys.stderr.write("Loading sample metadata...\n")
 subject_sample_map = parse_HMP_data.parse_subject_sample_map()
 sample_country_map = parse_HMP_data.parse_sample_country_map()
-sample_phenotype_map = parse_HMP_data.parse_sample_phenotype_map()
 sys.stderr.write("Done!\n")
        
 # Only plot samples above a certain depth threshold that are "haploids"

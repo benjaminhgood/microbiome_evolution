@@ -60,10 +60,8 @@ chunk_size = args.chunk_size
 num_bootstraps = 1000
 
 min_coverage = config.min_median_coverage
-alpha = 0.05 # Confidence interval range for rate estimates
-low_divergence_threshold = 2e-04
-min_change = 0.8
-min_sample_size = 33 # 46 gives at least 1000 pairs, 33 gives at least 500 (actually 528)
+low_divergence_threshold = config.between_low_divergence_threshold
+min_sample_size = config.between_host_min_sample_size # 46 gives at least 1000 pairs, 33 gives at least 500 (actually 528)
 allowed_variant_types = set(['1D','2D','3D','4D'])
 
 divergence_matrices = {}
