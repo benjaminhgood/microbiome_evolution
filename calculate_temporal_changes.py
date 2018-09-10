@@ -163,7 +163,8 @@ upper_threshold=config.consensus_upper_threshold):
     return snp_opportunities, snp_perr, mutations, reversions
 
 
-def calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_1, sample_2, lower_threshold=0.05):
+def calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_1, sample_2, max_absent_copynum=config.gainloss_max_absent_copynum, min_normal_copynum=config.gainloss_min_normal_copynum, max_normal_copynum=config.gainloss_max_normal_copynum):
+
 
     sample_pair = sample_1, sample_2
     if sample_pair not in temporal_change_map:
@@ -184,9 +185,9 @@ def calculate_gains_losses_from_temporal_change_map(temporal_change_map, sample_
         copynum_1 = D1/Dm1
         copynum_2 = D2/Dm2
         
-        if (copynum_1<=lower_threshold):
+        if (copynum_1<=max_absent_copynum) and (copynum_2>=min_normal_copynum) and (copynum_2<=max_normal_copynum):
             gains.append(gene_change)
-        elif (copynum_2<=lower_threshold):
+        elif (copynum_2<=max_absent_copynum) and (copynum_1>=min_normal_copynum) and (copynum_1<=max_normal_copynum):
             losses.append(gene_change)
             
     
