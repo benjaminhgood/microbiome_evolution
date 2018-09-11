@@ -104,8 +104,9 @@ def load_virulence_factors(species_name):
 #
 #################################################################
 
-def load_patric_gene_descriptions(genome_ids):
+def load_patric_gene_descriptions(genome_ids,  allowed_genes=[]):
     
+    allowed_genes = set(allowed_genes)
     # dictionary to store all gene names (gene_id -> )
     gene_descriptions={}
 
@@ -117,8 +118,9 @@ def load_patric_gene_descriptions(genome_ids):
             if items[0] !='':
                 if items[5] !='' and len(items)>14: # sometimes entries are blank
                     gene_id =  items[5].split('|')[1] # id of gene
-                    gene_description = items[14] # what the gene does
-                    gene_descriptions[gene_id] = gene_description # load into the dictionary
+                    if gene_id in allowed_genes:
+                        gene_description = items[14] # what the gene does
+                        gene_descriptions[gene_id] = gene_description # load into the dictionary
 
     return gene_descriptions
     

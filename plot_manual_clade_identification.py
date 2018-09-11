@@ -8,6 +8,7 @@ import parse_HMP_data
 import pylab
 import sys
 import numpy
+import os.path
 
 import diversity_utils
 import gene_diversity_utils
@@ -95,7 +96,7 @@ if debug:
 sys.stderr.write("Loading sample metadata...\n")
 subject_sample_map = parse_HMP_data.parse_subject_sample_map()
 sample_country_map = parse_HMP_data.parse_sample_country_map()
-sample_phenotype_map = parse_HMP_data.parse_sample_phenotype_map()
+#sample_phenotype_map = parse_HMP_data.parse_sample_phenotype_map()
 sys.stderr.write("Done!\n")
  
 for species_name in good_species_list:
@@ -137,6 +138,7 @@ sample_sizes = []
 for species_name in divergence_matrices.keys():
     species_names.append(species_name)
     sample_sizes.append( divergence_matrices[species_name].shape[0] )
+
     
 # sort in descending order of sample size
 # Sort by num haploids    
@@ -149,10 +151,11 @@ sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
 # Set up Figure (4 panels, arranged in 2x2 grid)
 #
 ####################################################
-
-pylab.figure(1,figsize=(24,1.5*len(species_names)))
+#pylab.figure(1,figsize=(24,1.5*20))
+pylab.figure(1,figsize=(40,1.5*len(species_names)))
 fig = pylab.gcf()
 # make three panels panels
+#outer_grid  = gridspec.GridSpec(20,1, height_ratios=[1 for s in species_names], hspace=0.25)
 outer_grid  = gridspec.GridSpec(len(species_names),1, height_ratios=[1 for s in species_names], hspace=0.25)
 
 
@@ -163,6 +166,7 @@ outer_grid  = gridspec.GridSpec(len(species_names),1, height_ratios=[1 for s in 
 ##############################################################################
 
 dendrogram_axes = []
+#for species_idx in xrange(20,len(species_names)):
 for species_idx in xrange(0,len(species_names)):
     
     dendrogram_axis = plt.Subplot(fig, outer_grid[species_idx])
@@ -189,6 +193,10 @@ for species_idx in xrange(0,len(species_names)):
 #
 ##############################################################################
 
+# print out the numbers and IDs of each sample for each species
+outFile=open(os.path.expanduser('~/ben_nandita_hmp_scripts/clade_definitions.txt'),'w')
+
+#for species_idx in xrange(20,len(species_names)):
 for species_idx in xrange(0,len(species_names)):
     species_name = species_names[species_idx]
     
@@ -196,7 +204,7 @@ for species_idx in xrange(0,len(species_names)):
     snp_substitution_rate = numpy.clip(snp_substitution_rate,1e-09,10)
     snp_samples = sample_names[species_name]
     
-    dendrogram_axis = dendrogram_axes[species_idx]
+    dendrogram_axis = dendrogram_axes[species_idx-20]
 
 
     sys.stderr.write("Calculating UPGMA dendrogram...\n")
@@ -296,6 +304,8 @@ for species_idx in xrange(0,len(species_names)):
     samples = []
 
     print species_name
+    outFile.write(species_name +'\n')
+
     for i in xrange(0,len(ddata['ivl'])):
     
         idx = long(ddata['ivl'][i])
@@ -308,14 +318,18 @@ for species_idx in xrange(0,len(species_names)):
         samples.append(sample)
     
         print i, sample
-    
+        outFile.write(str(i) + ' ' + sample +'\n')
+
         if sample_country_map[sample]=='United States':
-            if sample_phenotype_map[sample]==0:
-                color = '#9ecae1'
-            elif sample_phenotype_map[sample]==1:
-                color = '#3182bd'
-            else:
-                color = '#deebf7'      
+            color = '#deebf7'
+            #if sample_phenotype_map[sample]==0:
+            #    color = '#9ecae1'
+            #elif sample_phenotype_map[sample]==1:
+            #    color = '#3182bd'
+            #else:
+            #    color = '#deebf7'      
+        elif sample_country_map[sample]=='United Kingdom':
+            color = '#31a354'
         else:
             color = '#de2d26'
         
