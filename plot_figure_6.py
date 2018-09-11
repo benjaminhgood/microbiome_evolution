@@ -310,8 +310,8 @@ fig3.add_subplot(young_snp_axis)
 
 young_snp_axis.set_ylabel('Fraction comparisons $\geq n$')
 young_snp_axis.set_xlabel('# SNV changes')
-young_snp_axis.set_xlim([1,1e05])
-
+#young_snp_axis.set_xlim([1,1e05])
+young_snp_axis.set_xlim([0.6,1e05])
 young_snp_axis.spines['top'].set_visible(False)
 young_snp_axis.spines['right'].set_visible(False)
 young_snp_axis.get_xaxis().tick_bottom()
@@ -320,7 +320,7 @@ young_snp_axis.get_yaxis().tick_left()
 young_gene_axis = plt.Subplot(fig3, outer_grid_3[1])
 fig3.add_subplot(young_gene_axis)
 
-young_gene_axis.set_xlim([1,1e04])
+young_gene_axis.set_xlim([0.6,1e04])
 young_gene_axis.set_xlabel('# gene changes')
 
 young_gene_axis.spines['top'].set_visible(False)
@@ -328,8 +328,8 @@ young_gene_axis.spines['right'].set_visible(False)
 young_gene_axis.get_xaxis().tick_bottom()
 young_gene_axis.get_yaxis().tick_left()
 
-young_snp_axis.semilogx([0.1],[1],'k.')
-young_gene_axis.semilogx([0.1],[1],'k.')
+young_snp_axis.loglog([0.1],[1],'k.')
+young_gene_axis.loglog([0.1],[1],'k.')
 
 
 ##############
@@ -513,8 +513,8 @@ ks_prevalence_grid = gridspec.GridSpec(1,3, width_ratios=[1,1,1],wspace=0.1)
 snv_ks_axis = plt.Subplot(fig9, ks_prevalence_grid[0])
 fig9.add_subplot(snv_ks_axis)
  
-snv_ks_axis.set_xlabel('Derived allele prevalence\nacross hosts')
-snv_ks_axis.set_ylabel('CDF')
+snv_ks_axis.set_xlabel('Derived allele prevalence\nacross hosts, $p$')
+snv_ks_axis.set_ylabel('Fraction changes $\geq p$')
 snv_ks_axis.set_xlim([-0.05,1.05])
 snv_ks_axis.set_ylim([0,1])
 
@@ -524,11 +524,11 @@ dnds_ks_axis.set_xlim([-0.05,1.05])
 dnds_ks_axis.set_ylim([0,1])
 dnds_ks_axis.set_yticklabels([])
 
-dnds_ks_axis.set_xlabel('Derived allele prevalence\nacross hosts')
+dnds_ks_axis.set_xlabel('Derived allele prevalence\nacross hosts, $p$')
 
 gene_ks_axis = plt.Subplot(fig9, ks_prevalence_grid[2])
 fig9.add_subplot(gene_ks_axis)
-gene_ks_axis.set_xlabel('Gene prevalence\nacross hosts')
+gene_ks_axis.set_xlabel('Gene prevalence\nacross hosts, $p$')
 gene_ks_axis.set_xlim([-0.05,1.05])
 gene_ks_axis.set_ylim([0,1])
 gene_ks_axis.set_yticklabels([])
@@ -636,7 +636,7 @@ def get_sweep_prevalence(snp_change, snv_freq_map, private_snv_map):
     return f
     
 # Helper functions for stats
-from scipy.stats import fisher_exact, ks_2samp
+from scipy.stats import fisher_exact, ks_2samp, anderson_ksamp
 from numpy.random import multinomial as sample_multinomial
 from numpy.random import binomial as sample_binomial
 
@@ -663,7 +663,8 @@ def ks_distance(n1s, n2s):
     if len(n1s)==0 or len(n2s)==0:
         return 1e06
         
-    ks, dummy = ks_2samp(n1s, n2s)
+    ks, dummy = ks_2samp(n1s, n2s) # Kolmogorov-Smirnov version
+    #ks = anderson_ksamp([n1s,n2s]) # Anderson-Darling version
     return ks
     
 def symmetrized_ks_distance(prevalences):
@@ -1537,7 +1538,7 @@ for cohort in cohorts:
               
         observed_prevalences.extend(snv_prevalence_map[cohort][sample_pair])
     observed_prevalences = numpy.clip(observed_prevalences,0,1)
-               
+    
     observed_ks = symmetrized_ks_distance(observed_prevalences)    
 
     bootstrapped_loglikelihoods = []
@@ -1829,29 +1830,36 @@ for cohort in cohorts:
         # Plot ks figures
          
         # SNV one
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(observed_prevalences, min_x=-0.1, max_x=1.1)
-        snv_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=4,color='#08519c',label='Observed')
-            
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(observed_prevalences, min_x=-0.01, max_x=1.01, min_p=0)
+        snv_ks_axis.step(xs,ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=4,color='#08519c',label='Observed')
+        
+          
         symmetrized_prevalences = numpy.hstack([observed_prevalences, 1-observed_prevalences])
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(symmetrized_prevalences, min_x=-0.1, max_x=1.1)
-        snv_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=0.5, color='0.7', where='post',zorder=3,label='Symmetrized')
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(symmetrized_prevalences, min_x=-0.01, max_x=1.01, min_p=0)
+        snv_ks_axis.step(xs,ns*1.0/ns[0],'-',linewidth=0.5, color='0.7', where='post',zorder=3,label='Time-reversal\nsymmetric')
+        
+        snv_ks_axis.legend(loc='upper right',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
         
         # dN/dS one
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(variant_type_prevalence_map[cohort]['1D'], min_x=-0.1, max_x=1.1)
-        dnds_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=4,color='#ff7f00',label='non (1D)')
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(variant_type_prevalence_map[cohort]['1D'], min_x=-0.01, max_x=1.01)
+        dnds_ks_axis.step(xs,ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=4,color='#ff7f00',label='non (1D)')
         
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(variant_type_prevalence_map[cohort]['4D'], min_x=-0.1, max_x=1.1)
-        dnds_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=3,color='#b3de69',label='syn (4D)')
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(variant_type_prevalence_map[cohort]['4D'], min_x=-0.01, max_x=1.01)
+        dnds_ks_axis.step(xs,ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=3,color='#b3de69',label='syn (4D)')
+
+        dnds_ks_axis.legend(loc='upper right',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
+       
 
         # gene one
 
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(observed_loss_prevalences, min_x=-0.1, max_x=1.1)
-        gene_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=3,color='#ff7f00',label='loss')
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(observed_loss_prevalences, min_x=-0.01, max_x=1.01)
+        gene_ks_axis.step(xs,ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=3,color='#ff7f00',label='loss')
  
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(observed_gain_prevalences, min_x=-0.1, max_x=1.1)
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(observed_gain_prevalences, min_x=-0.01, max_x=1.01)
         
-        gene_ks_axis.step(xs,1-ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=4,color='#b3de69',label='gain')
+        gene_ks_axis.step(xs,ns*1.0/ns[0],'-',linewidth=1, where='post',zorder=4,color='#b3de69',label='gain')
         
+        gene_ks_axis.legend(loc='upper right',frameon=False,fontsize=5,numpoints=1,ncol=1,handlelength=1)   
        
         
         
