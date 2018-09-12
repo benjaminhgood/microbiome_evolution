@@ -236,7 +236,7 @@ haploid_color = '#08519c'
 pylab.figure(1,figsize=(6, 3))
 fig = pylab.gcf()
 # make three panels panels
-outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1.2,1],wspace=0.3)
+outer_grid  = gridspec.GridSpec(1,2, width_ratios=[1.2,1],wspace=0.2)
 
 pylab.figure(2,figsize=(6, 2))
 fig2 = pylab.gcf()
@@ -280,7 +280,7 @@ for species_name in species_names:
     
 
 yticks = numpy.arange(0,len(species_names))
-yticklabels = ["%s (%d)" % (pretty_species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
+yticklabels = ["%s, n=%d" % (pretty_species_names[i],sample_sizes[i]) for i in xrange(0,len(sample_sizes))]
 
 divergence_axis.set_yticks(yticks)
 divergence_axis.set_yticklabels(yticklabels,fontsize=4)
@@ -508,7 +508,7 @@ continent_axis.bar([1-0.3, 2-0.3], [observed_same, observed_different], width=0.
 
 continent_axis.bar([1, 2], [null_same, null_different], width=0.3, linewidth=0, color='0.7',label='Null',bottom=1e-03)
 
-continent_axis.set_ylim([0,1e03])
+continent_axis.set_ylim([0,1.6e03])
 continent_axis.set_xticks([1,2])
 continent_axis.set_xticklabels(['Same\ncontinent','Diff\ncontinent'], rotation='vertical',fontsize=4)
 

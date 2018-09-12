@@ -30,51 +30,36 @@ os.system('python plot_figure_1.py')
 
 ##################################
 #
-# Figure 2: between-host divergence in 
-# B. vulgatus and B. stercoris
+# Figure 2: between-host divergence across prevalent species
 # (figure_2.pdf)
+#
+# Supplemental Figure: Raw # of SNV and gene differences 
+#                      between closely related strains
+# (supplemental_closely_related_differences.pdf)
 #
 ##################################
 os.system('python plot_figure_2.py')
 
 ##################################
 #
-# Figure 3: between-host divergence across prevalent species
+# Figure 3: dN/dS vs dS
 # (figure_3.pdf)
 #
-##################################
+# Supplemental Figure: Singleton dN/dS vs dS
+# (supplemental_singleton_dNdS.pdf)
 os.system('python plot_figure_3.py')
 
-##################################
+###################################
 #
-# Figure 4: decay of linkage disequilibrium
+# Figure 4: Signatures of recombination across hosts
 # (figure_4.pdf)
-# Supplemental Figure: estimate of r/mu
+#
+# Supplemental Figure: decay of LD in 3 example species
+#
+# Supplemental Figure: estimates of r/mu across species
 # (supplemental_rbymu.pdf)
 ##################################
 os.system('python plot_figure_4.py')
-
-##################################
-#
-# Figure 5: within-host changes in B. vulgatus
-# (figure_5.pdf)
-#
-##################################
-os.system('python plot_figure_5.py')
-
-##################################
-#
-# Figure 6: within-host changes across prevalent species
-# (figure_6.pdf)
-#
-##################################
-os.system('python plot_figure_6.py')
-
-############
-#
-# Figure 7 is hand-drawn schematic
-#
-############
 
 ##################################
 #
@@ -82,31 +67,32 @@ os.system('python plot_figure_6.py')
 # (supplemental_clade_city_correlation.pdf)
 #
 ##################################
-os.system('python plot_supplemental_clade_city_correlation.py') 
+os.system('python plot_supplemental_manual_clade_fst.py') 
 
 ##################################
 #
-# Supplemental figure: singletons as function of min divergence
-# (supplemental_singleton_distribution.pdf)
+# Supplemental Figure: QP status over time
+# (supplemental_temporal_haploid.pdf)
 #
 ##################################
-os.system('python plot_singleton_distribution.py') 
+os.system('plot_supplemental_qp_over_time.py')
 
-
 ##################################
 #
-# Supplemental Figure: triplet timecourses
-# (supplemental_triplet_trajectories.png)
+# Supplemental Figure: Marker SNV sharing
+# (supplemental_marker_sharing.pdf)
 #
 ##################################
-# commented out to save time. uncomment when need to regenerate
-#os.system('python plot_supplemental_triplets.py') 
+os.system('plot_supplemental_marker_snv_sharing.py')
 
 
 ##################################
 #
-# Supplemental Figure: Examples of clonal vs local sweep in B. vulgatus
+# Figure 5: within-host changes across prevalent species
+# (figure_5.pdf)
 #
 ##################################
-# commented out to save time. uncomment when need to regenerate
-#os.system('python plot_supplemental_clonal_local.py')
+os.system('python plot_figure_5.py')
+
+
+

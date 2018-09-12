@@ -81,11 +81,11 @@ sys.stderr.write("Done!\n")
 #
 ####################################################
 
-pylab.figure(1,figsize=(6,4))
+pylab.figure(1,figsize=(7,4))
 fig = pylab.gcf()
 # make three panels panels
 
-outer_grid = gridspec.GridSpec(2,1,height_ratios=[1,1],hspace=0.4)
+outer_grid = gridspec.GridSpec(2,1,height_ratios=[1,1],hspace=0.6)
 
 upper_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[1,1], wspace=0.3, subplot_spec=outer_grid[0])
                 
@@ -103,9 +103,10 @@ inconsistency_axis.spines['bottom'].set_zorder(22)
 inconsistency_axis.get_xaxis().tick_bottom()
 inconsistency_axis.get_yaxis().tick_left()
 
+
 inconsistency_axis.set_xlabel('Divergence, $d$')
 inconsistency_axis.set_ylabel('Phylogenetic inconsistency')
-inconsistency_axis.set_xlim([2e-05,2e-02])
+inconsistency_axis.set_xlim([1e-04,1e-01])
 inconsistency_axis.set_ylim([0,1.05])
 
 
@@ -134,7 +135,7 @@ for species_name in good_species_list:
     sys.stderr.write("(core genes only...)\n")
     snv_distance_map = calculate_snv_distances.load_snv_distance_map(species_name)
     
-    ds = numpy.logspace(log10(3e-05),log10(3e-02),50) # 15 points are plotted
+    ds = numpy.logspace(-4,-1.5,50) # 15 points are plotted
     total_snps = numpy.zeros_like(ds)
     inconsistent_snps = numpy.zeros_like(ds)
       
@@ -178,15 +179,13 @@ for species_name in good_species_list:
         else:
             sys.stderr.write("%s intergene LD too high: %g (%g)\n" % (species_name, control_rsquared, rsquareds[0])) 
 
-sample_sizes = numpy.array(sample_sizes)
-
-passed_species = species_phylogeny_utils.sort_phylogenetically(passed_species, first_entry=focal_species, second_sorting_attribute=(-1*sample_sizes))
+sorted_species_names = species_phylogeny_utils.sort_phylogenetically(passed_species,first_entry='Bacteroides_vulgatus_57955',second_sorting_attribute=sample_sizes)
 
 #passed_species = species_phylogeny_utils.sort_phylogenetically(passed_species)
 num_passed_species = len(passed_species)
 
 
-inconsistency_axis.plot([1],[-1],'b-',linewidth=1, alpha=1,label=figure_utils.get_pretty_species_name(focal_species, include_number=False))
+inconsistency_axis.plot([1],[-1],'b-',linewidth=1, alpha=1,label=focal_species)
 inconsistency_axis.plot([1],[-1],'r-',linewidth=0.5, alpha=0.3,label='Other species')
 inconsistency_axis.legend(loc='lower left',frameon=False,fontsize=5,numpoints=1,handlelength=1)
 
@@ -216,7 +215,7 @@ scaled_axis.set_ylim([2e-02,2])
 focal_example_axis = plt.Subplot(fig, upper_grid[1])
 fig.add_subplot(focal_example_axis)
 focal_example_axis.set_ylabel('Linkage disequilibrium, $\sigma^2_d$')
-focal_example_axis.set_xlabel('Distance between SNVs, $\ell$')
+focal_example_axis.set_xlabel('Distance between SNPs, $\ell$')
 
 focal_example_axis.spines['top'].set_visible(False)
 focal_example_axis.spines['right'].set_visible(False)
@@ -523,10 +522,8 @@ for species_idx in xrange(0,num_passed_species):
         example_axis.loglog(theory_ls, theory_rsquareds/theory_rsquareds[0]*3e-01,'k-',linewidth=0.3,zorder=0,label='Neutral')
         
         
-        leg = example_axis.legend(loc='lower left',frameon=False, title=figure_utils.get_pretty_species_name(species_name,include_number=False))
+        leg = example_axis.legend(loc='lower left',frameon=False,title=figure_utils.get_pretty_species_name(species_name))
         leg._legend_box.align = "left"
-        
-        #example_axis.set_title(figure_utils.get_pretty_species_name(species_name, include_number=True),fontsize=5)
         
         line, = example_axis.loglog([distances[-1],distances[-1]],[1e-02,1],'k:')
         line.set_dashes((0.5,1))
@@ -663,24 +660,16 @@ for species_idx in xrange(0,num_passed_species):
     if rsquareds[-1] < rsquareds[idx_9]/2:
     
         NRstar = calculate_effective_NR(0.5)
-        lstar = distances[(rsquareds/rsquareds[idx_9]<=0.5)][0]
-        # Old version
-        # lstar = distances[numpy.fabs(rsquareds/rsquareds[idx_9]-0.5).argmin()]
+        lstar = distances[numpy.fabs(rsquareds/rsquareds[idx_9]-0.5).argmin()]
         rbymu_2 = NRstar/lstar/pi*2
         
         rbymu_axis.semilogy([species_idx], [rbymu_2],'_',markersize=3,color=color) 
         
-        if rsquareds.min() < rsquareds[idx_9]/4:
-            critical_fraction = 0.25
-        else:
-            critical_fraction = rsquareds.min()/rsquareds[idx_9]
+        if rsquareds[-1] < rsquareds[idx_9]/4:
             
-        if True:
-            NRstar = calculate_effective_NR(critical_fraction)
-            # get first point where LD/LD(0)<0.5
-            lstar = distances[(rsquareds/rsquareds[idx_9]<=critical_fraction)][0]
-            # Old version
-            # lstar = distances[numpy.fabs(rsquareds/rsquareds[idx_9]-0.25).argmin()]
+            
+            NRstar = calculate_effective_NR(0.25)
+            lstar = distances[numpy.fabs(rsquareds/rsquareds[idx_9]-0.25).argmin()]
             rbymu_4 = NRstar/lstar/pi*2
         
             rbymu_axis.semilogy([species_idx,species_idx], [rbymu_4, rbymu_2],'-',color=color)

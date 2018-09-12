@@ -42,7 +42,7 @@ def get_taxonomy_map():
     return species_taxonomy_map
     
    
-def sort_phylogenetically(species_list, first_entry=None, second_sorting_attribute=None):
+def sort_phylogenetically(species_list, first_entry="", second_sorting_attribute=[]):
 
     species_taxonomy_map = get_taxonomy_map()
     
@@ -64,7 +64,7 @@ def sort_phylogenetically(species_list, first_entry=None, second_sorting_attribu
     genus_order_map = {}
     order_genus_map = []
     
-    if first_entry!=None:
+    if first_entry!="":
         
         kingdom,phylum,class_name,order,family,genus = species_taxonomy_map[first_entry]
         
@@ -124,12 +124,14 @@ def sort_phylogenetically(species_list, first_entry=None, second_sorting_attribu
         kingdom,phylum,class_name,order,family,genus = species_taxonomy_map[species_name]     
         order_list.append( (kingdom_order_map[kingdom], phylum_order_map[phylum], class_order_map[class_name], order_name_order_map[order], family_order_map[family], genus_order_map[genus]) )
     
-    if second_sorting_attribute == None:
+    if len(second_sorting_attribute)==0:
         second_sorting_attribute = list(species_list)
+    
+    first_entry_list = [1-(species==first_entry) for species in species_list]
         
     # sort in descending order of sample size
     # Sort by num haploids    
-    sorted_order_list, sorted_second_sorting_attribute, sorted_species_list = zip(*sorted(zip(order_list, second_sorting_attribute, species_list)))
+    sorted_order_list, sorted_first_entry_list, sorted_second_sorting_attribute, sorted_species_list = zip(*sorted(zip(order_list, first_entry_list, second_sorting_attribute, species_list)))
 
     return sorted_species_list
 
