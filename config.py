@@ -31,6 +31,8 @@ fixation_log10_depth_ratio_threshold = log10(3)
 threshold_within_between_fraction = 0.1
 threshold_pi = 1e-03
 
+min_opportunities = 100000
+
 modification_difference_threshold = 20
 replacement_difference_threshold = 500
 

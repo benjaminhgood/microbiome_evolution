@@ -486,7 +486,7 @@ cNorm  = colors.Normalize(vmin=0, vmax=vmax)
 scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
 
 
-pylab.figure(8,figsize=(5,3.5))
+pylab.figure(8,figsize=(5,4))
 fig8 = pylab.gcf()
 # make three panels panels
 outer_grid8  = gridspec.GridSpec(1,2,width_ratios=[50,1],wspace=0.05)
@@ -893,6 +893,9 @@ for species_name in good_species_list:
                 
             L, perr, mutations, reversions = calculate_temporal_changes.calculate_mutations_reversions_from_temporal_change_map(temporal_change_map, sample_i, sample_j)
         
+            if L<config.min_opportunities:
+                continue
+        
             nerr = L*perr
         
             num_mutations = len(mutations)
@@ -1224,12 +1227,12 @@ for cohort in cohorts:
                     change_axis.text(species_idx, -len(gene_changes)-3,'*',fontsize=4)
             
 
-        change_axis.set_ylim([-75,75])
+        change_axis.set_ylim([-90,90])
         change_axis.set_xlim([-1,len(change_axis_labels)])
         change_axis.plot([-1,len(change_axis_labels)],[0,0],'k-')
 
-        change_axis.set_yticks([-70, -60,-50,-40,-30,-20,-10,0,10,20,30,40,50,60,70])
-        change_axis.set_yticklabels(['70', '60','50','40','30','20','10','0','10','20','30','40','50','60','70'])
+        change_axis.set_yticks([-90,-80,-70, -60,-50,-40,-30,-20,-10,0,10,20,30,40,50,60,70,80,90])
+        change_axis.set_yticklabels(['90','80','70', '60','50','40','30','20','10','0','10','20','30','40','50','60','70','80','90'])
 
         xticks = numpy.arange(0,len(change_axis_labels))
         xticklabels = change_axis_labels

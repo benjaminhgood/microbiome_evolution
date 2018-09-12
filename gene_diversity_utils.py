@@ -2,6 +2,7 @@ import numpy
 import sys
 from scipy.stats import poisson
 from math import fabs
+import config
 
 # For each gene in gene_depth_matrix, calculates # of samples 
 # in which it is "present". Returns vector of prevalences
@@ -29,15 +30,15 @@ def calculate_gene_numbers(gene_depth_matrix, marker_coverages, min_copynum=0.5)
 # Returns: matrix of # of gene differences
 #          matrix of # of opportunities 
 #          --> we should chat about what the denominator should be!
-def calculate_coverage_based_gene_hamming_matrix(gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2,min_log2_fold_change=4,include_high_copynum=True):
+def calculate_coverage_based_gene_hamming_matrix(gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=config.gainloss_max_absent_copynum, present_lower_threshold=config.gainloss_min_normal_copynum, present_upper_threshold= config.gainloss_max_normal_copynum):
 
-    gene_hamming_matrix_gain, gene_hamming_matrix_loss, num_opportunities = calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=absent_threshold, present_lower_threshold=present_lower_threshold, present_upper_threshold=present_upper_threshold,min_log2_fold_change=min_log2_fold_change,include_high_copynum=include_high_copynum)
+    gene_hamming_matrix_gain, gene_hamming_matrix_loss, num_opportunities = calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=absent_threshold, present_lower_threshold=present_lower_threshold, present_upper_threshold=present_upper_threshold)
     
     gene_hamming_matrix = gene_hamming_matrix_gain + gene_hamming_matrix_loss 
     return gene_hamming_matrix, num_opportunities
 
 
-def calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2,min_log2_fold_change=4,include_high_copynum=True):
+def calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=config.gainloss_max_absent_copynum, present_lower_threshold=config.gainloss_min_normal_copynum, present_upper_threshold= config.gainloss_max_normal_copynum):
     # in this definition, we keep track of whether there was a gene 'gain' or 'loss' by removing numpy.fabs. This info will be used to plot the gain/loss events between two successive time pints. 
 
     gene_copynum_matrix = gene_depth_matrix*1.0/marker_coverages[None,:]
@@ -89,7 +90,7 @@ def calculate_coverage_based_gene_hamming_matrix_gain_loss(gene_reads_matrix, ge
 #
 # (gene_name, (cov_i, marker_cov_i), (cov_j, marker_cov_j))
 #
-def calculate_gene_differences_between(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages, min_log2_fold_change=4,include_high_copynum=False, absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2):
+def calculate_gene_differences_between(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=config.gainloss_max_absent_copynum, present_lower_threshold=config.gainloss_min_normal_copynum, present_upper_threshold= config.gainloss_max_normal_copynum):
 
     changed_genes = calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=absent_threshold, present_lower_threshold=present_lower_threshold, present_upper_threshold=present_upper_threshold)
 
@@ -106,7 +107,7 @@ def calculate_gene_differences_between(i, j, gene_reads_matrix, gene_depth_matri
             
     return gene_differences
 
-def calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2):
+def calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_threshold=config.gainloss_max_absent_copynum, present_lower_threshold=config.gainloss_min_normal_copynum, present_upper_threshold= config.gainloss_max_normal_copynum):
 
     # Look at these two samples
     gene_depth_matrix = gene_depth_matrix[:,[i,j]]
@@ -135,7 +136,7 @@ def calculate_gene_differences_between_idxs(i, j, gene_reads_matrix, gene_depth_
     
 
 
-def calculate_triplet_gene_copynums(gene_depth_matrix, marker_coverages, i, j, k, absent_threshold=0.05, present_lower_threshold=0.5, present_upper_threshold=2):
+def calculate_triplet_gene_copynums(gene_depth_matrix, marker_coverages, i, j, k, absent_threshold=config.gainloss_max_absent_copynum, present_lower_threshold=config.gainloss_min_normal_copynum, present_upper_threshold= config.gainloss_max_normal_copynum):
 
     desired_samples = numpy.array([i, j, k])
     
@@ -254,8 +255,8 @@ def kegg_pathways_histogram(kegg_ids, gene_names, gene_samples,gene_prevalences=
     return kegg_df, pathway_description_list
     
     
-def calculate_gene_error_rate(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_thresholds=[0.05], present_lower_threshold=0.5, present_upper_threshold=2):
-  
+def calculate_gene_error_rate(i, j, gene_reads_matrix, gene_depth_matrix, marker_coverages, absent_thresholds=[config.gainloss_max_absent_copynum], present_lower_threshold=config.gainloss_min_normal_copynum, present_upper_threshold= config.gainloss_max_normal_copynum):
+   
     # Get reads, depths, and marker coverages in sample 1
     N1s = gene_reads_matrix[:,i]
     D1s = gene_depth_matrix[:,i]
