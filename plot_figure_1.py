@@ -39,6 +39,8 @@ sample_2 = '700101638' #'700171066' #'700096380'  # simple polyploid
 sample_3 = '700116148'  # "complicated" haploid
 sample_4 = '700023267'  # simple haploid
 
+sample_labels = ['A','B','C','D']
+
 # Make label for samples in left
 left_samples = [sample_1, sample_2, sample_3, sample_4]
     
@@ -139,7 +141,7 @@ sfs_grid = gridspec.GridSpecFromSubplotSpec(4, 1, height_ratios=[1,1,1,1],
 sfs_axis_1 = plt.Subplot(fig, sfs_grid[0])
 fig.add_subplot(sfs_axis_1)
 
-sfs_axis_1.set_title('Sample 1 ($\\overline{D}=%d$)' % sample_coverage_map[sample_1],fontsize=5,y=0.9)
+sfs_axis_1.set_title('Sample %s ($\\overline{D}=%d$)' % (sample_labels[0], sample_coverage_map[sample_1]),fontsize=5,y=0.9)
 sfs_axis_1.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_1.set_xticklabels([])
 sfs_axis_1.set_xlim([50,100])
@@ -150,7 +152,7 @@ sfs_axis_1.xaxis.tick_bottom()
 sfs_axis_2 = plt.Subplot(fig, sfs_grid[1])
 fig.add_subplot(sfs_axis_2)
 
-sfs_axis_2.set_title('Sample 2 ($\\overline{D}=%d$)' % sample_coverage_map[sample_2],fontsize=5,y=0.9)
+sfs_axis_2.set_title('Sample %s ($\\overline{D}=%d$)' % (sample_labels[1], sample_coverage_map[sample_2]),fontsize=5,y=0.9)
 sfs_axis_2.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_2.set_xticklabels([])
 sfs_axis_2.set_xlim([50,100])
@@ -162,7 +164,7 @@ sfs_axis_2.xaxis.tick_bottom()
 sfs_axis_3 = plt.Subplot(fig, sfs_grid[2])
 fig.add_subplot(sfs_axis_3)
 
-sfs_axis_3.set_title('Sample 3 ($\\overline{D}=%d$)' % sample_coverage_map[sample_3],fontsize=5,y=0.9)
+sfs_axis_3.set_title('Sample %s ($\\overline{D}=%d$)' % (sample_labels[2], sample_coverage_map[sample_3]),fontsize=5,y=0.9)
 sfs_axis_3.set_xticks([10*i for i in xrange(0,11)])
 sfs_axis_3.set_xticklabels([])
 sfs_axis_3.set_xlim([50,100])
@@ -174,7 +176,7 @@ sfs_axis_3.xaxis.tick_bottom()
 sfs_axis_4 = plt.Subplot(fig, sfs_grid[3])
 fig.add_subplot(sfs_axis_4)
 
-sfs_axis_4.set_title('Sample 4 ($\\overline{D}=%d$)' % sample_coverage_map[sample_4],fontsize=5,y=0.9)
+sfs_axis_4.set_title('Sample %s ($\\overline{D}=%d$)' % (sample_labels[3], sample_coverage_map[sample_4]),fontsize=5,y=0.9)
 sfs_axis_4.set_xlabel('Major allele freq (%)')
 
 sfs_axis_4.set_xticks([10*i for i in xrange(0,11)])
@@ -225,7 +227,7 @@ copynum_grid  = gridspec.GridSpec(1,4,width_ratios=[1,1,1,1],wspace=0.05)
 copynum_axis_1 = plt.Subplot(copynum_fig, copynum_grid[0])
 copynum_fig.add_subplot(copynum_axis_1)
 
-copynum_axis_1.set_title('Sample 1 (D=%d)' % sample_coverage_map[sample_1],fontsize=5)
+copynum_axis_1.set_title('Sample A (D=%d)' % sample_coverage_map[sample_1],fontsize=5)
 copynum_axis_1.set_ylabel('Fraction of genes')
 copynum_axis_1.set_xlabel('Estimated gene copynum')
 
@@ -235,7 +237,7 @@ copynum_axis_1.set_yticks([])
 copynum_axis_2 = plt.Subplot(copynum_fig, copynum_grid[1])
 copynum_fig.add_subplot(copynum_axis_2)
 
-copynum_axis_2.set_title('Sample 2 (D=%d)' % sample_coverage_map[sample_2],fontsize=5)
+copynum_axis_2.set_title('Sample B (D=%d)' % sample_coverage_map[sample_2],fontsize=5)
 copynum_axis_2.set_xlabel('Estimated gene copynum')
 #copynum_axis_2.set_xlim([0,4])
 copynum_axis_2.set_yticks([])
@@ -243,7 +245,7 @@ copynum_axis_2.set_yticks([])
 copynum_axis_3 = plt.Subplot(copynum_fig, copynum_grid[2])
 copynum_fig.add_subplot(copynum_axis_3)
 
-copynum_axis_3.set_title('Sample 3 (D=%d)' % sample_coverage_map[sample_3],fontsize=5)
+copynum_axis_3.set_title('Sample C (D=%d)' % sample_coverage_map[sample_3],fontsize=5)
 copynum_axis_3.set_xlabel('Estimated gene copynum')
 
 #copynum_axis_3.set_xlim([0,4])
@@ -252,7 +254,7 @@ copynum_axis_3.set_yticks([])
 copynum_axis_4 = plt.Subplot(copynum_fig, copynum_grid[3])
 copynum_fig.add_subplot(copynum_axis_4)
 
-copynum_axis_4.set_title('Sample 4 (D=%d)' % sample_coverage_map[sample_4],fontsize=5)
+copynum_axis_4.set_title('Sample D (D=%d)' % sample_coverage_map[sample_4],fontsize=5)
 copynum_axis_4.set_xlabel('Estimated gene copynum')
 
 #copynum_axis_4.set_xlim([0,4])
@@ -385,7 +387,7 @@ for rank_idx in xrange(0,len(within_rates)):
         
         print "Printing number for", sample_names[rank_idx], sample_idx+1
 
-        polymorphism_axis.text(rank_idx, within_rate_uppers[rank_idx]*1.3,'%d' % (sample_idx+1),horizontalalignment='left', verticalalignment='bottom',fontsize=6)
+        polymorphism_axis.text(rank_idx, within_rate_uppers[rank_idx]*1.3,'%s' % sample_labels[sample_idx],horizontalalignment='left', verticalalignment='bottom',fontsize=6)
         
 ###################################
 #
@@ -519,7 +521,7 @@ for idx,axis in zip(idxs, axes):
     
     ymax = heights.max()*1.1
     axis.fill_between([0.01, 0.05],[0,0],[ymax,ymax],color='0.8',zorder=0)
-    axis.fill_between([0.5, 2],[0,0],[ymax,ymax],color='0.8',zorder=0)
+    axis.fill_between([0.6, 1.2],[0,0],[ymax,ymax],color='0.8',zorder=0)
     axis.semilogx([2],[-1],'k.')
     axis.set_ylim([0,ymax])
     #axis.set_xlim([1e-02,4e00])   
@@ -739,9 +741,9 @@ width=0.7
 
 haploid_axis.barh(ys, num_haploid_samples,color=haploid_color,linewidth=0,label='QP',zorder=1)
 haploid_axis.barh(ys, num_samples,color=light_haploid_color,linewidth=0,label='non-QP',zorder=0)
-haploid_axis.set_xlim([0,650])
+haploid_axis.set_xlim([0,800])
 #haploid_axis.set_xticks([0,100,200,300,400,500,600])
-haploid_axis.set_xticks([0,200,400,600])
+haploid_axis.set_xticks([0,200,400,600,800])
 
 haploid_axis.yaxis.tick_right()
 haploid_axis.xaxis.tick_bottom()

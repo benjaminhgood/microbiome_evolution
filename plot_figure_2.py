@@ -57,12 +57,15 @@ chunk_size = args.chunk_size
 
 ################################################################################
 
-num_bootstraps = 1000
+num_bootstraps = 10000
 
 min_coverage = config.min_median_coverage
 low_divergence_threshold = config.between_low_divergence_threshold
 min_sample_size = config.between_host_min_sample_size # 46 gives at least 1000 pairs, 33 gives at least 500 (actually 528)
 allowed_variant_types = set(['1D','2D','3D','4D'])
+
+output_filename = ('%s/between_host_output.txt' % (parse_midas_data.analysis_directory))
+output_strs = []
 
 divergence_matrices = {}
 low_divergence_pair_counts = {}
@@ -223,7 +226,8 @@ for species_name in reversed(sorted_species_names):
 #sample_sizes, species_names = zip(*sorted(zip(sample_sizes, species_names),reverse=True))
     
 sys.stderr.write("Postprocessing %d species...\n" % len(species_names))
-        
+print "Analyzing %d species with %d or more QP samples" % (len(species_names), min_sample_size)
+output_strs.append("Analyzing %d species with %d or more QP samples" % (len(species_names), min_sample_size))
 
 ####################################################
 #
@@ -390,7 +394,7 @@ for bootstrap_idx in xrange(0,num_bootstraps):
 
 pvalue = (pvalue+1)/(num_bootstraps+1.0)
 
-print "pvalue for closely related pair distribution =", pvalue
+output_strs.append("pvalue for closely related pair distribution = %g" % pvalue)
 
 # Plot histograms
 
@@ -399,7 +403,7 @@ histogram_axis.bar(ks-0.3, observed_histogram, width=0.3, linewidth=0, color='r'
 histogram_axis.bar(ks, null_histogram, width=0.3, linewidth=0, color='0.7',label='Null',bottom=1e-03)
 
 histogram_axis.semilogy([1e-03,1e-03],[0,4],'k-')
-histogram_axis.set_ylim([1e-01,1e03])
+histogram_axis.set_ylim([3e-01,3e03])
 histogram_axis.set_xticks([1,2,3])
 histogram_axis.legend(loc='upper right',frameon=False,fontsize=4,numpoints=1, handlelength=1)
 
@@ -458,7 +462,7 @@ gene_difference_axis.step(xs,1-ns*1.0/ns[0],'-', color='0.7', label='Scaled',zor
 #gene_difference_axis.legend(loc=(0.01,0.92),frameon=False,fontsize=4, ncol=3, numpoints=1, handlelength=1)
 gene_difference_axis.legend(loc=(0.9,0.15),frameon=False,fontsize=4, ncol=1, numpoints=1, handlelength=1)
 
-print low_divergence_same_continent_counts
+output_strs.append("%d same continent closely related strains, %d different continent closely related strains" % (low_divergence_same_continent_counts[True], low_divergence_same_continent_counts[False]))
 
 ###
 #
@@ -489,9 +493,9 @@ for bootstrap_idx in xrange(0,num_bootstraps):
 
 pvalue = (pvalue+1.0)/(num_bootstraps+1.0)
 
-print "pvalue for closely related continent distribution =", pvalue
+output_strs.append( "pvalue for closely related continent distribution = %g" %  pvalue)
 
-print null_same, null_different
+output_strs.append("%g expected same continent closely related strains, %g different continent" % (null_same, null_different))
 
 continent_axis = plt.Subplot(fig, bottom_grid[0])
 fig.add_subplot(continent_axis)
@@ -513,6 +517,11 @@ continent_axis.set_xticks([1,2])
 continent_axis.set_xticklabels(['Same\ncontinent','Diff\ncontinent'], rotation='vertical',fontsize=4)
 
 continent_axis.legend(loc='upper right',frameon=False,fontsize=4,numpoints=1, handlelength=1)
+
+output_file = open(output_filename,"w")
+output_file.write("\n".join(output_strs))
+output_file.write("\n")
+output_file.close()
 
 sys.stderr.write("Saving figure...\t")
 fig.savefig('%s/figure_2.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight')

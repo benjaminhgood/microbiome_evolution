@@ -111,7 +111,7 @@ country_cohort_map = {country: cohort for country,cohort in zip(countries,cohort
 
 modification_difference_thresholds = {"hmp": modification_difference_threshold, "twins": 1e06, "young_twins": twin_modification_difference_threshold}
 
-replacement_difference_thresholds = {"hmp": replacement_difference_threshold, "twins": 1e06, "young_twins": twin_replacement_difference_threshold}
+replacement_difference_thresholds = {"hmp": replacement_difference_threshold, "twins": twin_replacement_difference_threshold, "young_twins": twin_replacement_difference_threshold}
 
 ################################
 #
@@ -185,7 +185,9 @@ fig2 = pylab.gcf()
 outer_outer_grid_2 = gridspec.GridSpec(1,1) #2, width_ratios=[1,0.2],wspace=0.1) 
 outer_grid_2 = gridspec.GridSpecFromSubplotSpec(2,1, height_ratios=[1,0.7],hspace=0.6, subplot_spec=outer_outer_grid_2[0])
 
-prevalence_grid = gridspec.GridSpecFromSubplotSpec(1,3, width_ratios=[1,1,0.3],wspace=0.5,subplot_spec=outer_grid_2[1])
+prevalence_outer_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[1,0.1],wspace=0.2,subplot_spec=outer_grid_2[1])
+
+prevalence_grid = gridspec.GridSpecFromSubplotSpec(1,2, width_ratios=[1,1],wspace=0.5,subplot_spec=prevalence_outer_grid[0])
 
 pooled_grid = gridspec.GridSpecFromSubplotSpec(1,3,width_ratios=[1,1,0.2],wspace=0.15,subplot_spec=outer_grid_2[0])
 
@@ -276,9 +278,9 @@ hmp_gene_frequency_axis.set_xticks(gene_freq_xticks)
 hmp_gene_frequency_axis.set_xticklabels(gene_freq_xticklabels) #,rotation='vertical')
 
 hmp_gene_frequency_axis.plot([0,0],[100,100],'k-')
-hmp_gene_frequency_axis.set_ylim([0,100])
+hmp_gene_frequency_axis.set_ylim([0,60])
 
-hmp_gene_legend_axis = plt.Subplot(fig2, prevalence_grid[2])
+hmp_gene_legend_axis = plt.Subplot(fig2, prevalence_outer_grid[1])
 fig2.add_subplot(hmp_gene_legend_axis)
 
 hmp_gene_legend_axis.set_ylim([0,1])
@@ -598,7 +600,7 @@ gene_gain_prevalence_map = {cohort: {} for cohort in cohorts}
 gene_loss_prevalence_map = {cohort: {} for cohort in cohorts}
 
 variant_type_prevalence_map = {cohort: {'1D':[], '4D':[]} for cohort in cohorts}
-output_strs = {cohort : [] for cohort in cohorts}
+cohort_output_strs = {cohort : [] for cohort in cohorts}
 
 ######
 #
@@ -781,7 +783,7 @@ for species_name in good_species_list:
     
     output_strs.append(species_name)
     for cohort in cohorts:    
-        output_strs.append("%s: %d temporal QP pairs") % (cohort, qp_counts[cohort][1])
+        output_strs.append("%s: %d temporal QP pairs" % (cohort, qp_counts[cohort][1]))
         
     combined_sample_set = set()
     for cohort in cohorts:
@@ -931,7 +933,7 @@ for species_name in good_species_list:
             
             if (cohort=='young_twins'):
             
-                output_strs[cohort].append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
+                cohort_output_strs[cohort].append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
             
             # Store sample names for replacement to see if many species are
             # replaced in the same individual
@@ -942,12 +944,13 @@ for species_name in good_species_list:
                 replacement_map[cohort][sample_pair].append(species_name)
         
         
+            if cohort=='twins' and (num_snp_changes<replacement_difference_threshold):
+                cohort_output_strs[cohort].append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
+            
+        
             # If deemed a modification, investigate properties of SNVs and genes        
             if (num_snp_changes<=modification_difference_threshold):
         
-                if cohort=='twins':
-                    pass
-                    #output_strs[cohort].append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
                     
                 for snp_change in (mutations+reversions):        
                 
@@ -1078,7 +1081,9 @@ for species_name in good_species_list:
 sys.stderr.write("Done looping over species!\n")    
 
 output_strs.append("Young twins data:")
-output_strs.append("\n".join(output_strs['young_twins']))
+output_strs.append("\n".join(cohort_output_strs['young_twins']))
+output_strs.append("Old twins modifications:")
+output_strs.append("\n".join(cohort_output_strs['twins']))
 
 #print "All twins modifications:"
 #print "\n".join(output_strs['twins'])
@@ -1256,6 +1261,7 @@ for cohort in cohorts:
     # First Break distributions into replacements and modifications
     modification_idxs = pooled_snp_change_distribution[cohort]<=modification_difference_thresholds[cohort]
     replacement_idxs = pooled_snp_change_distribution[cohort]>=replacement_difference_thresholds[cohort]
+    non_replacement_idxs = numpy.logical_not(replacement_idxs)
     
     no_snv_change_idxs = numpy.logical_and(modification_idxs, pooled_snp_change_distribution[cohort]<0.5)
     true_snv_modification_idxs = numpy.logical_and(modification_idxs, pooled_snp_change_distribution[cohort]>0.5)
@@ -1319,6 +1325,11 @@ for cohort in cohorts:
     
     output_strs.append("%d replacements (%g, %d total SNVs, %d total genes)" % (replacement_idxs.sum(), replacement_idxs.sum()*1.0/len(replacement_idxs), replacement_snp_change_distribution.sum(), replacement_gene_change_distribution.sum()))
     
+    if cohort=='twins':
+        output_strs.append(" ".join(["Non-replacement SNVs", str(numpy.median(pooled_snp_change_distribution[cohort][non_replacement_idxs])), str(pooled_snp_change_distribution[cohort][non_replacement_idxs])]))
+        output_strs.append(" ".join(["Non-replacement genes", str(numpy.median(pooled_gene_change_distribution[cohort][non_replacement_idxs])), str(pooled_gene_change_distribution[cohort][non_replacement_idxs])]))
+        
+            
     output_strs.append("%d total modifications (%g)" % (true_modification_idxs.sum(), true_modification_idxs.sum()*1.0/len(true_modification_idxs)))
     
     output_strs.append("%d SNV modifications (%g, %d total SNVs in %d pairs across %d species)" % (true_snv_modification_idxs.sum(), true_snv_modification_idxs.sum()*1.0/len(true_snv_modification_idxs), modification_snp_change_distribution.sum(), len(snv_prevalence_count_map[cohort]), len(snv_modification_species)))
@@ -1327,9 +1338,9 @@ for cohort in cohorts:
     output_strs.append( "%d gene modifications (%g, %d total genes in %d pairs across %d species)" % (true_gene_modification_idxs.sum(), true_gene_modification_idxs.sum()*1.0/len(true_gene_modification_idxs), modification_gene_change_distribution.sum(), len(gene_gain_count_map[cohort]), len(gene_modification_species)) )
     output_strs.append(str(sorted_gene_modification_species))
     
-    output_strs.append( "p(gene change | snv change) = %g" % true_gene_and_snv_modification_idxs.sum()*1.0/true_snv_modification_idxs.sum())
+    output_strs.append( "p(gene change | snv change) = %g" % (true_gene_and_snv_modification_idxs.sum()*1.0/true_snv_modification_idxs.sum()))
     
-    output_strs.append( "p(gene change | no snv change) = %g" % true_gene_and_no_snv_modification_idxs.sum()*1.0/no_snv_change_idxs.sum())
+    output_strs.append( "p(gene change | no snv change) = %g" % (true_gene_and_no_snv_modification_idxs.sum()*1.0/no_snv_change_idxs.sum()))
     
     n11 = true_gene_and_snv_modification_idxs.sum()
     n10 = true_gene_and_no_snv_modification_idxs.sum()
@@ -1338,7 +1349,7 @@ for cohort in cohorts:
     
     oddsratio, pvalue = fisher_exact([[n11, n10],[n01, n00]])
     output_strs.append( "Fisher exact pvalue = %g" % pvalue)
-
+    # comment
     
     if cohort=='hmp':
         
@@ -1693,7 +1704,7 @@ for cohort in cohorts:
 
 
     output_strs.append( "gene time-reversal P-value: %g" % p_value)
-    output_strs.append( "gene ks P-value: " % ks_p_value)
+    output_strs.append( "gene ks P-value: %g" % ks_p_value)
     output_strs.append( "other gene ks P-value (gains and losses reversed independently): %g" % other_ks_p_value)
     
 
@@ -1773,14 +1784,14 @@ for cohort in cohorts:
     
     for i in xrange(1,len(total_freq_all_snps[cohort])/2+1):
     
-        non_counts = total_freq_snps[cohort]['1D'][:i].sum()+total_freq_snps[cohort]['1D'][-i:].sum()
-        syn_counts = total_freq_snps[cohort]['4D'][:i].sum()+total_freq_snps[cohort]['4D'][-i:].sum()
+        non_counts = total_freq_snps[cohort]['1D'][:i].sum() #+total_freq_snps[cohort]['1D'][-i:].sum()
+        syn_counts = total_freq_snps[cohort]['4D'][:i].sum() #+total_freq_snps[cohort]['4D'][-i:].sum()
         total_counts = non_counts + syn_counts
         p = non_counts*1.0/(total_counts+(total_counts==0))
     
     
-        non_opportunities = total_null_freq_snps[cohort]['1D'][:i].sum()+ total_null_freq_snps[cohort]['1D'][-i:].sum() 
-        syn_opportunities = total_null_freq_snps[cohort]['4D'][:i].sum()+ total_null_freq_snps[cohort]['4D'][-i:].sum()
+        non_opportunities = total_null_freq_snps[cohort]['1D'][:i].sum() #+ total_null_freq_snps[cohort]['1D'][-i:].sum() 
+        syn_opportunities = total_null_freq_snps[cohort]['4D'][:i].sum() #+ total_null_freq_snps[cohort]['4D'][-i:].sum()
         total_opportunities = non_opportunities+syn_opportunities
     
         observed_dNdS = (non_counts*1.0/syn_counts) / (non_opportunities*1.0/syn_opportunities)
@@ -1955,7 +1966,7 @@ sys.stderr.write("Done!\n")
 fig3.savefig('%s/supplemental_young_twin_within.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig4.savefig('%s/supplemental_within_between_avg.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig5.savefig('%s/supplemental_twin_modification_frequency.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
-fig6.savefig('%s/supplemental_temporal_haploid.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
+#fig6.savefig('%s/supplemental_temporal_qp_sample_size.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig8.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig9.savefig('%s/supplemental_within_ks.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 
