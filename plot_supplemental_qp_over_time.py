@@ -314,8 +314,8 @@ twin_haploid_axis.set_yticklabels([])
 hmp_haploid_axis.tick_params(axis='y', direction='out',length=3,pad=1)
 twin_haploid_axis.tick_params(axis='y', direction='out',length=3,pad=1)
 
-hmp_haploid_axis.set_xlim([0,200])
-twin_haploid_axis.set_xlim([0,200])
+hmp_haploid_axis.set_xlim([0,250])
+twin_haploid_axis.set_xlim([0,140])
 
 
 ### Do stuff for legend
