@@ -799,21 +799,18 @@ sys.stderr.write("%d haploid samples across species\n" % total_haploids)
 # Save figures 
 #
 ####
-sys.stderr.write("Saving figure...\t")
+sys.stderr.write("Saving figure 1...\t")
 fig.savefig('%s/figure_1.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
 sys.stderr.write("Done!\n")
 
-sys.stderr.write("Saving figure...\t")
-fig2.savefig('%s/supplemental_temporal_haploid.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
-sys.stderr.write("Done!\n")
+sys.stderr.write("Saving supplemental figures...\t")
+#fig2.savefig('%s/supplemental_temporal_haploid.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
+#sys.stderr.write("Done!\n")
 
-sys.stderr.write("Saving figure...\t")
 avg_distance_fig.savefig('%s/supplemental_avg_distance.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
 
-sys.stderr.write("Saving figure...\t")
 correlation_fig.savefig('%s/supplemental_haploid_correlation.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
 
-sys.stderr.write("Saving figure...\t")
 haploid_distribution_fig.savefig('%s/supplemental_haploid_distribution_fig.pdf' % parse_midas_data.analysis_directory, bbox_inches='tight')
 
 
