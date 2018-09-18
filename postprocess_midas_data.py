@@ -77,17 +77,17 @@ sys.stderr.write('Done calculating private SNVs!\n')
 
 # Calculate temporal changes
 sys.stderr.write('Calculating temporal changes...\n')
-#os.system('python %scalculate_temporal_changes.py %s' % (parse_midas_data.scripts_directory, species_name))
+os.system('python %scalculate_temporal_changes.py %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating temporal changes!\n')
 
 # Calculate SNV inconsistency (for recombination figure
 sys.stderr.write('Calculating SNV inconsistency...\n')
-os.system('python %scalculate_snv_distances.py --species %s' % (parse_midas_data.scripts_directory, species_name))
+#os.system('python %scalculate_snv_distances.py --species %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write('Done calculating SNV inconsistency!\n')
 
 # Calculating linkage disequilibrium inconsistency (for recombination figure
 sys.stderr.write('Calculating LD...\n')
-os.system('python calculate_linkage_disequilibria.py --species %s' % (parse_midas_data.scripts_directory, species_name))
+#os.system('python calculate_linkage_disequilibria.py --species %s' % (parse_midas_data.scripts_directory, species_name))
 sys.stderr.write("Done!\n")
 
    

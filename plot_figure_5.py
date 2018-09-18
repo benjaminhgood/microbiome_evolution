@@ -697,7 +697,7 @@ sys.stderr.write("Done!\n")
     
 good_species_list = parse_midas_data.parse_good_species_list()
 if debug:
-    good_species_list = good_species_list[0:5]
+    good_species_list = good_species_list[0:4]
     default_num_bootstraps = 100
     
 num_passed_species = 0
@@ -938,7 +938,7 @@ for species_name in good_species_list:
             
             if (cohort=='young_twins'):
             
-                cohort_output_strs[cohort].append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
+                cohort_output_strs[cohort].append("%s, %s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, sample_j, num_snp_changes, num_gene_changes))
             
             # Store sample names for replacement to see if many species are
             # replaced in the same individual
@@ -950,7 +950,7 @@ for species_name in good_species_list:
         
         
             if cohort=='twins' and (num_snp_changes<replacement_difference_threshold):
-                cohort_output_strs[cohort].append("%s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, num_snp_changes, num_gene_changes))
+                cohort_output_strs[cohort].append("%s, %s, %s: n_snv=%d, n_gene=%d" % (species_name, sample_i, sample_j, num_snp_changes, num_gene_changes))
             
         
             # If deemed a modification, investigate properties of SNVs and genes        
@@ -1184,13 +1184,13 @@ for cohort in cohorts:
                 pass 
             
             # Plot SNVs
-            xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(numpy.clip(species_snp_change_distribution[cohort][species_name],5e-01,1e09), min_x=1e-02, max_x=1e09)
+            xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(numpy.clip(species_snp_change_distribution[cohort][species_name],5e-01,1e09), min_x=1e-07, max_x=1e09)
 
             line, = species_snp_axis.step(xs,ns,'-',linewidth=1, where='pre',zorder=4)
             color = pylab.getp(line,'color')
             
             # Plot genes
-            xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(numpy.clip(species_gene_change_distribution[cohort][species_name],5e-01,1e09), min_x=1e-02, max_x=1e09)
+            xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(numpy.clip(species_gene_change_distribution[cohort][species_name],5e-01,1e09), min_x=1e-07, max_x=1e09)
 
             line, = species_gene_axis.step(xs,ns,'-',color=color,linewidth=1, where='pre',zorder=4)
             
@@ -1376,7 +1376,7 @@ for cohort in cohorts:
     
         # Plot within and between for snvs
         
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution[cohort], min_x=1e-02, max_x=1e09)
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution[cohort], min_x=1e-07, max_x=1e09)
 
         good_idxs = (pooled_snp_change_distribution[cohort]>0.5)*(pooled_snp_change_distribution[cohort]<1.5)
 
@@ -1407,7 +1407,7 @@ for cohort in cohorts:
         # Now the typical between host
 
         # Random between host
-        xs, ns =       stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution[cohort], min_x=1e-02, max_x=1e09)
+        xs, ns =       stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_snp_change_distribution[cohort], min_x=1e-07, max_x=1e09)
 
         # Min between host
         #xs, ns =     stats_utils.calculate_unnormalized_survival_from_vector(pooled_min_between_snp_change_distribution, min_x=1e-02, max_x=1e09)
@@ -1418,9 +1418,14 @@ for cohort in cohorts:
         # Save intermediate version (for Keynote animations)
         fig2.savefig('%s/figure_6.2.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 
-            
         # Genes: Plot modification and replacement within (separately)
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(true_modification_gene_change_distribution, min_x=1e-02, max_x=1e09)
+        
+        
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_between_gene_change_distribution[cohort], min_x=1e-07, max_x=1e09)
+
+        pooled_gene_axis.step(xs,ns/ns[0],linewidth=1,color='r', alpha=0.5, label='Between-host',zorder=1)
+            
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(true_modification_gene_change_distribution, min_x=1e-07, max_x=1e09)
 
         pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=3,where='pre',path_effects=[pe.Stroke(linewidth=5, foreground='#9ecae1'), pe.Normal()])
 
@@ -1431,11 +1436,11 @@ for cohort in cohorts:
         #pooled_snp_axis.set_yticklabels(['0.01','0.1','1'])
 
 
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(replacement_gene_change_distribution, min_x=1e-02, max_x=1e09)
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(replacement_gene_change_distribution, min_x=1e-07, max_x=1e09)
 
         pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=2,where='pre',path_effects=[pe.Stroke(linewidth=5, foreground='#fee0d2'), pe.Normal()])
     
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(no_snv_gene_change_distribution, min_x=1e-02, max_x=1e09)
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(no_snv_gene_change_distribution, min_x=1e-07, max_x=1e09)
 
         pooled_gene_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label='Within-host',zorder=2,where='pre',path_effects=[pe.Stroke(linewidth=5, foreground='0.8'), pe.Normal()])
             
@@ -1445,7 +1450,7 @@ for cohort in cohorts:
         
         # Now do twins
 
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution[cohort], min_x=1e-02, max_x=1e09)
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_change_distribution[cohort], min_x=1e-07, max_x=1e09)
 
         pooled_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='pre',zorder=4)
 
@@ -1466,7 +1471,7 @@ for cohort in cohorts:
         pooled_snp_axis.text( exp((log(1)+log(modification_difference_thresholds['hmp']))/2), ymax*1.2, 'putative\nmodification',fontsize=6,fontstyle='italic',ha='center',color='#9ecae1',zorder=1)
         
         
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector( pooled_gene_change_distribution[cohort], min_x=1e-02, max_x=1e09)
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector( pooled_gene_change_distribution[cohort], min_x=1e-07, max_x=1e09)
 
         pooled_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label='Twin',zorder=3,where='pre')
 
@@ -1475,14 +1480,19 @@ for cohort in cohorts:
     elif cohort=='young_twins':
         
         # Plot all for snvs, all for genes
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector( pooled_snp_change_distribution[cohort], min_x=1e-02, max_x=1e09)
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector( pooled_snp_change_distribution[cohort], min_x=1e-07, max_x=1e09)
 
         young_ymin = 1.0/ns[0]
         young_ymax = 1.3
 
+        print pooled_snp_change_distribution[cohort]
+        print xs
+        print ns
+        print ns/ns[0]
+
         young_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='pre',zorder=2)
     
-        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector( pooled_gene_change_distribution[cohort], min_x=1e-02, max_x=1e09)
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector( pooled_gene_change_distribution[cohort], min_x=1e-07, max_x=1e09)
 
         young_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='pre',zorder=2)
         
