@@ -1,5 +1,5 @@
 
-def get_pretty_species_name(species_name, include_number=True):
+def get_pretty_species_name(species_name, include_number=False):
     
     items = species_name.split("_")
     

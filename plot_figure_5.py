@@ -539,6 +539,44 @@ gene_ks_axis.set_xlim([-0.05,1.05])
 gene_ks_axis.set_ylim([0,1])
 gene_ks_axis.set_yticklabels([])
 
+##############
+#
+# Number of sites and genes retained
+#
+###############
+pylab.figure(10,figsize=(6,2))
+fig10 = pylab.gcf()
+# make three panels panels
+genome_length_grid = gridspec.GridSpec(1,2, width_ratios=[1,1], wspace=0.1)
+
+genome_length_axis = plt.Subplot(fig10, genome_length_grid[0])
+fig10.add_subplot(genome_length_axis)
+
+genome_length_axis.set_xlabel('Number of sites compared')
+genome_length_axis.set_ylabel('Fraction timepoint pairs $\geq n$')
+
+genome_length_axis.set_ylim([0,1.1])
+
+genome_length_axis.spines['top'].set_visible(False)
+genome_length_axis.spines['right'].set_visible(False)
+genome_length_axis.get_xaxis().tick_bottom()
+genome_length_axis.get_yaxis().tick_left()
+
+
+pangenome_length_axis = plt.Subplot(fig10, genome_length_grid[1])
+fig10.add_subplot(pangenome_length_axis)
+
+pangenome_length_axis.set_xlabel('Number of genes compared')
+
+pangenome_length_axis.set_ylim([0,1.1])
+pangenome_length_axis.set_yticklabels([])
+
+pangenome_length_axis.spines['top'].set_visible(False)
+pangenome_length_axis.spines['right'].set_visible(False)
+pangenome_length_axis.get_xaxis().tick_bottom()
+pangenome_length_axis.get_yaxis().tick_left()
+
+
 ################################
 #
 # Now do calculation
@@ -556,6 +594,9 @@ species_gene_nerrs = {cohort: {} for cohort in cohorts}
 # observed within host value
 pooled_snp_change_distribution = {cohort : [] for cohort in cohorts}
 pooled_gene_change_distribution = {cohort : [] for cohort in cohorts} # for modifications
+
+pooled_snp_length_distribution = {cohort : [] for cohort in cohorts}
+pooled_gene_length_distribution = {cohort : [] for cohort in cohorts}
 
 # typical value, median other sample
 pooled_between_snp_change_distribution = {cohort : [] for cohort in cohorts}
@@ -927,7 +968,10 @@ for species_name in good_species_list:
             # Pooled distributions
             pooled_snp_change_distribution[cohort].append(num_snp_changes)
             pooled_gene_change_distribution[cohort].append(num_gene_changes)
-                
+            
+            pooled_snp_length_distribution[cohort].append(L)
+            pooled_gene_length_distribution[cohort].append(gene_L)
+            
             # Matched between-host samples
             # typical
             pooled_between_snp_change_distribution[cohort].append( choice( snp_difference_matrix[i, good_idxs] ) ) 
@@ -1363,6 +1407,25 @@ for cohort in cohorts:
     
     if cohort=='hmp':
         
+        # Plot snp and gene length distribution
+        # Plot within and between for snvs
+        
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_snp_length_distribution[cohort], min_x=1e05, max_x=1e07)
+
+        genome_length_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, label=('Within-host (n=%d)' % ns[0]), where='pre',zorder=4)
+        
+        genome_length_axis.semilogx([1e02],[1],'k.')
+        genome_length_axis.set_xlim([1e05,1e07])
+        genome_length_axis.set_ylim([0,1.1])
+        
+        xs, ns = stats_utils.calculate_unnormalized_survival_from_vector(pooled_gene_length_distribution[cohort], min_x=3e02, max_x=3e04)
+
+        pangenome_length_axis.step(xs,ns/ns[0],'-',color='#08519c',linewidth=1, where='pre',zorder=4)
+        
+        pangenome_length_axis.semilogx([1e01],[1],'k.')
+        pangenome_length_axis.set_xlim([3e02,3e04])
+        pangenome_length_axis.set_ylim([0,1.1])
+        
         # Plot average within and between
         # Plot SNP change averages
 
@@ -1454,6 +1517,8 @@ for cohort in cohorts:
 
         pooled_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='pre',zorder=4)
 
+        young_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Adult twins (n=%d)' % ns[0]), where='pre',zorder=4)
+
         #pooled_snp_axis.plot(xs,ns/ns[0],'.-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]),zorder=2)
 
 
@@ -1475,6 +1540,7 @@ for cohort in cohorts:
 
         pooled_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label='Twin',zorder=3,where='pre')
 
+        young_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1,zorder=3,where='pre')
 
         
     elif cohort=='young_twins':
@@ -1490,16 +1556,18 @@ for cohort in cohorts:
         print ns
         print ns/ns[0]
 
-        young_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='pre',zorder=2)
+        young_snp_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Younger twins (n=%d)' % ns[0]), where='pre',zorder=2,alpha=0.5)
     
         xs, ns = stats_utils.calculate_unnormalized_survival_from_vector( pooled_gene_change_distribution[cohort], min_x=1e-07, max_x=1e09)
 
-        young_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, label=('Twins (n=%d)' % ns[0]), where='pre',zorder=2)
+        young_gene_axis.step(xs,ns/ns[0],'-',color='#8856a7',linewidth=1, where='pre',zorder=2,alpha=0.5)
         
         young_snp_axis.set_ylim([young_ymin, young_ymax])
         young_gene_axis.set_ylim([young_ymin, young_ymax])
         young_gene_axis.set_yticklabels([])
     
+        young_snp_axis.legend(loc='lower left',frameon=False,fontsize=6,numpoints=1,handlelength=1)   
+
 
     # Now to SNV and gene prevalence
     if cohort=='hmp':
@@ -1980,6 +2048,36 @@ hmp_haploid_axis.barh([-10],[1],linewidth=0,label='mixed', color='#8856a7')
 hmp_haploid_axis.barh([-10],[1],linewidth=0,label='dropout', color='0.7')
 hmp_haploid_axis.legend(loc='lower right',frameon=False)
 
+### Calculate KS test between twins and young twins
+
+observed_twin_distribution = pooled_snp_change_distribution['twins']
+observed_young_twin_distribution = pooled_snp_change_distribution['young_twins']
+
+joint_distribution = numpy.hstack([observed_young_twin_distribution, observed_twin_distribution])
+
+observed_ks, dummy = ks_2samp(observed_twin_distribution, observed_young_twin_distribution)
+
+print observed_ks, dummy
+
+bootstrapped_kss = []
+num_bootstraps = default_num_bootstraps
+for bootstrap_idx in xrange(0,num_bootstraps):
+
+    shuffle(joint_distribution)
+
+    bootstrapped_young_twin_distribution = joint_distribution[0:len(observed_young_twin_distribution)]
+    
+    bootstrapped_twin_distribution = joint_distribution[len(observed_young_twin_distribution):]
+    
+    bootstrapped_ks, dummy = ks_2samp(bootstrapped_twin_distribution, bootstrapped_young_twin_distribution)
+
+    bootstrapped_kss.append(bootstrapped_ks)
+    
+bootstrapped_kss = numpy.array(bootstrapped_kss)
+
+pvalue = ((bootstrapped_kss>=observed_ks).sum()+1.0)/(len(bootstrapped_kss)+1.0)
+
+output_strs.append("Twin/Young twin KS test: Pvalue=%g" % pvalue)
 
 output_file = open(output_filename,"w")
 output_file.write("\n".join(output_strs))
@@ -1996,6 +2094,7 @@ fig5.savefig('%s/supplemental_twin_modification_frequency.pdf' % (parse_midas_da
 #fig6.savefig('%s/supplemental_temporal_qp_sample_size.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig8.savefig('%s/supplemental_within_across_species.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 fig9.savefig('%s/supplemental_within_ks.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
+fig10.savefig('%s/supplemental_sites_retained.pdf' % (parse_midas_data.analysis_directory),bbox_inches='tight',transparent=True)
 
 
 

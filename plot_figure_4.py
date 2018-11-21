@@ -63,7 +63,11 @@ min_sample_size = config.between_host_min_sample_size # 46 gives at least 1000
 low_divergence_threshold = config.between_low_divergence_threshold
 allowed_variant_types = set(['4D'])
 
-focal_species = 'Bacteroides_vulgatus_57955'
+#focal_speciess = ['Bacteroides_vulgatus_57955', 'Roseburia_inulinivorans_61943']
+#focal_speciess = ['Bacteroides_vulgatus_57955', 'Faecalibacterium_prausnitzii_62201']
+focal_speciess = ['Bacteroides_vulgatus_57955', 'Akkermansia_muciniphila_55290']
+
+
 #supplemental_focal_species = ['Bacteroides_fragilis_54507', 'Alistipes_putredinis_61533', 'Eubacterium_rectale_56927']
 supplemental_focal_species = ['Bacteroides_fragilis_54507', 'Parabacteroides_distasonis_56985', 'Alistipes_shahii_62199'] # 'Ruminococcus_bromii_62047']  
 good_species_list = parse_midas_data.parse_good_species_list()
@@ -81,16 +85,18 @@ sys.stderr.write("Done!\n")
 #
 ####################################################
 
-pylab.figure(1,figsize=(6,4))
+pylab.figure(1,figsize=(6,6))
 fig = pylab.gcf()
 # make three panels panels
 
-outer_grid = gridspec.GridSpec(2,1,height_ratios=[1,1],hspace=0.4)
+outer_grid = gridspec.GridSpec(3,1,height_ratios=[1,1,1],hspace=0.4)
 
 upper_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[1,1], wspace=0.3, subplot_spec=outer_grid[0])
+
+middle_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[1,1], wspace=0.5, subplot_spec=outer_grid[1])
                 
 species_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[1.0/1.7,0.7/1.7],
-                subplot_spec=outer_grid[1], hspace=0)
+                subplot_spec=outer_grid[2], hspace=0)
                 
 # Inconsistency axis
 inconsistency_axis = plt.Subplot(fig, upper_grid[0])
@@ -152,7 +158,7 @@ for species_name in good_species_list:
     
     fraction_inconsistent = inconsistent_snps*1.0/(total_snps+(total_snps==0))
     
-    if species_name==focal_species:
+    if species_name in focal_speciess:
         color = 'b'
         linewidth=1
         zorder=2
@@ -180,13 +186,14 @@ for species_name in good_species_list:
 
 sample_sizes = numpy.array(sample_sizes)
 
-passed_species = species_phylogeny_utils.sort_phylogenetically(passed_species, first_entry=focal_species, second_sorting_attribute=(-1*sample_sizes))
+passed_species = species_phylogeny_utils.sort_phylogenetically(passed_species, first_entry=focal_speciess[0], second_sorting_attribute=(-1*sample_sizes))
 
 #passed_species = species_phylogeny_utils.sort_phylogenetically(passed_species)
 num_passed_species = len(passed_species)
 
 
-inconsistency_axis.plot([1],[-1],'b-',linewidth=1, alpha=1,label=figure_utils.get_pretty_species_name(focal_species, include_number=False))
+inconsistency_axis.plot([1],[-1],'b-',linewidth=1, alpha=1,label=figure_utils.get_pretty_species_name(focal_speciess[0], include_number=False))
+inconsistency_axis.plot([1],[-1],'b-',linewidth=1, alpha=1,label=figure_utils.get_pretty_species_name(focal_speciess[1], include_number=False))
 inconsistency_axis.plot([1],[-1],'r-',linewidth=0.5, alpha=0.3,label='Other species')
 inconsistency_axis.legend(loc='lower left',frameon=False,fontsize=5,numpoints=1,handlelength=1)
 
@@ -207,33 +214,38 @@ scaled_fig.add_subplot(scaled_axis)
 scaled_axis.set_xlim([1e-02,1e02])
 scaled_axis.set_ylim([2e-02,2])
 
+focal_example_axes = []
+for focal_species_idx in xrange(0,len(focal_speciess)):
 
-####
-#
-# Continue with the main fig
-#
-####
-focal_example_axis = plt.Subplot(fig, upper_grid[1])
-fig.add_subplot(focal_example_axis)
-focal_example_axis.set_ylabel('Linkage disequilibrium, $\sigma^2_d$')
-focal_example_axis.set_xlabel('Distance between SNVs, $\ell$')
+    focal_species = focal_speciess[focal_species_idx]
 
-focal_example_axis.spines['top'].set_visible(False)
-focal_example_axis.spines['right'].set_visible(False)
-focal_example_axis.spines['bottom'].set_zorder(22)
+    ####
+    #
+    # Continue with the main fig
+    #
+    ####
+    focal_example_axis = plt.Subplot(fig, middle_grid[focal_species_idx])
+    fig.add_subplot(focal_example_axis)
+    focal_example_axis.set_ylabel('Linkage disequilibrium, $\sigma^2_d$')
+    focal_example_axis.set_xlabel('Distance between SNVs, $\ell$')
 
-focal_example_axis.get_xaxis().tick_bottom()
-focal_example_axis.get_yaxis().tick_left()
+    focal_example_axis.spines['top'].set_visible(False)
+    focal_example_axis.spines['right'].set_visible(False)
+    focal_example_axis.spines['bottom'].set_zorder(22)
 
-focal_example_axis.set_xlim([2,1e04])
-focal_example_axis.set_ylim([1e-02,1])
+    focal_example_axis.get_xaxis().tick_bottom()
+    focal_example_axis.get_yaxis().tick_left()
 
-focal_example_axis.text(6e03,5.3e-03,'Genome-\nwide', horizontalalignment='center',fontsize='5')
+    focal_example_axis.set_xlim([2,1e04])
+    focal_example_axis.set_ylim([1e-02,1])
+
+    focal_example_axis.text(6e03,5.3e-03,'Genome-\nwide',     horizontalalignment='center',fontsize='5')
+    
+    focal_example_axes.append(focal_example_axis)
 
 species_axis = plt.Subplot(fig, species_grid[0])
 fig.add_subplot(species_axis)
 species_axis.set_xlim([-1.5,num_passed_species-0.5])
-#species_axis.set_ylabel('LD, $\sigma^2_d$')
 
 species_axis.spines['top'].set_visible(False)
 species_axis.spines['right'].set_visible(False)
@@ -443,10 +455,11 @@ for species_idx in xrange(0,num_passed_species):
     all_rsquareds = all_rsquareds[all_ns>0]
     all_ns = all_ns[all_ns>0]
     
-    if (species_name==focal_species) or (species_name in supplemental_focal_species):
+    if (species_name in focal_speciess) or (species_name in supplemental_focal_species):
         
-        if (species_name==focal_species):
-            example_axis=focal_example_axis
+        if (species_name in focal_speciess):
+            focal_species_idx = focal_speciess.index(species_name)
+            example_axis=focal_example_axes[focal_species_idx]
             example_idx = -1
         else:
             example_idx = supplemental_focal_species.index(species_name)
@@ -544,74 +557,7 @@ for species_idx in xrange(0,num_passed_species):
             example_axis.xaxis.get_minor_ticks()[-tick_idx].tick1line.set_visible( False)
             example_axis.xaxis.get_minor_ticks()[-tick_idx].tick2line.set_visible( False)
     
-    #
-    # Don't need this anymore, leaving for reference
-    #
-    # prepare for fit to Richard's curve:
-    #
-    # Y(t) = K/(1+exp(-B*(t-M)))^(1/v)
-    #
-    #ts = numpy.log(distances)
-    #
-    #u = ts # independent variable
-    #y = rsquareds # dependent variable
-    #w = numpy.sqrt(ns*1.0) # (weights)
-    #u = u[distances>5.5]
-    #y = y[distances>5.5]
-    #w = w[distances>5.5]
-    
-    
-    #median_w = numpy.median(w)
-    #median_w = (control_n*1.0)**0.5
-    #u = numpy.hstack([u, numpy.array(log(5e04))])
-    #y = numpy.hstack([y, numpy.array(control_rsquared)])
-    #w = numpy.hstack([w, numpy.array([median_w])])
-    
-    
-    #def model(x,u):
-    #    return x[0]/numpy.power(1+numpy.exp(-x[1]*(u-x[2])), 1.0/x[3])+control_rsquared
-    # residual function
-    # x = model params (K,B,M,v)
-    #def fun(x,u,y,w):
-        
-    #    return (model(x,u)-y)*w
-    
-    # jacobian (matrix of partial derivatives of residual function)
-    #def jac(x,u,y,w):
-        
-    #    J = numpy.zeros((len(u),len(x)))*1.0
-        
-        # dY/dK
-    #    J[:,0] = w/numpy.power(1+numpy.exp(-x[1]*(u-x[2])), 1.0/x[3])
-        # dY/dB
-    #    J[:,1] =  w*x[0]*(u-x[2])*numpy.exp(-x[1]*(u-x[2]))/x[3]/numpy.power(1+numpy.exp(-x[1]*(u-x[2])), 1.0/x[3]+1)
-        # dY/dM
-        #J[:,2] =  -1*w*x[0]*x[1]*numpy.exp(-x[1]*(u-x[2]))/x[3]/numpy.power(1+numpy.exp(-x[1]*(u-x[2])), 1.0/x[3]+1)
-        # dY/dv
-        #J[:,3] = w*x[0]*numpy.log(1+numpy.exp(-x[1]*(u-x[2])))/x[3]/x[3]/numpy.power(1+numpy.exp(-x[1]*(u-x[2])), 1.0/x[3])
-        #return J
-    
-    #x_lower_bounds = numpy.array([1e-09,-numpy.inf,1e-09,1e-09])
-    #x_upper_bounds = numpy.array([1-control_rsquared, -1e-09, log(1e05), numpy.inf])
-        
-    #x0 = numpy.array([0.5,-1.0,log(100),0.5])
-    
-    
-    #res = least_squares(fun, x0, jac=jac, args=(u,y,w), bounds=(x_lower_bounds, x_upper_bounds), verbose=1)
-    
-    
-    #predicted_rsquareds = model(res.x, u)
-    #K = res.x[0]
-    #print K
-    
-    #K = predicted_rsquareds[0]
-    #K = rsquareds[0]
-    
-    #theory_distances = numpy.logspace(0,4,100)
-    #theory_u = numpy.log(theory_distances)
-    
-    #theory_rsquareds = model(res.x, theory_u)
-    
+   
     #fit_axes[species_idx].loglog(old_distances*old_pi, old_rsquareds,'.-',color='0.7')    
     fit_axes[species_idx].loglog(distances*pi, rsquareds,'k-')
     #fit_axes[species_idx].loglog(theory_distances*pi, theory_rsquareds,'r-')
@@ -645,7 +591,7 @@ for species_idx in xrange(0,num_passed_species):
     #    print rbymu
     #    rbymus.append(rbymu)
     
-    if species_name==focal_species:
+    if species_name in focal_speciess:
         color='b'
     else:
         color='r'
