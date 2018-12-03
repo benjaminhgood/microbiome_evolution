@@ -67,6 +67,7 @@ allowed_variant_types = set(['4D'])
 #focal_speciess = ['Bacteroides_vulgatus_57955', 'Faecalibacterium_prausnitzii_62201']
 focal_speciess = ['Bacteroides_vulgatus_57955', 'Akkermansia_muciniphila_55290']
 
+focal_colors = ['b','g']
 
 #supplemental_focal_species = ['Bacteroides_fragilis_54507', 'Alistipes_putredinis_61533', 'Eubacterium_rectale_56927']
 supplemental_focal_species = ['Bacteroides_fragilis_54507', 'Parabacteroides_distasonis_56985', 'Alistipes_shahii_62199'] # 'Ruminococcus_bromii_62047']  
@@ -85,21 +86,21 @@ sys.stderr.write("Done!\n")
 #
 ####################################################
 
-pylab.figure(1,figsize=(6,6))
+pylab.figure(1,figsize=(5,6))
 fig = pylab.gcf()
 # make three panels panels
 
-outer_grid = gridspec.GridSpec(3,1,height_ratios=[1,1,1],hspace=0.4)
+outer_grid = gridspec.GridSpec(3,1,height_ratios=[0.9,0.6,1],hspace=0.6)
 
-upper_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[1,1], wspace=0.3, subplot_spec=outer_grid[0])
+upper_grid = gridspec.GridSpecFromSubplotSpec(1, 3, width_ratios=[0.15,1,0.15], wspace=0.3, subplot_spec=outer_grid[0])
 
-middle_grid = gridspec.GridSpecFromSubplotSpec(1, 2, width_ratios=[1,1], wspace=0.5, subplot_spec=outer_grid[1])
+middle_grid = gridspec.GridSpecFromSubplotSpec(1, 5, width_ratios=[0.1,1,0.5,1,0.1], wspace=0.1, subplot_spec=outer_grid[1])
                 
 species_grid = gridspec.GridSpecFromSubplotSpec(2, 1, height_ratios=[1.0/1.7,0.7/1.7],
                 subplot_spec=outer_grid[2], hspace=0)
                 
 # Inconsistency axis
-inconsistency_axis = plt.Subplot(fig, upper_grid[0])
+inconsistency_axis = plt.Subplot(fig, upper_grid[1])
 fig.add_subplot(inconsistency_axis)
 
 inconsistency_axis.spines['top'].set_visible(False)
@@ -109,8 +110,8 @@ inconsistency_axis.spines['bottom'].set_zorder(22)
 inconsistency_axis.get_xaxis().tick_bottom()
 inconsistency_axis.get_yaxis().tick_left()
 
-inconsistency_axis.set_xlabel('Divergence, $d$')
-inconsistency_axis.set_ylabel('Phylogenetic inconsistency')
+inconsistency_axis.set_xlabel('Maximum divergence age of SNV, $d_B^*$')
+inconsistency_axis.set_ylabel('Phylogenetic inconsistency between\nSNVs & core-genome divergence')
 inconsistency_axis.set_xlim([2e-05,2e-02])
 inconsistency_axis.set_ylim([0,1.05])
 
@@ -149,8 +150,10 @@ for species_name in good_species_list:
         
         if var_type in allowed_variant_types:
             
+            # In this calculation, ds are the list of threshold dB*'s 
+            
             within_d = min([within_d1, within_d2])
-            good_idxs = (ds>=between_d)
+            good_idxs = (between_d<=ds)
             inconsistent_idxs = good_idxs*(within_d>=2*ds)
             
             total_snps[good_idxs] += 1
@@ -159,7 +162,8 @@ for species_name in good_species_list:
     fraction_inconsistent = inconsistent_snps*1.0/(total_snps+(total_snps==0))
     
     if species_name in focal_speciess:
-        color = 'b'
+        focal_species_idx = focal_speciess.index(species_name)
+        color = focal_colors[focal_species_idx]
         linewidth=1
         zorder=2
         alpha=1
@@ -192,8 +196,8 @@ passed_species = species_phylogeny_utils.sort_phylogenetically(passed_species, f
 num_passed_species = len(passed_species)
 
 
-inconsistency_axis.plot([1],[-1],'b-',linewidth=1, alpha=1,label=figure_utils.get_pretty_species_name(focal_speciess[0], include_number=False))
-inconsistency_axis.plot([1],[-1],'b-',linewidth=1, alpha=1,label=figure_utils.get_pretty_species_name(focal_speciess[1], include_number=False))
+inconsistency_axis.plot([1],[-1],'-',color=focal_colors[0],linewidth=1, alpha=1,label=figure_utils.get_pretty_species_name(focal_speciess[0], include_number=False))
+inconsistency_axis.plot([1],[-1],'-',color=focal_colors[1],linewidth=1, alpha=1,label=figure_utils.get_pretty_species_name(focal_speciess[1], include_number=False))
 inconsistency_axis.plot([1],[-1],'r-',linewidth=0.5, alpha=0.3,label='Other species')
 inconsistency_axis.legend(loc='lower left',frameon=False,fontsize=5,numpoints=1,handlelength=1)
 
@@ -224,7 +228,7 @@ for focal_species_idx in xrange(0,len(focal_speciess)):
     # Continue with the main fig
     #
     ####
-    focal_example_axis = plt.Subplot(fig, middle_grid[focal_species_idx])
+    focal_example_axis = plt.Subplot(fig, middle_grid[1+2*focal_species_idx])
     fig.add_subplot(focal_example_axis)
     focal_example_axis.set_ylabel('Linkage disequilibrium, $\sigma^2_d$')
     focal_example_axis.set_xlabel('Distance between SNVs, $\ell$')
@@ -239,7 +243,7 @@ for focal_species_idx in xrange(0,len(focal_speciess)):
     focal_example_axis.set_xlim([2,1e04])
     focal_example_axis.set_ylim([1e-02,1])
 
-    focal_example_axis.text(6e03,5.3e-03,'Genome-\nwide',     horizontalalignment='center',fontsize='5')
+    focal_example_axis.text(6e03,4e-03,'Genome-\nwide',     horizontalalignment='center',fontsize='5')
     
     focal_example_axes.append(focal_example_axis)
 
@@ -461,9 +465,11 @@ for species_idx in xrange(0,num_passed_species):
             focal_species_idx = focal_speciess.index(species_name)
             example_axis=focal_example_axes[focal_species_idx]
             example_idx = -1
+            color=focal_colors[focal_species_idx]
         else:
             example_idx = supplemental_focal_species.index(species_name)
             example_axis = example_axes[example_idx]
+            color=focal_colors[0]
             
         num_bootstraps = 10
         
@@ -525,18 +531,18 @@ for species_idx in xrange(0,num_passed_species):
 
         example_axis.loglog([all_distances[-1],6e03], [all_rsquareds[-1], all_control_rsquared],':',color='0.7',zorder=21)
         example_axis.loglog([6e03], [all_control_rsquared],'o',color='0.7',markersize=3,markeredgewidth=0,zorder=21)
-        example_axis.fill_between(distances[good_distances],lower_rsquareds[good_distances], upper_rsquareds[good_distances], linewidth=0, color='b',alpha=0.5)
-        example_axis.loglog(distances, rsquareds,'b-',label='Largest clade')
-        example_axis.loglog(early_distances, early_rsquareds,'bo',markersize=2,markeredgewidth=0,alpha=0.5)
+        example_axis.fill_between(distances[good_distances],lower_rsquareds[good_distances], upper_rsquareds[good_distances], linewidth=0, color=color,alpha=0.5)
+        example_axis.loglog(distances, rsquareds,'-',color=color,label='Largest clade')
+        example_axis.loglog(early_distances, early_rsquareds,'o',color=color,markersize=2,markeredgewidth=0,alpha=0.5)
         
-        example_axis.loglog([distances[-1],6e03], [rsquareds[-1], control_rsquared],'b:',zorder=21)
-        example_axis.loglog([6e03], [control_rsquared],'bo',markersize=3,markeredgewidth=0,zorder=21)
-        #example_axis.set_title(figure_utils.get_pretty_species_name(species_name),fontsize=6,y=0.90)
+        example_axis.loglog([distances[-1],6e03], [rsquareds[-1], control_rsquared],':',color=color,zorder=21)
+        example_axis.loglog([6e03], [control_rsquared],'o',color=color,markersize=3,markeredgewidth=0,zorder=21)
+        example_axis.set_title( figure_utils.get_pretty_species_name(species_name),fontsize=6,y=0.95)
         
         example_axis.loglog(theory_ls, theory_rsquareds/theory_rsquareds[0]*3e-01,'k-',linewidth=0.3,zorder=0,label='Neutral')
         
         
-        leg = example_axis.legend(loc='lower left',frameon=False, title=figure_utils.get_pretty_species_name(species_name,include_number=False))
+        leg = example_axis.legend(loc='lower left',frameon=False, ) #title=figure_utils.get_pretty_species_name(species_name,include_number=False))
         leg._legend_box.align = "left"
         
         #example_axis.set_title(figure_utils.get_pretty_species_name(species_name, include_number=True),fontsize=5)
@@ -592,7 +598,8 @@ for species_idx in xrange(0,num_passed_species):
     #    rbymus.append(rbymu)
     
     if species_name in focal_speciess:
-        color='b'
+        focal_species_idx = focal_speciess.index(species_name)
+        color=focal_colors[focal_species_idx]
     else:
         color='r'
     

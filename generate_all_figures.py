@@ -27,6 +27,7 @@ import os
 #
 ##################################
 os.system('python plot_figure_1.py')
+os.system('python plot_supplemental_sfss.py')
 
 ##################################
 #

@@ -143,19 +143,19 @@ for list_idx in [0,1]:
                 
             sfs_axis = plt.Subplot(fig, sample_sfs_grid[sample_idx])
             fig.add_subplot(sfs_axis)
-            sfs_axis.set_xticks([10*i for i in xrange(0,11)])
-            sfs_axis.set_xlim([50,100])
+            sfs_axis.set_xticks([0.10*i for i in xrange(6,10)])
+            sfs_axis.set_xlim([0.50,1.00])
             sfs_axis.set_yticks([])
             sfs_axis.xaxis.tick_bottom()
 
             if species_idx==11:
-                sfs_axis.set_xlabel('Major allele freq (%)')
+                sfs_axis.set_xlabel('Major allele freq')
             else:
                 sfs_axis.set_xticklabels([])
             
             sample_axes.append(sfs_axis)
 
-        sample_axes[0].set_ylabel(species_name_label_multiline)
+        sample_axes[0].set_ylabel(species_name_label_multiline, fontsize=5)
     
         for sample_idx in xrange(0,num_samples):
             sample = target_samples[sample_idx]
@@ -177,9 +177,9 @@ for list_idx in [0,1]:
             within_rate = within_sites*1.0/total_sites
             #print "Sample 1: within =", within_rate, "avg-distance =", between_sites*1.0/total_sites
 
-            sfs_axis.fill_between([80,100],[0,0],[1,1],color='0.8')
+            sfs_axis.fill_between([0.80,1.00],[0,0],[1,1],color='0.8')
 
-            sfs_axis.bar((fs-df/2)*100,pfs,width=df*100, edgecolor=light_haploid_color, color=light_haploid_color)
+            sfs_axis.bar((fs-df/2),pfs,width=df, edgecolor=light_haploid_color, color=light_haploid_color)
             sfs_axis.set_ylim([0,pmax*3])
 
         sample_names = []
@@ -246,7 +246,10 @@ for list_idx in [0,1]:
         else:
             polymorphism_axis.set_ylabel('Polymorphism')
         
-        polymorphism_axis.set_title(species_name_label_singleline, fontsize=5,y=0.8)
+        polymorphism_axis.set_title(species_name_label_singleline, fontsize=5,y=1)
+
+        if row_idx==5:
+            polymorphism_axis.set_xlabel('Ranked samples')
 
             
     sys.stderr.write("Saving figure...\t")
